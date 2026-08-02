@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import tempfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TypedDict
 
 STATE_DIRECTORY = ".silobrief"
+_BOUNDARY_ALIAS_PATTERN = re.compile(r"[a-z0-9-]{1,40}")
 DEFAULT_EXCLUDES = (
     ".git/",
     ".silobrief/",
@@ -119,6 +121,10 @@ def mark_index_stale(root: Path) -> None:
     _write_json_atomic(index, data)
 
 
+def is_valid_boundary_alias(alias: str) -> bool:
+    return _BOUNDARY_ALIAS_PATTERN.fullmatch(alias) is not None
+
+
 def _write_json(path: Path, value: ConfigData | _NotesData | dict[str, object]) -> None:
     content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     path.write_text(content, encoding="utf-8", newline="\n")
@@ -126,12 +132,15 @@ def _write_json(path: Path, value: ConfigData | _NotesData | dict[str, object]) 
 
 def _write_json_atomic(path: Path, value: ConfigData | dict[str, object]) -> None:
     content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    descriptor, temporary_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}-",
-        suffix=".tmp",
-        text=True,
-    )
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}-",
+            suffix=".tmp",
+            text=True,
+        )
+    except OSError as error:
+        raise SetupError(f"cannot create temporary file for {path.name}: {error}") from error
     temporary = Path(temporary_name)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
@@ -140,7 +149,10 @@ def _write_json_atomic(path: Path, value: ConfigData | dict[str, object]) -> Non
     except OSError as error:
         raise SetupError(f"cannot update {path.name}: {error}") from error
     finally:
-        temporary.unlink(missing_ok=True)
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _validate_state(state: Path) -> ConfigData:
@@ -209,7 +221,25 @@ def _parse_boundary(value: object) -> BoundaryData:
     path = boundary["path"]
     if not isinstance(alias, str) or not isinstance(description, str) or not isinstance(path, str):
         raise SetupError("config.json boundary fields must be strings")
+    if not is_valid_boundary_alias(alias):
+        raise SetupError("config.json boundary alias is invalid")
+    if not description.strip():
+        raise SetupError("config.json boundary description is empty")
+    if not _is_stored_boundary_path(path):
+        raise SetupError("config.json boundary path is invalid")
     return BoundaryData(alias=alias, description=description, path=path)
+
+
+def _is_stored_boundary_path(path: str) -> bool:
+    if not path or "\\" in path:
+        return False
+    posix_path = PurePosixPath(path)
+    windows_path = PureWindowsPath(path)
+    if posix_path.is_absolute() or windows_path.drive or windows_path.root:
+        return False
+    if ".." in posix_path.parts:
+        return False
+    return posix_path.as_posix() == path
 
 
 def _is_version_one(value: object) -> bool:

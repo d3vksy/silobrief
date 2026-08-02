@@ -1,26 +1,36 @@
 from __future__ import annotations
 
-import re
+import os
+import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from silobrief.state import (
+    STATE_DIRECTORY,
     BoundaryData,
     ConfigData,
     SetupError,
     find_project_root,
+    is_valid_boundary_alias,
     load_config,
     mark_index_stale,
     save_config,
 )
-
-_ALIAS_PATTERN = re.compile(r"[a-z0-9-]{1,40}")
 
 
 @dataclass(frozen=True, slots=True)
 class RegistrationResult:
     boundary: BoundaryData
     changed: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _FileSnapshot:
+    path: Path
+    content: bytes
+    access_time_ns: int
+    modified_time_ns: int
+    mode: int
 
 
 def register_boundary(
@@ -32,7 +42,7 @@ def register_boundary(
 ) -> RegistrationResult:
     if not description.strip():
         raise SetupError("boundary description must not be empty")
-    if alias is not None and _ALIAS_PATTERN.fullmatch(alias) is None:
+    if alias is not None and not is_valid_boundary_alias(alias):
         raise SetupError("boundary alias must match [a-z0-9-]{1,40}")
 
     root = find_project_root(start)
@@ -61,12 +71,19 @@ def register_boundary(
         default_excludes=list(config["default_excludes"]),
         schema_version=1,
     )
-    mark_index_stale(root)
-    save_config(root, updated)
+    index_snapshot = _snapshot_index(root)
+    try:
+        mark_index_stale(root)
+        save_config(root, updated)
+    except SetupError:
+        _restore_snapshot(index_snapshot)
+        raise
     return RegistrationResult(boundary=boundary, changed=True)
 
 
 def _boundary_path(root: Path, start: Path, path_text: str) -> str:
+    if not path_text:
+        raise SetupError("boundary path must not be empty")
     windows_path = PureWindowsPath(path_text)
     normalized = PurePosixPath(path_text.replace("\\", "/"))
     if normalized.is_absolute() or windows_path.drive or windows_path.root:
@@ -102,3 +119,36 @@ def _automatic_alias(boundaries: list[BoundaryData]) -> str:
     while f"boundary-{number}" in aliases:
         number += 1
     return f"boundary-{number}"
+
+
+def _snapshot_index(root: Path) -> _FileSnapshot | None:
+    path = root / STATE_DIRECTORY / "index.json"
+    if not path.is_file():
+        return None
+    content = path.read_bytes()
+    metadata = path.stat()
+    return _FileSnapshot(
+        path=path,
+        content=content,
+        access_time_ns=metadata.st_atime_ns,
+        modified_time_ns=metadata.st_mtime_ns,
+        mode=stat.S_IMODE(metadata.st_mode),
+    )
+
+
+def _restore_snapshot(snapshot: _FileSnapshot | None) -> None:
+    if snapshot is None:
+        return
+    current = snapshot.path.read_bytes()
+    metadata = snapshot.path.stat()
+    if current == snapshot.content and metadata.st_mtime_ns == snapshot.modified_time_ns:
+        return
+    try:
+        snapshot.path.write_bytes(snapshot.content)
+        os.chmod(snapshot.path, snapshot.mode)
+        os.utime(
+            snapshot.path,
+            ns=(snapshot.access_time_ns, snapshot.modified_time_ns),
+        )
+    except OSError as error:
+        raise SetupError(f"cannot restore {snapshot.path.name}: {error}") from error

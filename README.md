@@ -32,6 +32,17 @@ This creates `.silobrief/config.json`, `.silobrief/notes.json`, and
 `.silobrief/exports/`. Running the command again validates compatible state without
 overwriting it. The index is created later by `sb init`, which is not implemented yet.
 
+Register an existing project file or directory as an excluded boundary:
+
+```console
+sb ignore PATH --as "Public description" [--alias NAME]
+```
+
+Run this command from the project root or one of its subdirectories. `PATH` must be relative
+to the current directory and cannot contain `..` or pass through a symbolic link. Stored paths
+use `/` separators. If `--alias` is omitted, siloBrief assigns a path-independent
+`boundary-N` name. The description is treated as public text.
+
 ## Boundaries
 
 - Python 3.10 or newer on Windows and Ubuntu
