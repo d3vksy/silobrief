@@ -9,6 +9,19 @@ siloBrief는 Python 프로젝트에서 공개 가능한 맥락을 골라, 사람
 현재는 출시 전 개발 단계입니다. v0.1 동작은
 [`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md)에 고정되어 있습니다.
 
+현재 개발 빌드는 로컬 설치 후 버전 명령을 제공합니다.
+
+```console
+python -m pip install .
+sb --version
+```
+
+예상 출력:
+
+```text
+siloBrief 0.1.0
+```
+
 ## 범위와 한계
 
 - Python 3.10 이상, Windows와 Ubuntu
