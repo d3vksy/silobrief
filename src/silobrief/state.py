@@ -88,7 +88,7 @@ def _validate_state(state: Path) -> None:
     config = _read_object(state / "config.json")
     if set(config) != {"boundaries", "default_excludes", "schema_version"}:
         raise SetupError("config.json has an incompatible schema")
-    if config["schema_version"] != 1:
+    if not _is_version_one(config["schema_version"]):
         raise SetupError("config.json has an unsupported schema version")
     if not isinstance(config["boundaries"], list):
         raise SetupError("config.json boundaries must be an array")
@@ -101,7 +101,7 @@ def _validate_state(state: Path) -> None:
     notes = _read_object(state / "notes.json")
     if set(notes) != {"notes", "notes_version"}:
         raise SetupError("notes.json has an incompatible schema")
-    if notes["notes_version"] != 1 or not isinstance(notes["notes"], list):
+    if not _is_version_one(notes["notes_version"]) or not isinstance(notes["notes"], list):
         raise SetupError("notes.json is not compatible with version 1")
 
     exports = state / "exports"
@@ -111,8 +111,12 @@ def _validate_state(state: Path) -> None:
     index = state / "index.json"
     if index.exists() or index.is_symlink():
         index_data = _read_object(index)
-        if index_data.get("index_version") != 1:
+        if not _is_version_one(index_data.get("index_version")):
             raise SetupError("index.json is not compatible with version 1")
+
+
+def _is_version_one(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value == 1
 
 
 def _read_object(path: Path) -> dict[str, object]:

@@ -22,6 +22,16 @@ sb --version
 siloBrief 0.1.0
 ```
 
+현재 디렉터리 또는 지정한 기존 프로젝트 디렉터리에 로컬 상태를 초기화합니다.
+
+```console
+sb setup [PATH]
+```
+
+이 명령은 `.silobrief/config.json`, `.silobrief/notes.json`, `.silobrief/exports/`를
+만듭니다. 다시 실행하면 기존 상태를 덮어쓰지 않고 호환 여부만 검사합니다. 인덱스는
+아직 구현되지 않은 `sb init`에서 생성합니다.
+
 ## 범위와 한계
 
 - Python 3.10 이상, Windows와 Ubuntu
