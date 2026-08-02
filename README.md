@@ -22,6 +22,16 @@ Expected output:
 siloBrief 0.1.0
 ```
 
+Initialize local state in the current directory or an existing project directory:
+
+```console
+sb setup [PATH]
+```
+
+This creates `.silobrief/config.json`, `.silobrief/notes.json`, and
+`.silobrief/exports/`. Running the command again validates compatible state without
+overwriting it. The index is created later by `sb init`, which is not implemented yet.
+
 ## Boundaries
 
 - Python 3.10 or newer on Windows and Ubuntu

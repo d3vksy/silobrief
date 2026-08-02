@@ -11,3 +11,4 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Initial project contract and contribution workflow.
 - Installable `silobrief` package and `sb --version` command.
+- Deterministic and idempotent project initialization with `sb setup`.
