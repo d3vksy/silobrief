@@ -1,0 +1,23 @@
+# siloBrief
+
+siloBrief is a local command-line tool for preparing a reviewed Markdown research brief
+from a Python project. It is intended for development environments where source code and
+internet access are separated.
+
+The project is in pre-release development. Its frozen v0.1 behavior is documented in
+[`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md).
+
+## Boundaries
+
+- Python 3.10 or newer on Windows and Ubuntu
+- no runtime dependencies, network access, language model, or automatic transfer
+- one request produces one Markdown file after explicit human review
+- path-based exclusions do not identify sensitive names inside otherwise allowed files
+
+siloBrief is not a security scanner, export-approval system, or guarantee against data
+disclosure.
+
+## License
+
+Apache License 2.0. See [`LICENSE`](LICENSE).
+
