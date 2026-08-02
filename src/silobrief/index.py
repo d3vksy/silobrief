@@ -6,10 +6,15 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Literal, TypeAlias
 
+from silobrief.boundary_placeholders import (
+    BoundaryMatcher,
+    BoundaryPlaceholder,
+    import_target,
+)
 from silobrief.python_structure import ImportEntry, ModuleStructure, SymbolUse
 from silobrief.search_tokens import extract_source_text_tokens, normalize_search_tokens
 from silobrief.sources import SourceFile, SourceSnapshot
-from silobrief.state import ConfigData
+from silobrief.state import BoundaryData, ConfigData
 
 NodeKind: TypeAlias = Literal["module", "class", "function"]
 EdgeKind: TypeAlias = Literal["contains", "import", "call", "reference"]
@@ -42,7 +47,7 @@ class IndexNode:
 class IndexEdge:
     source_id: str
     kind: EdgeKind
-    target: str
+    target: str | BoundaryPlaceholder
     target_id: str | None
 
 
@@ -67,6 +72,7 @@ class _ModuleContext:
     import_tokens: tuple[str, ...]
     comment_tokens: tuple[str, ...]
     docstring_tokens: tuple[str, ...]
+    boundary_matcher: BoundaryMatcher
 
 
 def stable_node_id(path: str, kind: NodeKind, qualified_name: str) -> str:
@@ -91,7 +97,11 @@ def build_index(
     all_nodes: list[IndexNode] = []
     global_targets: dict[str, str] = {}
     for path in sorted(sources):
-        context = _build_module_context(sources[path], modules[path])
+        context = _build_module_context(
+            sources[path],
+            modules[path],
+            tuple(config["boundaries"]),
+        )
         contexts[path] = context
         module_node = _module_node(context)
         all_nodes.append(module_node)
@@ -130,12 +140,19 @@ def render_index_json(index: IndexData) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
-def _build_module_context(source: SourceFile, structure: ModuleStructure) -> _ModuleContext:
+def _build_module_context(
+    source: SourceFile,
+    structure: ModuleStructure,
+    boundaries: tuple[BoundaryData, ...],
+) -> _ModuleContext:
     module_name = _module_name(source.path)
     module_id = stable_node_id(source.path, "module", module_name)
     text_tokens = extract_source_text_tokens(source)
     path_tokens = normalize_search_tokens(source.path.removesuffix(".py"))
-    import_tokens = normalize_search_tokens(*_import_search_values(structure.imports))
+    boundary_matcher = BoundaryMatcher(source.path, structure.imports, boundaries)
+    import_tokens = normalize_search_tokens(
+        *_import_search_values(structure.imports, boundary_matcher)
+    )
 
     definition_nodes: list[IndexNode] = []
     context_ids: dict[str, str] = {}
@@ -172,6 +189,7 @@ def _build_module_context(source: SourceFile, structure: ModuleStructure) -> _Mo
         import_tokens=import_tokens,
         comment_tokens=text_tokens.comments,
         docstring_tokens=text_tokens.docstrings,
+        boundary_matcher=boundary_matcher,
     )
 
 
@@ -210,8 +228,14 @@ def _add_import_edges(
 ) -> None:
     for imported in context.structure.imports:
         source_id = _context_id(context, imported.context)
-        target = _import_target(imported)
-        edges.add(IndexEdge(source_id, "import", target, global_targets.get(target)))
+        placeholder = context.boundary_matcher.match_import(imported)
+        if placeholder is not None:
+            target: str | BoundaryPlaceholder = placeholder
+            target_id = None
+        else:
+            target = import_target(imported)
+            target_id = global_targets.get(target)
+        edges.add(IndexEdge(source_id, "import", target, target_id))
 
 
 def _add_use_edges(
@@ -223,8 +247,14 @@ def _add_use_edges(
 ) -> None:
     for use in uses:
         source_id = _context_id(context, use.context)
-        target_id = _resolve_target(context, use.context, use.target, global_targets)
-        edges.add(IndexEdge(source_id, kind, use.target, target_id))
+        placeholder = context.boundary_matcher.match_use(use.target, use.context)
+        target: str | BoundaryPlaceholder = placeholder or use.target
+        target_id = (
+            None
+            if placeholder is not None
+            else _resolve_target(context, use.context, use.target, global_targets)
+        )
+        edges.add(IndexEdge(source_id, kind, target, target_id))
 
 
 def _resolve_target(
@@ -272,21 +302,18 @@ def _module_name(path: str) -> str:
     return ".".join(parts)
 
 
-def _import_target(imported: ImportEntry) -> str:
-    prefix = "." * imported.level
-    module = imported.module or ""
-    base = f"{prefix}{module}"
-    if imported.name is None:
-        return base
-    separator = "" if not base or base.endswith(".") else "."
-    return f"{base}{separator}{imported.name}"
-
-
-def _import_search_values(imports: tuple[ImportEntry, ...]) -> tuple[str, ...]:
+def _import_search_values(
+    imports: tuple[ImportEntry, ...],
+    boundary_matcher: BoundaryMatcher,
+) -> tuple[str, ...]:
     values: list[str] = []
     for imported in imports:
-        values.append(_import_target(imported))
-        if imported.alias is not None:
+        placeholder = boundary_matcher.match_import(imported)
+        if placeholder is not None:
+            values.extend((placeholder.alias, placeholder.description))
+        else:
+            values.append(import_target(imported))
+        if placeholder is None and imported.alias is not None:
             values.append(imported.alias)
     return tuple(values)
 
@@ -345,8 +372,18 @@ def _edge_value(edge: IndexEdge) -> dict[str, object]:
     return {
         "kind": edge.kind,
         "source_id": edge.source_id,
-        "target": edge.target,
+        "target": _edge_target_value(edge.target),
         "target_id": edge.target_id,
+    }
+
+
+def _edge_target_value(target: str | BoundaryPlaceholder) -> object:
+    if isinstance(target, str):
+        return target
+    return {
+        "alias": target.alias,
+        "description": target.description,
+        "kind": "boundary-placeholder",
     }
 
 
@@ -356,7 +393,11 @@ def _node_key(node: IndexNode) -> tuple[str, int, str, str]:
 
 
 def _edge_key(edge: IndexEdge) -> tuple[str, str, str, str]:
-    return edge.source_id, edge.kind, edge.target, edge.target_id or ""
+    if isinstance(edge.target, str):
+        target = f"public:{edge.target}"
+    else:
+        target = f"boundary:{edge.target.alias}:{edge.target.description}"
+    return edge.source_id, edge.kind, target, edge.target_id or ""
 
 
 def _validate_relative_path(path: str) -> None:
