@@ -9,6 +9,19 @@ internet access are separated.
 The project is in pre-release development. Its frozen v0.1 behavior is documented in
 [`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md).
 
+The current development build exposes its version command after a local install:
+
+```console
+python -m pip install .
+sb --version
+```
+
+Expected output:
+
+```text
+siloBrief 0.1.0
+```
+
 ## Boundaries
 
 - Python 3.10 or newer on Windows and Ubuntu
@@ -27,4 +40,3 @@ The project accepts changes through an Issue and a pull request to `develop`. Re
 ## License
 
 Apache License 2.0. See [`LICENSE`](LICENSE).
-
