@@ -53,12 +53,16 @@ class SourceSnapshotTests(unittest.TestCase):
             ):
                 snapshot = snapshot_sources(project, config)
 
+            resolved_project = project.resolve()
             scanned = {
-                Path(cast(str | os.PathLike[str], call.args[0])).relative_to(project).as_posix()
+                Path(cast(str | os.PathLike[str], call.args[0]))
+                .resolve()
+                .relative_to(resolved_project)
+                .as_posix()
                 for call in scan.call_args_list
             }
             opened = {
-                Path(cast(Path, call.args[0])).relative_to(project).as_posix()
+                Path(cast(Path, call.args[0])).resolve().relative_to(resolved_project).as_posix()
                 for call in read_source.call_args_list
             }
             self.assertEqual(
