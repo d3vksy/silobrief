@@ -1,5 +1,7 @@
 # siloBrief
 
+[한국어](README.ko.md)
+
 siloBrief is a local command-line tool for preparing a reviewed Markdown research brief
 from a Python project. It is intended for development environments where source code and
 internet access are separated.
@@ -16,6 +18,11 @@ The project is in pre-release development. Its frozen v0.1 behavior is documente
 
 siloBrief is not a security scanner, export-approval system, or guarantee against data
 disclosure.
+
+## Contributing
+
+The project accepts changes through an Issue and a pull request to `develop`. Read
+[`CONTRIBUTING.md`](CONTRIBUTING.md) before starting work.
 
 ## License
 
