@@ -7,9 +7,20 @@ from pathlib import Path
 
 from silobrief import __version__
 from silobrief.boundaries import register_boundary
+from silobrief.chat_review import ChatReviewError, review_brief
+from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
 from silobrief.notes import add_note
-from silobrief.state import SetupError, setup_project
+from silobrief.output import OutputBlockedError, approve_and_write
+from silobrief.sources import SourceCollectionError
+from silobrief.state import (
+    IndexStateError,
+    SetupError,
+    find_project_root,
+    load_notes,
+    setup_project,
+)
+from silobrief.stored_index import StoredIndexError
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -29,6 +40,9 @@ def _build_parser() -> argparse.ArgumentParser:
     log = subcommands.add_parser("log", help="Record public project context.")
     log.add_argument("path")
     log.add_argument("--comment", required=True)
+    chat = subcommands.add_parser("chat", help="Create a reviewed research brief.")
+    chat.add_argument("prompt")
+    chat.add_argument("--out", dest="output", required=True)
     return parser
 
 
@@ -97,5 +111,53 @@ def main(argv: Sequence[str] | None = None) -> int:
         except SetupError as error:
             parser.error(str(error))
         print(f"recorded note {note['id']} for {note['path']}; updated .silobrief/notes.json")
+
+    if arguments.command == "chat":
+        prompt = arguments.prompt
+        output_text = arguments.output
+        if not isinstance(prompt, str) or not prompt.strip():
+            parser.error("request must not be empty")
+        if not isinstance(output_text, str) or not output_text.strip():
+            parser.error("output path must not be empty")
+
+        start = Path.cwd()
+        try:
+            root = find_project_root(start)
+            index, warnings = load_current_index(root)
+            notes = load_notes(root)
+        except IndexStateError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 3
+        except SetupError as error:
+            parser.error(str(error))
+        except StoredIndexError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 3
+        except (CurrentIndexError, SourceCollectionError) as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 4
+
+        for warning in warnings:
+            print(f"warning: {warning.path}: {warning.reason}", file=sys.stderr)
+        try:
+            rendered = review_brief(
+                prompt,
+                index,
+                notes,
+                input_stream=sys.stdin,
+                output_stream=sys.stdout,
+            )
+            approve_and_write(
+                root,
+                output_text,
+                rendered,
+                start=start,
+                input_stream=sys.stdin,
+                output_stream=sys.stdout,
+            )
+        except (ChatReviewError, OutputBlockedError) as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 4
+        print(f"\nwrote {output_text}")
 
     return 0

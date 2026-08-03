@@ -179,9 +179,29 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, 2)
             self.assertIn("request", stderr.getvalue())
 
+            stderr = io.StringIO()
+            with (
+                contextlib.redirect_stderr(stderr),
+                self.assertRaises(SystemExit) as caught,
+            ):
+                main(["chat", "request", "--out", " "])
+            self.assertEqual(caught.exception.code, 2)
+            self.assertIn("output path", stderr.getvalue())
+
             result, _, _, stderr_text = run_chat(project, ".silobrief/exports/missing.md", "")
             self.assertEqual(result, 3)
             self.assertIn("run sb init", stderr_text)
+
+            index = project / ".silobrief/index.json"
+            index.write_text("{", encoding="utf-8")
+            result, _, _, stderr_text = run_chat(project, ".silobrief/exports/corrupt.md", "")
+            self.assertEqual(result, 3)
+            self.assertIn("cannot read index.json", stderr_text)
+
+            index.write_text('{"index_version": 2}\n', encoding="utf-8", newline="\n")
+            result, _, _, stderr_text = run_chat(project, ".silobrief/exports/incompatible.md", "")
+            self.assertEqual(result, 3)
+            self.assertIn("not compatible", stderr_text)
 
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
