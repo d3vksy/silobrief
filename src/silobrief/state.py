@@ -10,6 +10,7 @@ from typing import TypedDict
 
 STATE_DIRECTORY = ".silobrief"
 _BOUNDARY_ALIAS_PATTERN = re.compile(r"[a-z0-9-]{1,40}")
+_NOTE_ID_PATTERN = re.compile(r"note-[0-9a-f]{64}")
 DEFAULT_EXCLUDES = (
     ".git/",
     ".silobrief/",
@@ -37,8 +38,14 @@ class ConfigData(TypedDict):
     schema_version: int
 
 
-class _NotesData(TypedDict):
-    notes: list[object]
+class HumanNoteData(TypedDict):
+    comment: str
+    id: str
+    path: str
+
+
+class NotesData(TypedDict):
+    notes: list[HumanNoteData]
     notes_version: int
 
 
@@ -68,7 +75,7 @@ def setup_project(project: Path) -> None:
                 schema_version=1,
             ),
         )
-        _write_json(state / "notes.json", _NotesData(notes=[], notes_version=1))
+        _write_json(state / "notes.json", NotesData(notes=[], notes_version=1))
     except OSError as error:
         shutil.rmtree(state, ignore_errors=True)
         raise SetupError(f"cannot initialize {STATE_DIRECTORY}: {error}") from error
@@ -110,6 +117,14 @@ def save_config(root: Path, config: ConfigData) -> None:
     _write_json_atomic(root / STATE_DIRECTORY / "config.json", config)
 
 
+def load_notes(root: Path) -> NotesData:
+    return _parse_notes(_read_object(root / STATE_DIRECTORY / "notes.json"))
+
+
+def save_notes(root: Path, notes: NotesData) -> None:
+    _write_json_atomic(root / STATE_DIRECTORY / "notes.json", notes)
+
+
 def mark_index_stale(root: Path) -> None:
     index = root / STATE_DIRECTORY / "index.json"
     if not index.exists() and not index.is_symlink():
@@ -125,12 +140,15 @@ def is_valid_boundary_alias(alias: str) -> bool:
     return _BOUNDARY_ALIAS_PATTERN.fullmatch(alias) is not None
 
 
-def _write_json(path: Path, value: ConfigData | _NotesData | dict[str, object]) -> None:
+def _write_json(path: Path, value: ConfigData | NotesData | dict[str, object]) -> None:
     content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
-def _write_json_atomic(path: Path, value: ConfigData | dict[str, object]) -> None:
+def _write_json_atomic(
+    path: Path,
+    value: ConfigData | NotesData | dict[str, object],
+) -> None:
     content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     try:
         descriptor, temporary_name = tempfile.mkstemp(
@@ -161,11 +179,7 @@ def _validate_state(state: Path) -> ConfigData:
 
     config = _parse_config(_read_object(state / "config.json"))
 
-    notes = _read_object(state / "notes.json")
-    if set(notes) != {"notes", "notes_version"}:
-        raise SetupError("notes.json has an incompatible schema")
-    if not _is_version_one(notes["notes_version"]) or not isinstance(notes["notes"], list):
-        raise SetupError("notes.json is not compatible with version 1")
+    _parse_notes(_read_object(state / "notes.json"))
 
     exports = state / "exports"
     if exports.is_symlink() or not exports.is_dir():
@@ -228,6 +242,44 @@ def _parse_boundary(value: object) -> BoundaryData:
     if not _is_stored_boundary_path(path):
         raise SetupError("config.json boundary path is invalid")
     return BoundaryData(alias=alias, description=description, path=path)
+
+
+def _parse_notes(value: dict[str, object]) -> NotesData:
+    if set(value) != {"notes", "notes_version"}:
+        raise SetupError("notes.json has an incompatible schema")
+    if not _is_version_one(value["notes_version"]):
+        raise SetupError("notes.json has an unsupported version")
+    raw_notes = value["notes"]
+    if not isinstance(raw_notes, list):
+        raise SetupError("notes.json notes must be an array")
+    notes = [_parse_note(item) for item in raw_notes]
+    if len({note["id"] for note in notes}) != len(notes):
+        raise SetupError("notes.json contains duplicate note IDs")
+    return NotesData(notes=notes, notes_version=1)
+
+
+def _parse_note(value: object) -> HumanNoteData:
+    if not isinstance(value, dict):
+        raise SetupError("notes.json note must be an object")
+    note: dict[str, object] = {}
+    for key, item in value.items():
+        if not isinstance(key, str):
+            raise SetupError("notes.json note contains a non-string key")
+        note[key] = item
+    if set(note) != {"comment", "id", "path"}:
+        raise SetupError("notes.json note has an incompatible schema")
+    comment = note["comment"]
+    note_id = note["id"]
+    path = note["path"]
+    if not isinstance(comment, str) or not isinstance(note_id, str) or not isinstance(path, str):
+        raise SetupError("notes.json note fields must be strings")
+    if not comment.strip():
+        raise SetupError("notes.json note comment is empty")
+    if _NOTE_ID_PATTERN.fullmatch(note_id) is None:
+        raise SetupError("notes.json note ID is invalid")
+    if not _is_stored_boundary_path(path):
+        raise SetupError("notes.json note path is invalid")
+    return HumanNoteData(comment=comment, id=note_id, path=path)
 
 
 def _is_stored_boundary_path(path: str) -> bool:
