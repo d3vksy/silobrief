@@ -1,36 +1,18 @@
 from __future__ import annotations
 
-import copy
-import importlib
 import json
 import tempfile
 import unittest
 from collections.abc import Callable
 from pathlib import Path
-from typing import Protocol, cast
+from typing import cast
 from unittest import mock
 
 from silobrief.boundaries import register_boundary
-from silobrief.index import IndexData, render_index_json
+from silobrief.index import render_index_json
 from silobrief.initialization import initialize_index
-from silobrief.sources import SourceWarning
 from silobrief.state import load_config, save_config, setup_project
-
-
-class LoadedIndexLike(Protocol):
-    root: Path
-    index: IndexData
-    warnings: tuple[SourceWarning, ...]
-
-
-class StoredIndexModule(Protocol):
-    StoredIndexError: type[Exception]
-
-    def load_current_index(self, start: Path) -> LoadedIndexLike: ...
-
-
-def stored_index_module() -> StoredIndexModule:
-    return cast(StoredIndexModule, importlib.import_module("silobrief.stored_index"))
+from silobrief.stored_index import StoredIndexError, load_current_index
 
 
 def create_index(project: Path) -> None:
@@ -93,9 +75,22 @@ def add_unknown_key(value: dict[str, object]) -> None:
     value["unexpected"] = True
 
 
+def invalidate_version(value: dict[str, object]) -> None:
+    value["index_version"] = True
+
+
+def invalidate_digest(value: dict[str, object]) -> None:
+    value["source_digest"] = "not-a-digest"
+
+
 def invalidate_node_id(value: dict[str, object]) -> None:
     node = object_value(array_value(value["nodes"])[0])
     node["id"] = "node-invalid"
+
+
+def invalidate_tokens(value: dict[str, object]) -> None:
+    node = object_value(array_value(value["nodes"])[0])
+    object_value(node["tokens"])["symbol"] = ["duplicate", "duplicate"]
 
 
 def invalidate_edge_source(value: dict[str, object]) -> None:
@@ -114,9 +109,8 @@ def expose_placeholder_name(value: dict[str, object]) -> None:
 
 class StoredIndexTests(unittest.TestCase):
     def assert_index_error(self, project: Path, expected: str) -> str:
-        module = stored_index_module()
-        with self.assertRaises(module.StoredIndexError) as caught:
-            module.load_current_index(project)
+        with self.assertRaises(StoredIndexError) as caught:
+            load_current_index(project)
         message = str(caught.exception)
         self.assertIn(expected, message)
         self.assertNotIn(str(project), message)
@@ -129,7 +123,7 @@ class StoredIndexTests(unittest.TestCase):
             create_index(project)
             before = file_state(project)
 
-            loaded = stored_index_module().load_current_index(project / "package")
+            loaded = load_current_index(project / "package")
 
             self.assertEqual(loaded.root, project.resolve())
             self.assertEqual(
@@ -142,7 +136,10 @@ class StoredIndexTests(unittest.TestCase):
     def test_rejects_schema_and_canonical_encoding_changes(self) -> None:
         mutations: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
             ("unknown key", add_unknown_key),
+            ("version", invalidate_version),
+            ("digest", invalidate_digest),
             ("node", invalidate_node_id),
+            ("tokens", invalidate_tokens),
             ("edge", invalidate_edge_source),
             ("placeholder", expose_placeholder_name),
         )
@@ -151,7 +148,7 @@ class StoredIndexTests(unittest.TestCase):
                 project = Path(directory)
                 create_index(project)
                 index = project / ".silobrief" / "index.json"
-                value = copy.deepcopy(index_object(project))
+                value = index_object(project)
                 mutate(value)
                 index.write_bytes(canonical_json(value))
                 before = file_state(project)
