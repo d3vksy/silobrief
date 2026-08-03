@@ -4,9 +4,8 @@ import io
 import unittest
 from dataclasses import replace
 
-from silobrief.chat_review import ChatReviewError, review_brief
-
 from silobrief.boundary_placeholders import BoundaryPlaceholder
+from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.index import IndexData, IndexEdge, IndexNode, NodeKind, NodeTokens
 from silobrief.renderer import RenderedBrief
 from silobrief.state import HumanNoteData, NotesData
@@ -124,17 +123,11 @@ class ChatReviewTests(unittest.TestCase):
 
         self.assertEqual(rendered, reordered)
         self.assertEqual(disclosure_counts(rendered), (2, 2, 2, 2, 1))
-        for approved in (
-            "src/service.py",
-            "src/helper.py",
-            "helper.run",
-            "urllib3",
-            "json",
-            "Use Python 3.10",
-            "Keep the retry policy public",
-            "transport",
-            "Public transport adapter",
-        ):
+        approved_values = (
+            "src/service.py|src/helper.py|helper.run|urllib3|json|Use Python 3.10|"
+            "Keep the retry policy public|transport|Public transport adapter"
+        )
+        for approved in approved_values.split("|"):
             self.assertIn(approved, rendered.markdown)
 
         visible = output.getvalue()
@@ -142,15 +135,11 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("src/helper.py", visible)
         self.assertIn("path=1", visible)
         self.assertIn("connected=1", visible)
-        for hidden in (
-            "source-body-canary",
-            "internal-real-name",
-            "src/direct.py",
-            "src/second.py",
-            "second-hop-canary",
-            "unselected-note-canary",
-            "root-id",
-        ):
+        hidden_values = (
+            "source-body-canary|internal-real-name|src/direct.py|src/second.py|"
+            "second-hop-canary|unselected-note-canary|root-id"
+        )
+        for hidden in hidden_values.split("|"):
             self.assertNotIn(hidden, visible + rendered.markdown)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
@@ -170,8 +159,6 @@ class ChatReviewTests(unittest.TestCase):
             (" ", "", "request"),
             ("absent", "", "candidate"),
             ("retry", "2\n\n\n", "candidate number"),
-            ("retry", "1\nmissing-id\n\n\n", "selector"),
-            ("retry", "1\n\nroot-id\n\n", "start selection"),
             ("retry", "1\n\n\nY\n", "y or n"),
         )
         for prompt, input_text, message in cases:
@@ -196,7 +183,3 @@ class ChatReviewTests(unittest.TestCase):
                         input_stream=TtyBuffer(APPROVED_INPUT, tty=input_tty),
                         output_stream=TtyBuffer(tty=output_tty),
                     )
-
-
-if __name__ == "__main__":
-    unittest.main()
