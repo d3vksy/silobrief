@@ -119,7 +119,7 @@ def build_index(
         _add_use_edges(edges, context, context.structure.references, "reference", global_targets)
 
     return IndexData(
-        config_digest=_config_digest(config),
+        config_digest=config_digest(config),
         edges=tuple(sorted(edges, key=_edge_key)),
         index_version=1,
         nodes=tuple(sorted(all_nodes, key=_node_key)),
@@ -332,7 +332,7 @@ def _module_map(structures: tuple[ModuleStructure, ...]) -> dict[str, ModuleStru
     return result
 
 
-def _config_digest(config: ConfigData) -> str:
+def config_digest(config: ConfigData) -> str:
     boundaries = sorted(
         config["boundaries"],
         key=lambda item: (item["path"], item["alias"], item["description"]),
