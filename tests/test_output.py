@@ -6,7 +6,11 @@ import unittest
 from pathlib import Path
 from typing import TextIO, cast
 
-from silobrief.output import OutputBlockedError, approve_and_write
+from silobrief.output import (
+    OutputBlockedError,
+    _uses_foreign_windows_path,
+    approve_and_write,
+)
 from silobrief.renderer import BriefInput, RenderedBrief, render_brief
 from silobrief.state import setup_project
 
@@ -58,6 +62,12 @@ def project_in(directory: str) -> Path:
 
 
 class ApprovedOutputTests(unittest.TestCase):
+    def test_distinguishes_posix_absolute_paths_from_windows_syntax(self) -> None:
+        self.assertFalse(_uses_foreign_windows_path("/tmp/brief.md", platform="posix"))
+        self.assertTrue(_uses_foreign_windows_path("C:\\temp\\brief.md", platform="posix"))
+        self.assertTrue(_uses_foreign_windows_path("\\temp\\brief.md", platform="posix"))
+        self.assertFalse(_uses_foreign_windows_path("C:\\temp\\brief.md", platform="nt"))
+
     def test_previews_full_markdown_and_writes_new_utf8_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = project_in(directory)

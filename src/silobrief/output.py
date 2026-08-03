@@ -53,7 +53,7 @@ def _output_path(root: Path, start: Path, output_text: str) -> Path:
     windows = PureWindowsPath(output_text)
     if ".." in posix.parts or ".." in windows.parts:
         raise OutputBlockedError("output path must not contain ..")
-    if os.name != "nt" and (windows.drive or windows.root):
+    if _uses_foreign_windows_path(output_text, platform=os.name):
         raise OutputBlockedError("output path uses a Windows absolute path on this system")
 
     try:
@@ -85,6 +85,11 @@ def _output_path(root: Path, start: Path, output_text: str) -> Path:
         raise OutputBlockedError("output path already exists")
     _require_allowed_location(destination, resolved_root)
     return destination
+
+
+def _uses_foreign_windows_path(path: str, *, platform: str) -> bool:
+    windows = PureWindowsPath(path)
+    return platform != "nt" and bool(windows.drive or "\\" in path)
 
 
 def _real_directory(path: Path, label: str) -> Path:
