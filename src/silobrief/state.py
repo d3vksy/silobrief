@@ -125,6 +125,10 @@ def save_notes(root: Path, notes: NotesData) -> None:
     _write_json_atomic(root / STATE_DIRECTORY / "notes.json", notes)
 
 
+def save_index(root: Path, content: bytes) -> None:
+    _write_bytes_atomic(root / STATE_DIRECTORY / "index.json", content)
+
+
 def mark_index_stale(root: Path) -> None:
     index = root / STATE_DIRECTORY / "index.json"
     if not index.exists() and not index.is_symlink():
@@ -149,19 +153,24 @@ def _write_json_atomic(
     path: Path,
     value: ConfigData | NotesData | dict[str, object],
 ) -> None:
-    content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    content = (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+    _write_bytes_atomic(path, content)
+
+
+def _write_bytes_atomic(path: Path, content: bytes) -> None:
     try:
         descriptor, temporary_name = tempfile.mkstemp(
             dir=path.parent,
             prefix=f".{path.name}-",
             suffix=".tmp",
-            text=True,
         )
     except OSError as error:
         raise SetupError(f"cannot create temporary file for {path.name}: {error}") from error
     temporary = Path(temporary_name)
     try:
-        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as stream:
+        with os.fdopen(descriptor, "wb") as stream:
             stream.write(content)
         temporary.replace(path)
     except OSError as error:

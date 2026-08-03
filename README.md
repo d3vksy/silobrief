@@ -30,7 +30,7 @@ sb setup [PATH]
 
 This creates `.silobrief/config.json`, `.silobrief/notes.json`, and
 `.silobrief/exports/`. Running the command again validates compatible state without
-overwriting it. The index is created later by `sb init`, which is not implemented yet.
+overwriting it.
 
 Register an existing project file or directory as an excluded boundary:
 
@@ -42,6 +42,15 @@ Run this command from the project root or one of its subdirectories. `PATH` must
 to the current directory and cannot contain `..` or pass through a symbolic link. Stored paths
 use `/` separators. If `--alias` is omitted, siloBrief assigns a path-independent
 `boundary-N` name. The description is treated as public text.
+
+Build or refresh the local source index after registering boundaries:
+
+```console
+sb init
+```
+
+The command reads allowed Python files without following symbolic links and replaces
+`.silobrief/index.json` only after parsing succeeds and the source snapshot remains unchanged.
 
 ## Boundaries
 

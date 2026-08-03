@@ -7,6 +7,7 @@ from pathlib import Path
 
 from silobrief import __version__
 from silobrief.boundaries import register_boundary
+from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
 from silobrief.notes import add_note
 from silobrief.state import SetupError, setup_project
 
@@ -24,6 +25,7 @@ def _build_parser() -> argparse.ArgumentParser:
     ignore.add_argument("path")
     ignore.add_argument("--as", dest="description", required=True)
     ignore.add_argument("--alias")
+    subcommands.add_parser("init", help="Build the local source index.")
     log = subcommands.add_parser("log", help="Record public project context.")
     log.add_argument("path")
     log.add_argument("--comment", required=True)
@@ -52,17 +54,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         if alias is not None and not isinstance(alias, str):
             parser.error("ignore alias must be text")
         try:
-            result = register_boundary(path_text, description, alias, start=Path.cwd())
+            registration = register_boundary(path_text, description, alias, start=Path.cwd())
         except SetupError as error:
             parser.error(str(error))
-        boundary = result.boundary
-        if result.changed:
+        boundary = registration.boundary
+        if registration.changed:
             print(
                 f"registered boundary {boundary['alias']} for {boundary['path']}; "
                 "updated .silobrief/config.json"
             )
         else:
             print(f"boundary {boundary['alias']} for {boundary['path']} is already registered")
+
+    if arguments.command == "init":
+        try:
+            warnings = initialize_index(Path.cwd())
+        except SetupError as error:
+            parser.error(str(error))
+        except IndexingError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 3
+        except SourceChangedError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 4
+        for warning in warnings:
+            print(f"warning: {warning.path}: {warning.reason}", file=sys.stderr)
+        print("built .silobrief/index.json")
 
     if arguments.command == "log":
         path_text = arguments.path

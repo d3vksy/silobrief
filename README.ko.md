@@ -29,8 +29,7 @@ sb setup [PATH]
 ```
 
 이 명령은 `.silobrief/config.json`, `.silobrief/notes.json`, `.silobrief/exports/`를
-만듭니다. 다시 실행하면 기존 상태를 덮어쓰지 않고 호환 여부만 검사합니다. 인덱스는
-아직 구현되지 않은 `sb init`에서 생성합니다.
+만듭니다. 다시 실행하면 기존 상태를 덮어쓰지 않고 호환 여부만 검사합니다.
 
 기존 프로젝트 파일이나 디렉터리를 제외 경계로 등록합니다.
 
@@ -42,6 +41,15 @@ sb ignore PATH --as "공개 가능한 설명" [--alias NAME]
 상대경로여야 하며 `..`를 포함하거나 symbolic link를 통과할 수 없습니다. 저장 경로는
 `/` 구분자를 사용합니다. `--alias`를 생략하면 실제 경로명과 무관한 `boundary-N`이
 부여됩니다. 설명은 공개 가능한 문장으로 간주합니다.
+
+경계를 등록한 다음 로컬 소스 인덱스를 생성하거나 갱신합니다.
+
+```console
+sb init
+```
+
+이 명령은 symbolic link를 따라가지 않고 허용된 Python 파일만 읽습니다. 파싱에 성공하고
+소스 snapshot이 바뀌지 않은 경우에만 `.silobrief/index.json`을 교체합니다.
 
 ## 범위와 한계
 
