@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import cast
 from unittest import mock
 
-import silobrief.current_index as current_index
-from silobrief.current_index import CurrentIndexError, load_current_index
-
+from silobrief import current_index
 from silobrief.boundaries import register_boundary
+from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.initialization import initialize_index
 from silobrief.sources import SourceCollectionError, SourceWarning, snapshot_sources
 from silobrief.state import SetupError, load_config, setup_project
