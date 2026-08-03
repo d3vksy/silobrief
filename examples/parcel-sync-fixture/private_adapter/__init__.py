@@ -1,0 +1,1 @@
+"""Excluded synthetic adapter."""
