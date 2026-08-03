@@ -2,14 +2,20 @@
 
 [한국어](README.ko.md)
 
-siloBrief is a local command-line tool for preparing a reviewed Markdown research brief
-from a Python project. It is intended for development environments where source code and
+siloBrief is a local command-line tool that turns reviewed Python project context into one
+Markdown research brief. It is intended for development environments where source code and
 internet access are separated.
 
 The project is in pre-release development. Its frozen v0.1 behavior is documented in
 [`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md).
 
-The current development build exposes its version command after a local install:
+## Requirements and installation
+
+- Python 3.10 or newer
+- Windows or Ubuntu
+- no runtime dependencies
+
+Install the current checkout and verify the command:
 
 ```console
 python -m pip install .
@@ -22,45 +28,71 @@ Expected output:
 siloBrief 0.1.0
 ```
 
-Initialize local state in the current directory or an existing project directory:
+## Quick start
+
+Use a disposable copy of the synthetic
+[`parcel-sync-fixture`](examples/parcel-sync-fixture/README.md). From its root, run:
 
 ```console
-sb setup [PATH]
-```
-
-This creates `.silobrief/config.json`, `.silobrief/notes.json`, and
-`.silobrief/exports/`. Running the command again validates compatible state without
-overwriting it.
-
-Register an existing project file or directory as an excluded boundary:
-
-```console
-sb ignore PATH --as "Public description" [--alias NAME]
-```
-
-Run this command from the project root or one of its subdirectories. `PATH` must be relative
-to the current directory and cannot contain `..` or pass through a symbolic link. Stored paths
-use `/` separators. If `--alias` is omitted, siloBrief assigns a path-independent
-`boundary-N` name. The description is treated as public text.
-
-Build or refresh the local source index after registering boundaries:
-
-```console
+sb setup .
+sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
+sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
+sb chat "retry request" --out .silobrief/exports/retry-brief.md
 ```
 
-The command reads allowed Python files without following symbolic links and replaces
-`.silobrief/index.json` only after parsing succeeds and the source snapshot remains unchanged.
+For this fixture, select candidate `1`, submit blank add and exclude prompts, approve the five
+field groups, and inspect the complete preview. The Markdown file is created only after you
+type exactly `WRITE`.
+
+## Commands
+
+| Command | Behavior |
+|---|---|
+| `sb setup [PATH]` | Creates or validates `.silobrief/` state in an existing project. |
+| `sb ignore PATH --as TEXT [--alias NAME]` | Excludes an existing path and registers its public boundary description. |
+| `sb init` | Builds a deterministic structure index from allowed Python files. |
+| `sb log PATH --comment TEXT` | Stores a user-authored note that may appear in a brief. |
+| `sb chat "PROMPT" --out FILE` | Reviews ranked context and writes one approved Markdown file. |
+| `sb --version` | Prints the installed siloBrief version. |
+
+Commands other than `setup` discover the project root from the current directory. `chat`
+requires an interactive terminal, a current index, and a new `.md` output path. Output inside
+the project must be below `.silobrief/exports/`; existing files are never overwritten.
+
+## Local state
+
+```text
+.silobrief/
+├─ config.json
+├─ index.json
+├─ notes.json
+└─ exports/
+```
+
+State files are local implementation data, not transfer-ready output. The generated Markdown
+is the only intended artifact, and it still requires a complete human review before moving it.
+
+## Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | Success |
+| `1` | Unexpected internal error |
+| `2` | Input, path, or configuration error |
+| `3` | Indexing or Python parsing error |
+| `4` | Boundary validation, approval, or output was blocked |
 
 ## Boundaries
 
-- Python 3.10 or newer on Windows and Ubuntu
-- no runtime dependencies, network access, language model, or automatic transfer
-- one request produces one Markdown file after explicit human review
-- path-based exclusions do not identify sensitive names inside otherwise allowed files
+- Indexing does not follow symbolic links or open registered excluded subtrees.
+- Boundary references are stored with an approved alias and description instead of their real
+  excluded names.
+- The tool does not use a network connection, language model, or automatic transfer.
+- Path-based exclusions do not identify sensitive names inside otherwise allowed files.
 
 siloBrief is not a security scanner, export-approval system, or guarantee against data
-disclosure.
+disclosure. Its effect on research speed and user demand has not been validated.
 
 ## Contributing
 
