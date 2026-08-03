@@ -21,6 +21,8 @@ from silobrief.cli import main
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-fixture"
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
 REVIEW_INPUT = "1\n\n\ny\ny\ny\ny\ny\nWRITE\n"
+INDEX_SHA256 = "0b810f442ca84d26de891dd08e2b77ec0c645e1753943bf8643a7f3b4dc4185e"
+BRIEF_SHA256 = "6cfcf9b914dd318f6ae6f1b65f0bef44ac3453a3f7f77d3d61596275ca1ed661"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
     "PUBLIC_COMMENT_CANARY",
@@ -109,28 +111,31 @@ def run_demo(project: Path) -> DemoResult:
     ):
         setup_result = main(["setup", str(project)])
         with working_directory(project):
-            results = (
-                main(
-                    [
-                        "ignore",
-                        "private_adapter",
-                        "--as",
-                        "External delivery adapter",
-                        "--alias",
-                        "delivery-boundary",
-                    ]
-                ),
-                main(["init"]),
-                main(
-                    [
-                        "log",
-                        "src/parcel_sync/service.py",
-                        "--comment",
-                        "HTTP 503 responses may be retried.",
-                    ]
-                ),
-                main(["chat", "retry request", "--out", OUTPUT_PATH]),
+            ignore_result = main(
+                [
+                    "ignore",
+                    "private_adapter",
+                    "--as",
+                    "External delivery adapter",
+                    "--alias",
+                    "delivery-boundary",
+                ]
             )
+            init_result = main(["init"])
+            log_result = main(
+                [
+                    "log",
+                    "src/parcel_sync/service.py",
+                    "--comment",
+                    "HTTP 503 responses may be retried.",
+                ]
+            )
+            stdout.seek(0)
+            stdout.truncate(0)
+            stderr.seek(0)
+            stderr.truncate(0)
+            chat_result = main(["chat", "retry request", "--out", OUTPUT_PATH])
+            results = (ignore_result, init_result, log_result, chat_result)
 
     if (setup_result, *results) != (0, 0, 0, 0, 0):
         raise AssertionError(f"public demo failed: {(setup_result, *results)}\n{stderr.getvalue()}")
@@ -179,6 +184,8 @@ class PublicDemoTests(unittest.TestCase):
         self.assertIs(second.output_absent_before_write, True)
         self.assertEqual(first.index, second.index)
         self.assertEqual(first.brief, second.brief)
+        self.assertEqual(hashlib.sha256(first.index).hexdigest(), INDEX_SHA256)
+        self.assertEqual(hashlib.sha256(first.brief).hexdigest(), BRIEF_SHA256)
         self.assertEqual(
             first.scanned_directories,
             (".", "src", "src/parcel_sync"),
