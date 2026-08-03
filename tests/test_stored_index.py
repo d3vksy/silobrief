@@ -6,13 +6,12 @@ import unittest
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
-from unittest import mock
 
 from silobrief.boundaries import register_boundary
 from silobrief.index import render_index_json
 from silobrief.initialization import initialize_index
-from silobrief.state import load_config, save_config, setup_project
-from silobrief.stored_index import StoredIndexError, load_current_index
+from silobrief.state import setup_project
+from silobrief.stored_index import StoredIndexError, load_stored_index
 
 
 def create_index(project: Path) -> None:
@@ -98,6 +97,15 @@ def invalidate_edge_source(value: dict[str, object]) -> None:
     edge["source_id"] = "node-missing"
 
 
+def invalidate_edge_target(value: dict[str, object]) -> None:
+    edge = object_value(array_value(value["edges"])[0])
+    edge["target_id"] = "node-missing"
+
+
+def reverse_nodes(value: dict[str, object]) -> None:
+    array_value(value["nodes"]).reverse()
+
+
 def expose_placeholder_name(value: dict[str, object]) -> None:
     for item in array_value(value["edges"]):
         target = object_value(item).get("target")
@@ -110,27 +118,25 @@ def expose_placeholder_name(value: dict[str, object]) -> None:
 class StoredIndexTests(unittest.TestCase):
     def assert_index_error(self, project: Path, expected: str) -> str:
         with self.assertRaises(StoredIndexError) as caught:
-            load_current_index(project)
+            load_stored_index(project)
         message = str(caught.exception)
         self.assertIn(expected, message)
         self.assertNotIn(str(project), message)
         self.assertNotIn("fixture-private-canary", message)
         return message
 
-    def test_loads_a_current_index_from_a_project_subdirectory(self) -> None:
+    def test_loads_a_canonical_index_without_modifying_project_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
             create_index(project)
             before = file_state(project)
 
-            loaded = load_current_index(project / "package")
+            loaded = load_stored_index(project)
 
-            self.assertEqual(loaded.root, project.resolve())
             self.assertEqual(
-                render_index_json(loaded.index),
+                render_index_json(loaded),
                 (project / ".silobrief" / "index.json").read_bytes(),
             )
-            self.assertEqual(loaded.warnings, ())
             self.assertEqual(file_state(project), before)
 
     def test_rejects_schema_and_canonical_encoding_changes(self) -> None:
@@ -141,6 +147,8 @@ class StoredIndexTests(unittest.TestCase):
             ("node", invalidate_node_id),
             ("tokens", invalidate_tokens),
             ("edge", invalidate_edge_source),
+            ("edge target", invalidate_edge_target),
+            ("node order", reverse_nodes),
             ("placeholder", expose_placeholder_name),
         )
         for name, mutate in mutations:
@@ -161,46 +169,18 @@ class StoredIndexTests(unittest.TestCase):
             project = Path(directory)
             create_index(project)
             index = project / ".silobrief" / "index.json"
-            index.write_bytes(index.read_bytes().replace(b"\n", b"\r\n"))
-            before = file_state(project)
-
-            self.assert_index_error(project, "canonical")
-
-            self.assertEqual(file_state(project), before)
-
-    def test_rejects_stale_and_config_mismatch_before_source_collection(self) -> None:
-        for case in ("stale", "config"):
-            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
-                project = Path(directory)
-                create_index(project)
-                if case == "stale":
-                    value = index_object(project)
-                    value["stale"] = True
-                    (project / ".silobrief" / "index.json").write_bytes(canonical_json(value))
-                else:
-                    config = load_config(project)
-                    config["boundaries"][0]["description"] = "Changed public description"
-                    save_config(project, config)
-                before = file_state(project)
-
-                with mock.patch("silobrief.sources.snapshot_sources") as snapshot:
-                    self.assert_index_error(project, case)
-
-                snapshot.assert_not_called()
-                self.assertEqual(file_state(project), before)
-
-    def test_rejects_a_changed_source_without_modifying_project_files(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
-            create_index(project)
-            service = project / "package" / "service.py"
-            service.write_text(
-                service.read_text(encoding="utf-8") + "\ndef added():\n    return 1\n",
-                encoding="utf-8",
-                newline="\n",
+            original = index.read_bytes()
+            reordered = dict(reversed(tuple(index_object(project).items())))
+            variants = (
+                ("CRLF", original.replace(b"\n", b"\r\n")),
+                ("last newline", original.removesuffix(b"\n")),
+                ("key order", (json.dumps(reordered, indent=2) + "\n").encode()),
             )
-            before = file_state(project)
+            for name, content in variants:
+                with self.subTest(case=name):
+                    index.write_bytes(content)
+                    before = file_state(project)
 
-            self.assert_index_error(project, "source")
+                    self.assert_index_error(project, "canonical")
 
-            self.assertEqual(file_state(project), before)
+                    self.assertEqual(file_state(project), before)

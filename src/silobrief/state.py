@@ -93,7 +93,7 @@ def _project_root(project: Path) -> Path:
         raise SetupError(f"cannot resolve project root: {error}") from error
 
 
-def find_project_root(start: Path, *, validate_index: bool = True) -> Path:
+def find_project_root(start: Path) -> Path:
     if not start.is_dir():
         raise SetupError("command must run from an existing directory")
     try:
@@ -104,13 +104,13 @@ def find_project_root(start: Path, *, validate_index: bool = True) -> Path:
     for candidate in (current, *current.parents):
         state = candidate / STATE_DIRECTORY
         if state.exists() or state.is_symlink():
-            _validate_state(state, validate_index=validate_index)
+            _validate_state(state)
             return candidate
     raise SetupError(f"cannot find {STATE_DIRECTORY}; run sb setup first")
 
 
-def load_config(root: Path, *, validate_index: bool = True) -> ConfigData:
-    return _validate_state(root / STATE_DIRECTORY, validate_index=validate_index)
+def load_config(root: Path) -> ConfigData:
+    return _validate_state(root / STATE_DIRECTORY)
 
 
 def save_config(root: Path, config: ConfigData) -> None:
@@ -182,7 +182,7 @@ def _write_bytes_atomic(path: Path, content: bytes) -> None:
             pass
 
 
-def _validate_state(state: Path, *, validate_index: bool = True) -> ConfigData:
+def _validate_state(state: Path) -> ConfigData:
     if state.is_symlink() or not state.is_dir():
         raise SetupError(f"{STATE_DIRECTORY} must be a real directory")
 
@@ -195,7 +195,7 @@ def _validate_state(state: Path, *, validate_index: bool = True) -> ConfigData:
         raise SetupError("exports must be a real directory")
 
     index = state / "index.json"
-    if validate_index and (index.exists() or index.is_symlink()):
+    if index.exists() or index.is_symlink():
         index_data = _read_object(index)
         if not _is_version_one(index_data.get("index_version")):
             raise SetupError("index.json is not compatible with version 1")

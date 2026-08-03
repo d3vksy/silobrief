@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from silobrief import sources
 from silobrief.boundary_placeholders import BoundaryPlaceholder
 from silobrief.index import (
     EdgeKind,
@@ -16,12 +14,10 @@ from silobrief.index import (
     IndexNode,
     NodeKind,
     NodeTokens,
-    config_digest,
     render_index_json,
     stable_node_id,
 )
-from silobrief.sources import SourceCollectionError, SourceWarning
-from silobrief.state import STATE_DIRECTORY, find_project_root, is_valid_boundary_alias, load_config
+from silobrief.state import STATE_DIRECTORY, is_valid_boundary_alias
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _KINDS = ("module", "class", "function")
@@ -33,31 +29,7 @@ class StoredIndexError(ValueError):
     pass
 
 
-@dataclass(frozen=True, slots=True)
-class LoadedIndex:
-    root: Path
-    index: IndexData
-    warnings: tuple[SourceWarning, ...]
-
-
-def load_current_index(start: Path) -> LoadedIndex:
-    root = find_project_root(start, validate_index=False)
-    config = load_config(root, validate_index=False)
-    index = _read_index(root)
-    if index.stale:
-        raise StoredIndexError("index.json is stale; run sb init")
-    if index.config_digest != config_digest(config):
-        raise StoredIndexError("index.json does not match the current config")
-    try:
-        snapshot = sources.snapshot_sources(root, config)
-    except SourceCollectionError as error:
-        raise StoredIndexError("cannot check index source currentness") from error
-    if index.source_digest != snapshot.digest:
-        raise StoredIndexError("index.json does not match the current source")
-    return LoadedIndex(root=root, index=index, warnings=snapshot.warnings)
-
-
-def _read_index(root: Path) -> IndexData:
+def load_stored_index(root: Path) -> IndexData:
     path = root / STATE_DIRECTORY / "index.json"
     if path.is_symlink() or not path.is_file():
         raise StoredIndexError("index.json must be a real file; run sb init")
