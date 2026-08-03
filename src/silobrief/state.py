@@ -26,6 +26,10 @@ class SetupError(Exception):
     pass
 
 
+class IndexStateError(SetupError):
+    pass
+
+
 class BoundaryData(TypedDict):
     alias: str
     description: str
@@ -196,9 +200,12 @@ def _validate_state(state: Path) -> ConfigData:
 
     index = state / "index.json"
     if index.exists() or index.is_symlink():
-        index_data = _read_object(index)
+        try:
+            index_data = _read_object(index)
+        except SetupError as error:
+            raise IndexStateError(str(error)) from error
         if not _is_version_one(index_data.get("index_version")):
-            raise SetupError("index.json is not compatible with version 1")
+            raise IndexStateError("index.json is not compatible with version 1")
     return config
 
 
