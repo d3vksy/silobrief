@@ -22,7 +22,7 @@ FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-f
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\nWRITE\n"
 INDEX_SHA256 = "0b810f442ca84d26de891dd08e2b77ec0c645e1753943bf8643a7f3b4dc4185e"
-BRIEF_SHA256 = "6cfcf9b914dd318f6ae6f1b65f0bef44ac3453a3f7f77d3d61596275ca1ed661"
+BRIEF_SHA256 = "790b1c7af5b9cf083654480c3213014f0a04450671b4e8b290059484e6a9c4c2"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
     "PUBLIC_COMMENT_CANARY",

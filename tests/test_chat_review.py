@@ -97,7 +97,7 @@ def disclosure_counts(rendered: RenderedBrief) -> tuple[int, int, int, int, int]
     return (
         value.relative_paths,
         value.symbol_names,
-        value.public_dependencies,
+        value.public_imports,
         value.human_notes,
         value.boundary_aliases,
     )
@@ -130,7 +130,7 @@ class ChatReviewTests(unittest.TestCase):
             "Keep the retry policy public|transport|Public transport adapter"
         )
         for approved in approved_values.split("|"):
-            self.assertIn(approved, rendered.markdown)
+            self.assertIn(approved, rendered.main_markdown)
 
         visible = output.getvalue()
         self.assertIn("src/service.py", visible)
@@ -142,7 +142,7 @@ class ChatReviewTests(unittest.TestCase):
             "second-hop-canary|unselected-note-canary|root-id"
         )
         for hidden in hidden_values.split("|"):
-            self.assertNotIn(hidden, visible + rendered.markdown)
+            self.assertNotIn(hidden, visible + rendered.main_markdown)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
         rendered = review_brief(
@@ -154,7 +154,7 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         self.assertEqual(disclosure_counts(rendered), (0, 0, 0, 0, 0))
-        self.assertEqual(rendered.markdown.count("- 없음"), 5)
+        self.assertEqual(rendered.main_markdown.count("- 없음"), 6)
 
     def test_rejects_invalid_or_empty_review_input(self) -> None:
         cases = (
