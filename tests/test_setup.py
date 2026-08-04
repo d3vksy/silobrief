@@ -49,10 +49,16 @@ class SetupCommandTests(unittest.TestCase):
             source.write_text("VALUE = 1\n", encoding="utf-8", newline="\n")
             source_digest = hashlib.sha256(source.read_bytes()).digest()
 
-            result = main(["setup", str(project)])
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                result = main(["setup", str(project)])
 
             state = project / ".silobrief"
             self.assertEqual(result, 0)
+            self.assertEqual(
+                stdout.getvalue(),
+                "created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/\n",
+            )
             self.assertEqual(
                 json.loads((state / "config.json").read_text(encoding="utf-8")),
                 {
@@ -107,13 +113,16 @@ class SetupCommandTests(unittest.TestCase):
                 for path in tracked
             ]
 
-            result = main(["setup", str(project)])
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                result = main(["setup", str(project)])
 
             after = [
                 (path.read_bytes() if path.is_file() else b"", path.stat().st_mtime_ns)
                 for path in tracked
             ]
             self.assertEqual(result, 0)
+            self.assertEqual(stdout.getvalue(), "validated existing .silobrief state\n")
             self.assertEqual(after, before)
 
     def test_setup_rejects_missing_path_and_regular_file(self) -> None:

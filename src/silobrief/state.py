@@ -53,19 +53,19 @@ class NotesData(TypedDict):
     notes_version: int
 
 
-def setup_project(project: Path) -> None:
+def setup_project(project: Path) -> bool:
     root = _project_root(project)
     state = root / STATE_DIRECTORY
 
     if state.exists() or state.is_symlink():
         _validate_state(state)
-        return
+        return False
 
     try:
         state.mkdir()
     except FileExistsError:
         _validate_state(state)
-        return
+        return False
     except OSError as error:
         raise SetupError(f"cannot create {STATE_DIRECTORY}: {error}") from error
 
@@ -83,6 +83,7 @@ def setup_project(project: Path) -> None:
     except OSError as error:
         shutil.rmtree(state, ignore_errors=True)
         raise SetupError(f"cannot initialize {STATE_DIRECTORY}: {error}") from error
+    return True
 
 
 def _project_root(project: Path) -> Path:
