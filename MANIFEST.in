@@ -5,3 +5,5 @@ include README.ko.md
 include SECURITY.md
 recursive-include docs *.md
 recursive-include examples/parcel-sync-fixture *.md *.py
+recursive-include examples/model-validation-fixture *.md *.py
+recursive-include validation/v0.2 *.md
