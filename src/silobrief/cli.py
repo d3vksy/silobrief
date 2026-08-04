@@ -55,9 +55,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not isinstance(project, Path):
             parser.error("setup path must be a filesystem path")
         try:
-            setup_project(project)
+            created = setup_project(project)
         except SetupError as error:
             parser.error(str(error))
+        if created:
+            print("created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/")
+        else:
+            print("validated existing .silobrief state")
 
     if arguments.command == "ignore":
         path_text = arguments.path
