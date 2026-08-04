@@ -1,17 +1,46 @@
 from __future__ import annotations
 
 import os
+import stat
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TextIO
 
 from silobrief.renderer import RenderedBrief
-from silobrief.state import STATE_DIRECTORY
+from silobrief.sources import SourceCollectionError, SourceSnapshot, snapshot_sources
+from silobrief.state import STATE_DIRECTORY, SetupError, load_config
 
-_APPROVAL_PROMPT = "Type exactly WRITE to create the Markdown file: "
+_APPROVAL_PROMPT = "Type exactly WRITE to create the Markdown file(s): "
 
 
 class OutputBlockedError(Exception):
     pass
+
+
+@dataclass(frozen=True, slots=True)
+class WrittenBrief:
+    main: Path
+    source: Path | None
+
+
+@dataclass(frozen=True, slots=True)
+class _FileIdentity:
+    device: int
+    inode: int
+
+
+def source_companion_name(output_text: str) -> str:
+    if not isinstance(output_text, str) or not output_text:
+        raise OutputBlockedError("output path must not be empty")
+    if "/" in output_text and "\\" in output_text:
+        raise OutputBlockedError("output path must not mix path separators")
+
+    path = PureWindowsPath(output_text) if "\\" in output_text else PurePosixPath(output_text)
+    if path.suffix != ".md":
+        raise OutputBlockedError("output path must use the .md extension")
+    if path.name.endswith(".sources.md"):
+        raise OutputBlockedError("main output path must not end with .sources.md")
+    return f"{path.name[:-3]}.sources.md"
 
 
 def approve_and_write(
@@ -22,15 +51,28 @@ def approve_and_write(
     start: Path,
     input_stream: TextIO,
     output_stream: TextIO,
-) -> Path:
+    source_snapshot: SourceSnapshot | None = None,
+) -> WrittenBrief:
     if not input_stream.isatty() or not output_stream.isatty():
         raise OutputBlockedError("approval requires interactive input and output")
     if type(rendered) is not RenderedBrief:
         raise OutputBlockedError("output requires a rendered brief")
 
+    companion_name = source_companion_name(output_text)
     destination = _output_path(root, start, output_text)
+    source_destination = (
+        _available_path(destination.with_name(companion_name), root)
+        if rendered.source_markdown is not None
+        else None
+    )
+    _validate_rendered_pair(rendered, companion_name)
+    baseline = source_snapshot if source_snapshot is not None else _snapshot(root)
+
     try:
         output_stream.write(rendered.main_markdown)
+        if rendered.source_markdown is not None:
+            output_stream.write(f"\n--- Source companion: {companion_name} ---\n\n")
+            output_stream.write(rendered.source_markdown)
         output_stream.write(f"\n{_APPROVAL_PROMPT}")
         output_stream.flush()
         approval = input_stream.readline()
@@ -39,8 +81,33 @@ def approve_and_write(
     if _without_line_ending(approval) != "WRITE":
         raise OutputBlockedError("output was not approved with exact WRITE")
 
-    _write_new_file(destination, rendered.main_markdown)
-    return destination
+    current = _snapshot(root)
+    if current.digest != baseline.digest:
+        raise OutputBlockedError("project sources changed during review; run sb init")
+
+    if rendered.source_markdown is None:
+        _write_new_file(destination, rendered.main_markdown)
+        return WrittenBrief(destination, None)
+
+    if source_destination is None:
+        raise OutputBlockedError("source companion destination is missing")
+    source_identity = _write_new_file(source_destination, rendered.source_markdown)
+    try:
+        _write_new_file(destination, rendered.main_markdown)
+    except OutputBlockedError:
+        _remove_created_file(source_destination, source_identity)
+        raise
+    return WrittenBrief(destination, source_destination)
+
+
+def _validate_rendered_pair(rendered: RenderedBrief, companion_name: str) -> None:
+    disclosed = rendered.disclosure.source_companion
+    if rendered.source_markdown is None:
+        if disclosed != "none":
+            raise OutputBlockedError("rendered source disclosure is inconsistent")
+        return
+    if disclosed != companion_name:
+        raise OutputBlockedError("rendered source companion does not match the output path")
 
 
 def _output_path(root: Path, start: Path, output_text: str) -> Path:
@@ -78,12 +145,15 @@ def _output_path(root: Path, start: Path, output_text: str) -> Path:
         raise OutputBlockedError("output path already exists")
 
     parent = _real_parent(candidate.parent)
-    destination = parent / candidate.name
+    return _available_path(parent / candidate.name, resolved_root)
+
+
+def _available_path(destination: Path, root: Path) -> Path:
     if destination.is_symlink():
         raise OutputBlockedError("output path must not be a symbolic link")
     if destination.exists():
         raise OutputBlockedError("output path already exists")
-    _require_allowed_location(destination, resolved_root)
+    _require_allowed_location(destination, root)
     return destination
 
 
@@ -141,23 +211,44 @@ def _without_line_ending(value: str) -> str:
     return value
 
 
-def _write_new_file(path: Path, content: str) -> None:
+def _snapshot(root: Path) -> SourceSnapshot:
+    try:
+        return snapshot_sources(root, load_config(root))
+    except (SetupError, SourceCollectionError) as error:
+        raise OutputBlockedError(f"cannot revalidate project sources: {error}") from error
+
+
+def _write_new_file(path: Path, content: str) -> _FileIdentity:
     try:
         encoded = content.encode("utf-8")
     except UnicodeError as error:
         raise OutputBlockedError("rendered brief is not valid UTF-8 text") from error
 
-    created = False
+    identity: _FileIdentity | None = None
     try:
         with path.open("xb") as stream:
-            created = True
+            metadata = os.fstat(stream.fileno())
+            identity = _FileIdentity(metadata.st_dev, metadata.st_ino)
             stream.write(encoded)
     except FileExistsError as error:
         raise OutputBlockedError("output path already exists") from error
     except OSError as error:
-        if created:
-            try:
-                path.unlink()
-            except OSError:
-                pass
+        if identity is not None:
+            _remove_created_file(path, identity)
         raise OutputBlockedError(f"cannot create output file: {error}") from error
+    if identity is None:
+        raise OutputBlockedError("cannot identify the created output file")
+    return identity
+
+
+def _remove_created_file(path: Path, identity: _FileIdentity) -> None:
+    try:
+        metadata = path.stat(follow_symlinks=False)
+        if (
+            stat.S_ISREG(metadata.st_mode)
+            and metadata.st_dev == identity.device
+            and metadata.st_ino == identity.inode
+        ):
+            path.unlink()
+    except OSError:
+        pass

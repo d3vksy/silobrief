@@ -20,19 +20,20 @@ from silobrief.cli import main
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-fixture"
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
-REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\nWRITE\n"
+SOURCE_OUTPUT_PATH = ".silobrief/exports/retry-brief.sources.md"
+REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n"
 INDEX_SHA256 = "0b810f442ca84d26de891dd08e2b77ec0c645e1753943bf8643a7f3b4dc4185e"
-BRIEF_SHA256 = "790b1c7af5b9cf083654480c3213014f0a04450671b4e8b290059484e6a9c4c2"
+BRIEF_SHA256 = "311327ad8e27120d867b7559b33216c6d9deb2ce8c9c160ed6afd763329e39a5"
+SOURCE_BRIEF_SHA256 = "3035173c36872cb7853ec590bc9acb59b69adff63ad23eee446c6b3b86a66d88"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
     "PUBLIC_COMMENT_CANARY",
     "PUBLIC_DOCSTRING_CANARY",
     "PUBLIC_STRING_CANARY",
 )
-PRIVATE_VALUES = (
+STRICT_PRIVATE_VALUES = (
     "PRIVATE_BOUNDARY_CANARY",
     "private_adapter",
-    "deliver_internal",
 )
 
 
@@ -45,7 +46,9 @@ class ScriptedInput:
     def __init__(self, value: str, target: Path) -> None:
         self._stream = io.StringIO(value)
         self.target = target
+        self.source_target = target.with_name(f"{target.stem}.sources.md")
         self.output_absent_before_write: bool | None = None
+        self.source_output_absent_before_write: bool | None = None
 
     def isatty(self) -> bool:
         return True
@@ -54,6 +57,7 @@ class ScriptedInput:
         value = self._stream.readline(size)
         if value.rstrip("\r\n") == "WRITE":
             self.output_absent_before_write = not self.target.exists()
+            self.source_output_absent_before_write = not self.source_target.exists()
         return value
 
 
@@ -66,8 +70,10 @@ class DemoResult:
     opened_sources: tuple[str, ...]
     index: bytes
     brief: bytes
+    source_brief: bytes
     terminal: str
     output_absent_before_write: bool | None
+    source_output_absent_before_write: bool | None
 
 
 @contextlib.contextmanager
@@ -164,8 +170,10 @@ def run_demo(project: Path) -> DemoResult:
         opened_sources=opened,
         index=(project / ".silobrief/index.json").read_bytes(),
         brief=(project / OUTPUT_PATH).read_bytes(),
+        source_brief=(project / SOURCE_OUTPUT_PATH).read_bytes(),
         terminal=stdout.getvalue() + stderr.getvalue(),
         output_absent_before_write=input_stream.output_absent_before_write,
+        source_output_absent_before_write=input_stream.source_output_absent_before_write,
     )
 
 
@@ -182,10 +190,14 @@ class PublicDemoTests(unittest.TestCase):
         self.assertEqual(second.source_before, second.source_after)
         self.assertIs(first.output_absent_before_write, True)
         self.assertIs(second.output_absent_before_write, True)
+        self.assertIs(first.source_output_absent_before_write, True)
+        self.assertIs(second.source_output_absent_before_write, True)
         self.assertEqual(first.index, second.index)
         self.assertEqual(first.brief, second.brief)
+        self.assertEqual(first.source_brief, second.source_brief)
         self.assertEqual(hashlib.sha256(first.index).hexdigest(), INDEX_SHA256)
         self.assertEqual(hashlib.sha256(first.brief).hexdigest(), BRIEF_SHA256)
+        self.assertEqual(hashlib.sha256(first.source_brief).hexdigest(), SOURCE_BRIEF_SHA256)
         self.assertEqual(
             first.scanned_directories,
             (".", "src", "src/parcel_sync"),
@@ -202,6 +214,7 @@ class PublicDemoTests(unittest.TestCase):
         self.assertEqual(first.opened_sources, second.opened_sources)
 
         brief_text = first.brief.decode("utf-8")
+        source_brief_text = first.source_brief.decode("utf-8")
         for expected in (
             "src/parcel_sync/service.py",
             "function: retry_request",
@@ -211,14 +224,22 @@ class PublicDemoTests(unittest.TestCase):
             "External delivery adapter",
         ):
             self.assertIn(expected, brief_text)
+        self.assertNotIn("PUBLIC_SOURCE_BODY_CANARY", brief_text)
+        self.assertNotIn("PUBLIC_COMMENT_CANARY", brief_text)
+        self.assertIn("PUBLIC_SOURCE_BODY_CANARY", source_brief_text)
+        self.assertIn("PUBLIC_COMMENT_CANARY", source_brief_text)
+        self.assertIn("deliver_internal", source_brief_text)
+        self.assertNotIn("PUBLIC_DOCSTRING_CANARY", source_brief_text)
+        self.assertNotIn("PUBLIC_STRING_CANARY", source_brief_text)
         for result in (first, second):
             index_text = result.index.decode("utf-8")
-            public_output = result.terminal + result.brief.decode("utf-8")
+            main_output = result.brief.decode("utf-8")
+            all_output = result.terminal + main_output + result.source_brief.decode("utf-8")
             for canary in PUBLIC_CANARIES:
-                self.assertNotIn(canary.casefold(), public_output.casefold())
-            for private in PRIVATE_VALUES:
-                self.assertNotIn(private.casefold(), (index_text + public_output).casefold())
-            self.assertNotIn(result.root, index_text + public_output)
+                self.assertNotIn(canary.casefold(), main_output.casefold())
+            for private in STRICT_PRIVATE_VALUES:
+                self.assertNotIn(private.casefold(), (index_text + all_output).casefold())
+            self.assertNotIn(result.root, index_text + all_output)
 
 
 if __name__ == "__main__":
