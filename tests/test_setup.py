@@ -22,6 +22,12 @@ DEFAULT_EXCLUDES = [
     "build/",
     "dist/",
 ]
+SOURCE_DISCLOSURE_WARNING = (
+    "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
+    "approve may be exported verbatim with comments, docstrings, strings, and internal "
+    "identifiers. siloBrief does not detect secrets or provide security approval; review all "
+    "output yourself.\n"
+)
 
 
 @contextlib.contextmanager
@@ -57,7 +63,8 @@ class SetupCommandTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(
                 stdout.getvalue(),
-                "created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/\n",
+                "created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/\n"
+                + SOURCE_DISCLOSURE_WARNING,
             )
             self.assertEqual(
                 json.loads((state / "config.json").read_text(encoding="utf-8")),
@@ -122,7 +129,10 @@ class SetupCommandTests(unittest.TestCase):
                 for path in tracked
             ]
             self.assertEqual(result, 0)
-            self.assertEqual(stdout.getvalue(), "validated existing .silobrief state\n")
+            self.assertEqual(
+                stdout.getvalue(),
+                "validated existing .silobrief state\n" + SOURCE_DISCLOSURE_WARNING,
+            )
             self.assertEqual(after, before)
 
     def test_setup_rejects_missing_path_and_regular_file(self) -> None:
