@@ -1,0 +1,44 @@
+name: 버그 신고
+description: 재현 가능한 잘못된 동작을 보고합니다.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 문제
+      description: 실제로 발생한 동작을 설명해 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 재현 방법
+      description: 민감한 정보 없이 최소 재현 절차를 적어 주세요.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 동작
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: 버전 또는 commit
+      placeholder: v0.1.0 또는 commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 실행 환경
+      placeholder: Windows 11, Python 3.10
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 이번 수정에서 제외할 내용
