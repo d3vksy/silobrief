@@ -191,15 +191,15 @@ def _brief_input(
             if choices.symbols
             else ()
         ),
-        public_dependencies=_public_dependencies(index, node_ids)
-        if choices.public_libraries
-        else (),
+        public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
         boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
+        source_companion=None,
+        source_excerpts=(),
     )
 
 
-def _public_dependencies(index: IndexData, node_ids: set[str]) -> tuple[str, ...]:
+def _public_imports(index: IndexData, node_ids: set[str]) -> tuple[str, ...]:
     return tuple(
         edge.target
         for edge in index.edges

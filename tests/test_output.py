@@ -47,9 +47,11 @@ def rendered_brief() -> RenderedBrief:
             user_prompt="공식 문서를 확인해줘",
             relative_paths=("src/api.py",),
             symbols=(),
-            public_dependencies=("Python",),
+            public_imports=("Python",),
             human_notes=(),
             boundaries=(),
+            source_companion=None,
+            source_excerpts=(),
         )
     )
 
@@ -86,8 +88,8 @@ class ApprovedOutputTests(unittest.TestCase):
 
             destination = project / ".silobrief" / "exports" / "result.md"
             self.assertEqual(result, destination.resolve())
-            self.assertEqual(destination.read_bytes(), rendered.markdown.encode("utf-8"))
-            self.assertTrue(stdout.getvalue().startswith(rendered.markdown))
+            self.assertEqual(destination.read_bytes(), rendered.main_markdown.encode("utf-8"))
+            self.assertTrue(stdout.getvalue().startswith(rendered.main_markdown))
             self.assertIn("exactly WRITE", stdout.getvalue())
             self.assertGreaterEqual(stdout.flush_count, 1)
             self.assertEqual([path.name for path in destination.parent.iterdir()], ["result.md"])

@@ -30,7 +30,7 @@ def approve_and_write(
 
     destination = _output_path(root, start, output_text)
     try:
-        output_stream.write(rendered.markdown)
+        output_stream.write(rendered.main_markdown)
         output_stream.write(f"\n{_APPROVAL_PROMPT}")
         output_stream.flush()
         approval = input_stream.readline()
@@ -39,7 +39,7 @@ def approve_and_write(
     if _without_line_ending(approval) != "WRITE":
         raise OutputBlockedError("output was not approved with exact WRITE")
 
-    _write_new_file(destination, rendered.markdown)
+    _write_new_file(destination, rendered.main_markdown)
     return destination
 
 
