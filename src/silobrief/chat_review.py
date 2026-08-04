@@ -43,6 +43,7 @@ def review_brief(
         raise ChatReviewError("request must not be empty")
     if not input_stream.isatty() or not output_stream.isatty():
         raise ChatReviewError("review requires an interactive terminal")
+    _confirm_request(input_stream, output_stream)
 
     try:
         options = candidate_options(rank_candidates(prompt, index, notes))
@@ -91,6 +92,21 @@ def _show_candidates(options: tuple[CandidateOption, ...], output: TextIO) -> No
             f"comment={evidence.comment_matches} note={note} "
             f"connected={evidence.connected_nodes}\n",
         )
+
+
+def _confirm_request(input_stream: TextIO, output_stream: TextIO) -> None:
+    _write(
+        output_stream,
+        "Request completeness:\n"
+        "- work goal\n"
+        "- required deliverables\n"
+        "- completion or acceptance criteria\n",
+    )
+    if (
+        _read_line("Continue with this complete request? [y/N]: ", input_stream, output_stream)
+        != "y"
+    ):
+        raise ChatReviewError("request completeness was not confirmed")
 
 
 def _read_numbers(input_stream: TextIO, output_stream: TextIO) -> tuple[int, ...]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import sys
 import tokenize
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -94,7 +95,34 @@ def extract_source_excerpts(
             )
         excerpts.append(_excerpt(selection, definition, decoded[selection.path]))
 
-    result = _remove_enclosed_excerpts(excerpts)
+    return prepare_source_excerpts(
+        excerpts,
+        max_lines=max_lines,
+        max_utf8_bytes=max_utf8_bytes,
+    )
+
+
+def extract_source_excerpt(
+    snapshot: SourceSnapshot,
+    selection: SourceSelection,
+) -> SourceExcerpt:
+    return extract_source_excerpts(
+        snapshot,
+        (selection,),
+        max_lines=sys.maxsize,
+        max_utf8_bytes=sys.maxsize,
+    )[0]
+
+
+def prepare_source_excerpts(
+    excerpts: Iterable[SourceExcerpt],
+    *,
+    max_lines: int = MAX_SOURCE_LINES,
+    max_utf8_bytes: int = MAX_SOURCE_UTF8_BYTES,
+) -> tuple[SourceExcerpt, ...]:
+    if max_lines < 0 or max_utf8_bytes < 0:
+        raise ValueError("source excerpt limits cannot be negative")
+    result = _remove_enclosed_excerpts(list(excerpts))
     lines = sum(item.line_count for item in result)
     utf8_bytes = sum(item.utf8_bytes for item in result)
     if lines > max_lines or utf8_bytes > max_utf8_bytes:
