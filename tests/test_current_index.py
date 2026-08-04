@@ -89,10 +89,10 @@ class CurrentIndexTests(unittest.TestCase):
                 "snapshot_sources",
                 return_value=replace(snapshot, warnings=(warning,)),
             ):
-                loaded, warnings = load_current_index(project)
+                loaded, current_snapshot = load_current_index(project)
 
             self.assertEqual(loaded, expected)
-            self.assertEqual(warnings, (warning,))
+            self.assertEqual(current_snapshot, replace(snapshot, warnings=(warning,)))
             self.assertEqual(file_state(project), before)
 
     def test_stale_and_config_mismatch_stop_before_source_collection(self) -> None:

@@ -26,8 +26,10 @@ class ScriptedInput:
     def __init__(self, value: str, target: Path, *, tty: bool = True) -> None:
         self._stream = io.StringIO(value)
         self.target = target
+        self.source_target = target.with_name(f"{target.stem}.sources.md")
         self.tty = tty
         self.output_absent_before_write: bool | None = None
+        self.source_output_absent_before_write: bool | None = None
 
     def isatty(self) -> bool:
         return self.tty
@@ -36,6 +38,7 @@ class ScriptedInput:
         value = self._stream.readline(size)
         if value.rstrip("\r\n") == "WRITE":
             self.output_absent_before_write = not self.target.exists()
+            self.source_output_absent_before_write = not self.source_target.exists()
         return value
 
 
@@ -104,7 +107,8 @@ def prepare_project(project: Path) -> Path:
     return service
 
 
-REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\n"
+REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\n"
+NO_SOURCE_REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\nn\n"
 
 
 def run_chat(
@@ -140,14 +144,18 @@ class ChatCommandTests(unittest.TestCase):
             )
 
             destination = project / output
+            source_destination = destination.with_name(f"{destination.stem}.sources.md")
             self.assertEqual(result, 0)
             self.assertIs(input_stream.output_absent_before_write, True)
+            self.assertIs(input_stream.source_output_absent_before_write, True)
             self.assertTrue(destination.is_file())
+            self.assertTrue(source_destination.is_file())
             self.assertEqual(source_bytes(project), before)
             self.assertEqual(stderr, "")
             self.assertIn("Candidates:", stdout)
             self.assertIn("wrote .silobrief/exports/run.md", stdout)
             markdown = destination.read_text(encoding="utf-8")
+            source_markdown = source_destination.read_text(encoding="utf-8")
             for approved in (
                 "package/service.py",
                 "function: run",
@@ -157,13 +165,34 @@ class ChatCommandTests(unittest.TestCase):
                 "External delivery adapter",
             ):
                 self.assertIn(approved, markdown)
+            self.assertIn("def run():", source_markdown)
+            self.assertIn("send()", source_markdown)
             for hidden in (
                 "allowed-source-canary",
                 "private-boundary-canary",
                 "private.secret",
                 str(project),
             ):
-                self.assertNotIn(hidden, stdout + markdown)
+                self.assertNotIn(hidden, stdout + markdown + source_markdown)
+
+    def test_writes_only_the_main_brief_when_source_is_declined(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            output = ".silobrief/exports/context-only.md"
+
+            result, _, _, stderr = run_chat(
+                project,
+                output,
+                NO_SOURCE_REVIEW_INPUT + "WRITE\n",
+            )
+
+            destination = project / output
+            self.assertEqual(result, 0)
+            self.assertEqual(stderr, "")
+            self.assertTrue(destination.is_file())
+            self.assertFalse(destination.with_name("context-only.sources.md").exists())
+            self.assertIn('source_companion: "none"', destination.read_text(encoding="utf-8"))
 
     def test_maps_invalid_input_and_index_state_to_contract_codes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -231,6 +260,7 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(result, 4)
             self.assertIn("exact WRITE", stderr)
             self.assertFalse((project / refused).exists())
+            self.assertFalse((project / ".silobrief/exports/refused.sources.md").exists())
 
             existing = project / ".silobrief/exports/existing.md"
             existing.write_text("keep", encoding="utf-8")

@@ -21,6 +21,12 @@ from silobrief.review import (
     candidate_options,
     review_selection,
 )
+from silobrief.source_review import (
+    ApprovedSourceExcerpt,
+    SourceReviewError,
+    review_source_disclosure,
+)
+from silobrief.sources import SourceSnapshot
 from silobrief.state import NotesData
 
 
@@ -38,6 +44,8 @@ def review_brief(
     *,
     input_stream: TextIO,
     output_stream: TextIO,
+    snapshot: SourceSnapshot | None = None,
+    source_companion: str | None = None,
 ) -> RenderedBrief:
     if not prompt.strip():
         raise ChatReviewError("request must not be empty")
@@ -72,8 +80,32 @@ def review_brief(
         selection.selected, selection.expanded, _read_fields(input_stream, output_stream)
     )
 
+    approved_sources: tuple[ApprovedSourceExcerpt, ...] = ()
+    if snapshot is not None:
+        try:
+            approved_sources = review_source_disclosure(
+                index,
+                snapshot,
+                reviewed,
+                input_stream=input_stream,
+                output_stream=output_stream,
+            )
+        except SourceReviewError as error:
+            raise ChatReviewError(str(error)) from error
+    if approved_sources and source_companion is None:
+        raise ChatReviewError("approved source requires a companion file name")
+
     try:
-        return render_brief(_brief_input(prompt, index, notes, reviewed))
+        return render_brief(
+            _brief_input(
+                prompt,
+                index,
+                notes,
+                reviewed,
+                source_companion=source_companion if approved_sources else None,
+                source_excerpts=approved_sources,
+            )
+        )
     except RenderError as error:
         raise ChatReviewError(str(error)) from error
 
@@ -178,6 +210,9 @@ def _brief_input(
     index: IndexData,
     notes: NotesData,
     selection: ReviewSelection,
+    *,
+    source_companion: str | None = None,
+    source_excerpts: tuple[ApprovedSourceExcerpt, ...] = (),
 ) -> BriefInput:
     nodes = (*selection.selected, *selection.expanded)
     node_ids = {node.id for node in nodes}
@@ -194,8 +229,8 @@ def _brief_input(
         public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
         boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
-        source_companion=None,
-        source_excerpts=(),
+        source_companion=source_companion,
+        source_excerpts=source_excerpts,
     )
 
 
