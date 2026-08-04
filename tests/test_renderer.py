@@ -23,9 +23,7 @@ SECTION_TITLES = (
     "등록된 경계",
     "소스 동반 파일",
     "외부 AI 응답 계약",
-    "외부 AI에 전달할 요청",
     "Disclosure manifest",
-    "수동 확인 체크리스트",
 )
 
 
@@ -136,6 +134,13 @@ class BriefRendererTests(unittest.TestCase):
         self.assertIn("````python", cast(str, rendered.source_markdown))
         self.assertNotIn("조사 질문", rendered.main_markdown)
         self.assertNotIn("추천 검색어", rendered.main_markdown)
+        self.assertNotIn("외부 AI에 전달할 요청", rendered.main_markdown)
+        self.assertNotIn("수동 확인 체크리스트", rendered.main_markdown)
+        self.assertTrue(
+            rendered.main_markdown.startswith(
+                "> 이 문서와 동반된 `retry-brief.sources.md` 파일만 사용하여"
+            )
+        )
         self.assertIn("공개 import", rendered.main_markdown)
         self.assertIn("## 바로 적용할 변경", rendered.main_markdown)
         self.assertNotIn("TASK_ANSWER_CANARY", rendered.main_markdown)
@@ -167,12 +172,26 @@ class BriefRendererTests(unittest.TestCase):
         rendered = render_brief(brief_input(source_companion=None, source_excerpts=()))
 
         self.assertIsNone(rendered.source_markdown)
-        self.assertIn("- 없음", rendered.main_markdown)
-        self.assertIn("이 Markdown 파일과 함께", rendered.main_markdown)
-        self.assertNotIn("두 Markdown 파일과 함께", rendered.main_markdown)
+        self.assertNotIn("## 소스 동반 파일", rendered.main_markdown)
+        self.assertTrue(
+            rendered.main_markdown.startswith("> 이 문서에 공개된 프로젝트 맥락만 사용하여")
+        )
         self.assertEqual(rendered.disclosure.source_companion, "none")
         self.assertEqual(rendered.disclosure.source_excerpts, 0)
         self.assertEqual(rendered.disclosure.source_content_mode, "none")
+
+    def test_omits_empty_optional_context_sections(self) -> None:
+        rendered = render_brief(
+            brief_input(
+                human_notes=(),
+                boundaries=(),
+                source_companion=None,
+                source_excerpts=(),
+            )
+        )
+
+        for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
+            self.assertNotIn(f"## {title}", rendered.main_markdown)
 
     def test_rejects_objects_outside_the_renderer_whitelist(self) -> None:
         unsafe: object = {"user_prompt": "task", "source_body": "SOURCE_BODY_CANARY"}

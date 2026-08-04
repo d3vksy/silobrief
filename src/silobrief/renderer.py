@@ -11,9 +11,8 @@ from silobrief.source_review import ApprovedSourceExcerpt
 
 _KIND_ORDER = {"module": 0, "class": 1, "function": 2}
 _WARNING = (
-    "승인한 source 원문에는 자동으로 분류하지 못한 식별자, 경로, URL, 문자열 또는 "
-    "비밀정보가 포함될 수 있습니다. siloBrief는 보안 검사나 반출 승인을 보장하지 "
-    "않으므로 두 파일 전체를 직접 확인해야 합니다."
+    "승인된 source의 민감정보를 자동으로 탐지하거나 반출 안전성을 보장하지 않습니다. "
+    "전달 전에 모든 출력 파일을 직접 확인하세요."
 )
 
 
@@ -75,21 +74,25 @@ class RenderedBrief:
 def render_brief(source: BriefInput) -> RenderedBrief:
     approved = _prepare(source)
     disclosure = _disclosure(approved)
-    sections = (
-        _section(
-            "경고와 공개 범위",
-            "이 문서는 사용자가 승인한 프로젝트 맥락만 담습니다. 숨긴 구현을 추측하거나 "
-            f"공개 범위를 보안 보장으로 해석하면 안 됩니다.\n\n{_WARNING}",
-        ),
+    sections = [
+        _execution_instruction(approved.source_companion),
+        _section("경고와 공개 범위", _WARNING),
         _section("작업 요청", _quote(approved.user_prompt)),
         _section("승인된 프로젝트 맥락", _project_context(approved)),
-        _section("사용자 작성 메모", _quoted_list(approved.human_notes)),
-        _section("등록된 경계", _boundary_list(approved.boundaries)),
-        _section("소스 동반 파일", _source_companion_section(approved.source_companion)),
-        _section("외부 AI 응답 계약", _response_contract()),
-        _section("외부 AI에 전달할 요청", _copy_prompt(approved)),
-        _section("Disclosure manifest", _manifest_yaml(disclosure)),
-        _section("수동 확인 체크리스트", _manual_checklist(approved.source_companion)),
+    ]
+    if approved.human_notes:
+        sections.append(_section("사용자 작성 메모", _quoted_list(approved.human_notes)))
+    if approved.boundaries:
+        sections.append(_section("등록된 경계", _boundary_list(approved.boundaries)))
+    if approved.source_companion is not None:
+        sections.append(
+            _section("소스 동반 파일", _source_companion_section(approved.source_companion))
+        )
+    sections.extend(
+        (
+            _section("외부 AI 응답 계약", _response_contract()),
+            _section("Disclosure manifest", _manifest_yaml(disclosure)),
+        )
     )
     return RenderedBrief(
         main_markdown="\n\n".join(sections) + "\n",
@@ -300,6 +303,17 @@ def _section(title: str, body: str) -> str:
     return f"## {title}\n\n{body}"
 
 
+def _execution_instruction(companion: str | None) -> str:
+    scope = (
+        f"이 문서와 동반된 {_code_span(companion)} 파일"
+        if companion is not None
+        else "이 문서에 공개된 프로젝트 맥락"
+    )
+    return (
+        f"> {scope}만 사용하여 아래 작업을 수행하고, 적용 가능한 변경 코드와 테스트를 제시하세요."
+    )
+
+
 def _quote(value: str) -> str:
     return "\n".join(">" if not line else f"> {line}" for line in value.split("\n"))
 
@@ -335,30 +349,14 @@ def _boundary_list(values: tuple[ApprovedBoundary, ...]) -> str:
     return "\n".join(lines)
 
 
-def _source_companion_section(value: str | None) -> str:
-    if value is None:
-        return "- 없음"
-    return (
-        f"- 파일: {_code_span(value)}\n"
-        "- main brief와 이 파일을 함께 전달해야 합니다.\n"
-        "- 파일이 누락되면 숨은 코드를 추측하지 말고 누락 사실을 알려야 합니다."
-    )
+def _source_companion_section(value: str) -> str:
+    return f"- 파일: {_code_span(value)}\n- main brief와 이 파일을 함께 전달해야 합니다."
 
 
 def _response_contract() -> str:
     return "\n".join(
         (
-            "1. 긴 서론 없이 적용할 변경부터 제시합니다.",
-            "2. 첫 8개 비어 있지 않은 줄 안에 대상 파일과 변경 목적을 표시합니다.",
-            "3. 제공된 코드와 공개 맥락만 근거로 patch 또는 교체 코드를 작성합니다.",
-            "4. 숨긴 프로젝트 구조·필드·함수·호출 방식을 추측하지 않습니다.",
-            "5. 변경 동작을 검증하는 테스트를 함께 제시합니다.",
-            "6. 실제 실행하지 않은 테스트를 실행했다고 표현하지 않습니다.",
-            "7. 추가 확인은 최대 2개만 적습니다.",
-            "8. 외부 API 주장은 가능한 경우 버전 고정 공식 문서를 근거로 합니다.",
-            "9. 별도 요구가 없으면 비어 있지 않은 줄 80개 이내로 답합니다.",
-            "",
-            "권장 응답 제목:",
+            "다음 네 제목을 순서대로 사용하고, 별도 서론은 쓰지 마세요.",
             "",
             "```text",
             "## 바로 적용할 변경",
@@ -366,26 +364,14 @@ def _response_contract() -> str:
             "## 테스트",
             "## 확인 필요",
             "```",
+            "",
+            "- `바로 적용할 변경`에 대상 파일과 변경 목적을 먼저 적으세요.",
+            "- 공개된 코드와 맥락만 근거로 작성하고 숨긴 구현을 추측하지 마세요.",
+            "- 집중된 테스트를 제시하되, 실행하지 않았다면 통과했다고 표현하지 마세요.",
+            "- `확인 필요`는 최대 2개로 제한하고, 외부 API 주장은 가능한 경우 버전이 "
+            "고정된 공식 문서 URL로 뒷받침하세요. 확인할 내용이 없으면 `없음`이라고 적으세요.",
+            "- 별도 요구가 없으면 비어 있지 않은 줄 80개 이내로 답하세요.",
         )
-    )
-
-
-def _copy_prompt(source: BriefInput) -> str:
-    companion = source.source_companion or "제공된 source companion 없음"
-    delivery = "두 Markdown 파일" if source.source_companion is not None else "이 Markdown 파일"
-    text = "\n".join(
-        (
-            "아래 작업을 공개된 프로젝트 맥락과 source만 사용해 수행하세요.",
-            "작업 요청:",
-            source.user_prompt,
-            f"source companion: {companion}",
-            "숨긴 구현을 추측하지 말고 위 응답 계약을 지키세요.",
-            "외부 API 사실은 가능한 경우 버전이 고정된 공식 문서 URL로 뒷받침하세요.",
-        )
-    )
-    return (
-        f"이 요청은 사용자가 {delivery}과 함께 복사하는 용도입니다. siloBrief는 "
-        f"외부 AI를 호출하거나 전송하지 않습니다.\n\n{_quote(text)}"
     )
 
 
@@ -411,23 +397,6 @@ def _manifest_yaml(value: DisclosureManifest) -> str:
             f"  renderer_added_absolute_paths: {value.renderer_added_absolute_paths}",
             f"  renderer_added_git_remotes: {value.renderer_added_git_remotes}",
             "```",
-        )
-    )
-
-
-def _manual_checklist(companion: str | None) -> str:
-    companion_item = (
-        "- [ ] main과 source companion을 함께 전달했습니다."
-        if companion is not None
-        else "- [ ] source companion이 없는 실행임을 확인했습니다."
-    )
-    return "\n".join(
-        (
-            "- [ ] 작업 요청이 외부에 공개 가능한지 확인했습니다.",
-            "- [ ] 승인한 경로·심볼·메모·경계 설명을 확인했습니다.",
-            companion_item,
-            "- [ ] source 원문에 의도하지 않은 정보가 없는지 확인했습니다.",
-            "- [ ] 외부 AI가 공개되지 않은 구현을 추측하지 않았는지 확인할 예정입니다.",
         )
     )
 
