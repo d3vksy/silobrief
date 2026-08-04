@@ -19,6 +19,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPOSITORY_ROOT / "examples" / "model-validation-fixture"
 PACKET_ROOT = REPOSITORY_ROOT / "validation" / "v0.2" / "packets"
 GUIDE = REPOSITORY_ROOT / "validation" / "v0.2" / "MANUAL_MODEL_GATE.md"
+VERIFICATION = REPOSITORY_ROOT / "validation" / "v0.2" / "INSTALLED_WHEEL_VERIFICATION.md"
 PRIVATE_VALUES = ("PRIVATE_MODEL_GATE_CANARY", "ignored-adapter-source", "private_adapter")
 MODULE_CANARIES = (
     "VALIDATION_MODULE_CANARY_RETRY",
@@ -243,6 +244,20 @@ class ModelValidationTests(unittest.TestCase):
         manifest = (REPOSITORY_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
         self.assertIn("examples/model-validation-fixture", manifest)
         self.assertIn("validation/v0.2", manifest)
+
+    def test_installed_wheel_verification_matches_frozen_handoff(self) -> None:
+        verification = VERIFICATION.read_text(encoding="utf-8")
+        self.assertIn("READY FOR MANUAL MODEL TEST", verification)
+        self.assertIn("8b29934fe1ee144443600cf8a9a9675fc86ad981", verification)
+        self.assertIn(
+            "dc77f27ac740edfcac8c825e8e343e9e08a86abdcd27cfc4d5d4ad8250bcc037",
+            verification,
+        )
+        self.assertIn("30926093793", verification)
+        self.assertIn("No GPT or Claude chat was opened", verification)
+        for digests in PACKET_SHA256.values():
+            for digest in digests:
+                self.assertIn(digest, verification)
 
 
 if __name__ == "__main__":
