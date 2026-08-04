@@ -44,6 +44,8 @@ class Definition:
     is_async: bool
     line: int
     column: int
+    start_line: int
+    end_line: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,12 +78,12 @@ class ModuleStructure:
 
 def extract_structures(snapshot: SourceSnapshot) -> tuple[ModuleStructure, ...]:
     return tuple(
-        _extract_module(source)
+        extract_module_structure(source)
         for source in sorted(snapshot.files, key=lambda candidate: candidate.path)
     )
 
 
-def _extract_module(source: SourceFile) -> ModuleStructure:
+def extract_module_structure(source: SourceFile) -> ModuleStructure:
     try:
         tree = ast.parse(source.content, filename=source.path, mode="exec")
     except SyntaxError as error:
@@ -186,7 +188,20 @@ class _StructureVisitor(ast.NodeVisitor):
     ) -> None:
         qualified_name = f"{self._context}.{node.name}" if self._context else node.name
         line, column = _location(node)
-        self.definitions.append(Definition(kind, node.name, qualified_name, is_async, line, column))
+        start_line = min((node.lineno, *(item.lineno for item in node.decorator_list)))
+        end_line = node.end_lineno if node.end_lineno is not None else node.lineno
+        self.definitions.append(
+            Definition(
+                kind,
+                node.name,
+                qualified_name,
+                is_async,
+                line,
+                column,
+                start_line,
+                end_line,
+            )
+        )
         self._contexts.append(qualified_name)
         try:
             self.generic_visit(node)
