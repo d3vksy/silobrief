@@ -45,6 +45,18 @@ For this fixture, select candidate `1`, submit blank add and exclude prompts, ap
 field groups, and inspect the complete preview. The Markdown file is created only after you
 type exactly `WRITE`.
 
+## Writing useful input
+
+Write `PROMPT` as a concrete task rather than a few keywords. Include the required deliverables
+and acceptance criteria so the recipient can tell what a useful answer must contain.
+
+Use `sb log` only for context that project structure cannot show. Record only context that you
+have approved for external disclosure, such as a reviewed, de-identified control-flow constraint.
+Do not copy private source bodies, secrets, or real names from ignored boundaries into a note.
+The generated Markdown does not automatically include source bodies, so it may be insufficient
+when a task depends on omitted code details. Always review the complete preview before writing
+the file.
+
 ## Commands
 
 | Command | Behavior |
