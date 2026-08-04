@@ -89,7 +89,7 @@ def source_notes() -> NotesData:
     )
 
 
-APPROVED_INPUT = "1\nsrc/direct.py\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
+APPROVED_INPUT = "y\n1\nsrc/direct.py\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
 
 
 def disclosure_counts(rendered: RenderedBrief) -> tuple[int, int, int, int, int]:
@@ -149,7 +149,7 @@ class ChatReviewTests(unittest.TestCase):
             "retry",
             source_index(),
             source_notes(),
-            input_stream=TtyBuffer("1\n\n\nn\nn\nn\nn\nn\n"),
+            input_stream=TtyBuffer("y\n1\n\n\nn\nn\nn\nn\nn\n"),
             output_stream=TtyBuffer(),
         )
 
@@ -159,9 +159,9 @@ class ChatReviewTests(unittest.TestCase):
     def test_rejects_invalid_or_empty_review_input(self) -> None:
         cases = (
             (" ", "", "request"),
-            ("absent", "", "candidate"),
-            ("retry", "2\n\n\n", "candidate number"),
-            ("retry", "1\n\n\nY\n", "y or n"),
+            ("absent", "y\n", "candidate"),
+            ("retry", "y\n2\n\n\n", "candidate number"),
+            ("retry", "y\n1\n\n\nY\n", "y or n"),
         )
         for prompt, input_text, message in cases:
             with self.subTest(message=message):
@@ -173,6 +173,20 @@ class ChatReviewTests(unittest.TestCase):
                         input_stream=TtyBuffer(input_text),
                         output_stream=TtyBuffer(),
                     )
+
+    def test_requires_request_completeness_confirmation(self) -> None:
+        for answer in ("\n", "n\n"):
+            with self.subTest(answer=answer):
+                output = TtyBuffer()
+                with self.assertRaisesRegex(ChatReviewError, "completeness"):
+                    review_brief(
+                        "retry",
+                        source_index(),
+                        source_notes(),
+                        input_stream=TtyBuffer(answer),
+                        output_stream=output,
+                    )
+                self.assertNotIn("Candidates:", output.getvalue())
 
     def test_requires_interactive_input_and_output(self) -> None:
         for input_tty, output_tty in ((False, True), (True, False)):

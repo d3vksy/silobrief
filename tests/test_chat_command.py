@@ -104,7 +104,7 @@ def prepare_project(project: Path) -> Path:
     return service
 
 
-REVIEW_INPUT = "1\n\n\ny\ny\ny\ny\ny\n"
+REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\n"
 
 
 def run_chat(
