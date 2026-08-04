@@ -29,7 +29,7 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Create a reviewed research brief from Python project context.",
     )
     parser.add_argument("--version", action="version", version=f"siloBrief {__version__}")
-    subcommands = parser.add_subparsers(dest="command")
+    subcommands = parser.add_subparsers(dest="command", required=True)
     setup = subcommands.add_parser("setup", help="Initialize local project state.")
     setup.add_argument("path", nargs="?", type=Path, default=Path.cwd())
     ignore = subcommands.add_parser("ignore", help="Register a project boundary.")
