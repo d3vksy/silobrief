@@ -2,8 +2,11 @@
 
 ## Supported versions
 
-siloBrief has not released a supported version yet. This section will list supported release
-lines when v0.1.0 becomes public.
+| Version | Supported |
+|---|---|
+| 0.1.x | :white_check_mark: |
+
+The latest 0.1.x release is the currently supported line.
 
 ## Reporting a vulnerability
 

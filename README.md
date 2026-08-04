@@ -6,7 +6,7 @@ siloBrief is a local command-line tool that turns reviewed Python project contex
 Markdown research brief. It is intended for development environments where source code and
 internet access are separated.
 
-The project is in pre-release development. Its frozen v0.1 behavior is documented in
+The current release is v0.1.0. Its frozen behavior is documented in
 [`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md).
 
 ## Requirements and installation
