@@ -55,7 +55,9 @@ def source_index() -> IndexData:
         edges=(
             IndexEdge("root-id", "call", "helper.run", "neighbor-id"),
             IndexEdge("neighbor-id", "call", "second", "second-id"),
+            IndexEdge("root-id", "import", "helper.run", "neighbor-id"),
             IndexEdge("root-id", "import", "urllib3", None),
+            IndexEdge("root-id", "import", ".models.SyncResult", None),
             IndexEdge("neighbor-id", "import", "json", None),
             IndexEdge("second-id", "import", "second-hop-canary", None),
             IndexEdge(
@@ -136,7 +138,7 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("path=1", visible)
         self.assertIn("connected=1", visible)
         hidden_values = (
-            "source-body-canary|internal-real-name|src/direct.py|src/second.py|"
+            "source-body-canary|internal-real-name|.models.SyncResult|src/direct.py|src/second.py|"
             "second-hop-canary|unselected-note-canary|root-id"
         )
         for hidden in hidden_values.split("|"):
