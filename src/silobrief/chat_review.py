@@ -191,6 +191,7 @@ def _public_dependencies(index: IndexData, node_ids: set[str]) -> tuple[str, ...
         and edge.kind == "import"
         and edge.target_id is None
         and isinstance(edge.target, str)
+        and not edge.target.startswith(".")
     )
 
 
