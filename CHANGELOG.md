@@ -17,6 +17,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `sb setup` and the public guides now warn that approved source is copied verbatim and that
   siloBrief does not detect secrets or provide security approval.
+- Generated briefs now start with one execution instruction, omit empty context sections, and no
+  longer repeat the task in a copy prompt or include a user-only checklist.
 
 ## [0.1.0] - 2026-08-04
 

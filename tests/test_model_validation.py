@@ -20,6 +20,7 @@ FIXTURE_ROOT = REPOSITORY_ROOT / "examples" / "model-validation-fixture"
 PACKET_ROOT = REPOSITORY_ROOT / "validation" / "v0.2" / "packets"
 GUIDE = REPOSITORY_ROOT / "validation" / "v0.2" / "MANUAL_MODEL_GATE.md"
 VERIFICATION = REPOSITORY_ROOT / "validation" / "v0.2" / "INSTALLED_WHEEL_VERIFICATION.md"
+MODEL_MESSAGE = "첨부한 main brief의 지시를 수행하세요."
 PRIVATE_VALUES = ("PRIVATE_MODEL_GATE_CANARY", "ignored-adapter-source", "private_adapter")
 MODULE_CANARIES = (
     "VALIDATION_MODULE_CANARY_RETRY",
@@ -82,15 +83,15 @@ TASKS = (
 
 PACKET_SHA256 = {
     "T01-MODIFY": (
-        "0ef829e88a240c29ec62b0281015abec48b6f1b7476ada412059cdfef140dd30",
+        "2abef2ffab73464640a803112245a6bb5a3a7636c1bbe561bb6639e066793204",
         "26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698",
     ),
     "T02-ADD": (
-        "55bee4ae3e5e34f3570c908d88227d8c181b497db916def96669552b6826c744",
+        "efd4ed00a621dc4c8f0249e39f86fdf708fe503c4dd51291b065c4cd3cbbc784",
         "7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574",
     ),
     "T03-REMOVE": (
-        "75fb9d63c0023a3afee3132b2740b308db9ed5cf68cea5087ea890630acb83ce",
+        "cf680593e7681bf54a9c4e8c56ae9fe845c450f9294e82556d3f87581ec07fa1",
         "4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597",
     ),
 }
@@ -236,6 +237,7 @@ class ModelValidationTests(unittest.TestCase):
     def test_evaluator_guide_freezes_prompts_and_distribution_includes_assets(self) -> None:
         guide = GUIDE.read_text(encoding="utf-8")
         normalized_guide = " ".join(line.removeprefix("> ").strip() for line in guide.splitlines())
+        self.assertIn(MODEL_MESSAGE, guide)
         for task in TASKS:
             self.assertIn(task.id, guide)
             self.assertIn(task.prompt, normalized_guide)
@@ -245,9 +247,9 @@ class ModelValidationTests(unittest.TestCase):
         self.assertIn("examples/model-validation-fixture", manifest)
         self.assertIn("validation/v0.2", manifest)
 
-    def test_installed_wheel_verification_matches_frozen_handoff(self) -> None:
+    def test_installed_wheel_verification_records_superseded_handoff(self) -> None:
         verification = VERIFICATION.read_text(encoding="utf-8")
-        self.assertIn("READY FOR MANUAL MODEL TEST", verification)
+        self.assertIn("SUPERSEDED", verification)
         self.assertIn("8b29934fe1ee144443600cf8a9a9675fc86ad981", verification)
         self.assertIn(
             "dc77f27ac740edfcac8c825e8e343e9e08a86abdcd27cfc4d5d4ad8250bcc037",
@@ -255,9 +257,6 @@ class ModelValidationTests(unittest.TestCase):
         )
         self.assertIn("30926093793", verification)
         self.assertIn("No GPT or Claude chat was opened", verification)
-        for digests in PACKET_SHA256.values():
-            for digest in digests:
-                self.assertIn(digest, verification)
 
 
 if __name__ == "__main__":

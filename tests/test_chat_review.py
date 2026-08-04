@@ -154,7 +154,9 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         self.assertEqual(disclosure_counts(rendered), (0, 0, 0, 0, 0))
-        self.assertEqual(rendered.main_markdown.count("- 없음"), 6)
+        self.assertEqual(rendered.main_markdown.count("- 없음"), 3)
+        for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
+            self.assertNotIn(f"## {title}", rendered.main_markdown)
 
     def test_rejects_invalid_or_empty_review_input(self) -> None:
         cases = (

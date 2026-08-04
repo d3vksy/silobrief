@@ -64,19 +64,22 @@ Model inputs:
 
 | File | SHA-256 |
 |---|---|
-| `T01-MODIFY/t01-modify.md` | `0ef829e88a240c29ec62b0281015abec48b6f1b7476ada412059cdfef140dd30` |
+| `T01-MODIFY/t01-modify.md` | `2abef2ffab73464640a803112245a6bb5a3a7636c1bbe561bb6639e066793204` |
 | `T01-MODIFY/t01-modify.sources.md` | `26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698` |
-| `T02-ADD/t02-add.md` | `55bee4ae3e5e34f3570c908d88227d8c181b497db916def96669552b6826c744` |
+| `T02-ADD/t02-add.md` | `efd4ed00a621dc4c8f0249e39f86fdf708fe503c4dd51291b065c4cd3cbbc784` |
 | `T02-ADD/t02-add.sources.md` | `7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574` |
-| `T03-REMOVE/t03-remove.md` | `75fb9d63c0023a3afee3132b2740b308db9ed5cf68cea5087ea890630acb83ce` |
+| `T03-REMOVE/t03-remove.md` | `cf680593e7681bf54a9c4e8c56ae9fe845c450f9294e82556d3f87581ec07fa1` |
 | `T03-REMOVE/t03-remove.sources.md` | `4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597` |
 
 ## Model procedure
 
 Run the six trials in fresh chats: three with GPT and three with Claude. For each trial, attach only
-the task's main and source companion files. Do not paste this guide, add an explanation, answer a
-clarifying question, or provide a follow-up hint. Record the model and mode exactly as shown by the
-service.
+the task's main and source companion files, then send exactly this message:
+
+> 첨부한 main brief의 지시를 수행하세요.
+
+Do not paste this guide, add another explanation, answer a clarifying question, or provide a
+follow-up hint. Record the model and mode exactly as shown by the service.
 
 ## Pass criteria
 

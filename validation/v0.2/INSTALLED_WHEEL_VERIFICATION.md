@@ -1,6 +1,10 @@
 # siloBrief v0.2 installed-wheel verification
 
-Status: `READY FOR MANUAL MODEL TEST`
+Status: `SUPERSEDED`
+
+This record applies to the packet format before Issue #75 simplified the AI-facing brief. It is
+retained as historical evidence only; the current model inputs and hashes are frozen in
+`MANUAL_MODEL_GATE.md` and checked against the current CLI by `tests/test_model_validation.py`.
 
 Verified at 2026-08-05 (Asia/Seoul), before any GPT or Claude trial.
 
