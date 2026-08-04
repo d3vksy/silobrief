@@ -7,6 +7,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Explicit review of selected function and class source excerpts with optional paired
+  `.sources.md` output.
+- Additional `EXPOSE` approval for boundary identifiers visible in approved source.
+
+### Changed
+
+- `sb setup` and the public guides now warn that approved source is copied verbatim and that
+  siloBrief does not detect secrets or provide security approval.
+
 ## [0.1.0] - 2026-08-04
 
 ### Added

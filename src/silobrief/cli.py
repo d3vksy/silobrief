@@ -22,6 +22,13 @@ from silobrief.state import (
 )
 from silobrief.stored_index import StoredIndexError
 
+_SOURCE_DISCLOSURE_WARNING = (
+    "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
+    "approve may be exported verbatim with comments, docstrings, strings, and internal "
+    "identifiers. siloBrief does not detect secrets or provide security approval; review all "
+    "output yourself."
+)
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -62,6 +69,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             print("created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/")
         else:
             print("validated existing .silobrief state")
+        print(_SOURCE_DISCLOSURE_WARNING)
 
     if arguments.command == "ignore":
         path_text = arguments.path

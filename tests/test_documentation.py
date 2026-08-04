@@ -29,7 +29,11 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
         "private source bodies",
         "secrets",
         "real names from ignored boundaries",
-        "does not automatically include source bodies",
+        "selected and approved",
+        "exported verbatim",
+        "does not detect secrets",
+        "EXPOSE",
+        ".sources.md",
     ),
     "README.ko.md": (
         "구체적인 작업",
@@ -39,7 +43,11 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
         "비공개 source body",
         "비밀값",
         "무시한 경계의 실제",
-        "source body를 자동으로 포함하지 않습니다",
+        "선택하고 승인",
+        "원문으로 공개",
+        "비밀정보를 탐지하지",
+        "EXPOSE",
+        ".sources.md",
     ),
 }
 
@@ -68,16 +76,19 @@ class ReleaseDocumentationTests(unittest.TestCase):
 
     def test_v0_1_release_metadata_is_frozen(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertIn(f"## [Unreleased]\n\n## [0.1.0] - {RELEASE_DATE}", changelog)
+        self.assertIn("## [Unreleased]", changelog)
+        self.assertIn(f"## [0.1.0] - {RELEASE_DATE}", changelog)
         for fragment in ("### Added", "### Fixed", "### Known limitations", "source bodies"):
             self.assertIn(fragment, changelog)
 
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
         self.assertIn("The current release is v0.1.0.", readme)
-        self.assertNotIn("pre-release development", readme)
+        self.assertIn("v0.2 pre-release development", readme)
+        self.assertIn("docs/V0_2_CONTRACT.md", readme)
         readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
         self.assertIn("현재 공개 버전은 v0.1.0입니다.", readme_ko)
-        self.assertNotIn("출시 전 개발 단계", readme_ko)
+        self.assertIn("v0.2 출시 전 개발 단계", readme_ko)
+        self.assertIn("docs/V0_2_CONTRACT.md", readme_ko)
 
         security = (REPOSITORY_ROOT / "SECURITY.md").read_text(encoding="utf-8")
         self.assertIn("| 0.1.x | :white_check_mark: |", security)

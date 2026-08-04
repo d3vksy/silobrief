@@ -2,11 +2,13 @@
 
 [English](README.md)
 
-siloBrief는 검토한 Python 프로젝트 맥락을 Markdown 조사 브리프 한 파일로 만드는 로컬
-CLI입니다. 소스가 있는 개발 환경과 인터넷 검색 환경이 분리된 상황을 대상으로 합니다.
+siloBrief는 검토한 Python 프로젝트 맥락을 Markdown 브리프로 만들고, 명시적으로 승인한
+경우 선택한 source excerpt를 동반 파일로 만드는 로컬 CLI입니다. 소스가 있는 개발 환경과
+인터넷 검색 환경이 분리된 상황을 대상으로 합니다.
 
 현재 공개 버전은 v0.1.0입니다. 해당 동작은
-[`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md)에 고정되어 있습니다.
+[`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md)에 고정되어 있습니다. `develop` 브랜치는
+[`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md)에 따른 v0.2 출시 전 개발 단계입니다.
 
 ## 요구사항과 설치
 
@@ -41,8 +43,11 @@ sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
 sb chat "retry request" --out .silobrief/exports/retry-brief.md
 ```
 
-이 fixture에서는 후보 `1`을 선택하고, 추가·제외 입력은 빈 줄로 끝낸 뒤 다섯 필드 그룹을
-승인합니다. 전체 미리보기를 확인하고 정확히 `WRITE`를 입력해야 Markdown 파일이 생성됩니다.
+이 fixture에서는 먼저 요청을 `y`로 확인하고 후보 `1`을 선택합니다. 추가·제외 입력은 빈
+줄로 끝내고 다섯 맥락 필드를 승인합니다. 이어서 표시되는 함수 원문을 직접 확인한 뒤에만
+`y`를 입력하고, 보이는 경계 식별자는 정확한 `EXPOSE`로 승인합니다. 두 파일의 전체
+미리보기를 확인하고 `WRITE`를 입력하면 `retry-brief.md`와 `retry-brief.sources.md`가
+생성됩니다. source를 거부하면 main 브리프만 생성됩니다.
 
 ## 유용한 입력 작성
 
@@ -51,9 +56,13 @@ sb chat "retry request" --out .silobrief/exports/retry-brief.md
 
 `sb log`에는 코드 구조만으로 알 수 없고 외부 공개를 승인한 맥락만 기록하십시오. 검토하고
 비식별화한 제어 흐름 제약이 한 예입니다. 비공개 source body, 비밀값 또는 무시한 경계의 실제
-이름을 메모에 복사하지 마십시오. 생성 Markdown은 source body를 자동으로 포함하지 않습니다.
-따라서 생략된 코드 세부사항이 필요한 작업에는 브리프만으로 충분하지 않을 수 있습니다.
-파일을 쓰기 전에 전체 미리보기를 항상 확인하십시오.
+이름을 메모에 복사하지 마십시오.
+
+무시하지 않은 Python 파일은 로컬 분석 대상입니다. 직접 선택하고 승인한 함수·클래스 조각만
+원문으로 공개될 수 있으며 source의 기본값은 거부입니다. 원문에는 주석, docstring, 문자열과
+내부 식별자가 포함될 수 있습니다. 경계 참조에는 정확한 `EXPOSE`가 추가로 필요하지만,
+siloBrief는 비밀정보를 탐지하지 않으며 결과의 안전성을 보장하지 않습니다. main과 모든
+`.sources.md` 동반 파일을 공유 전에 직접 확인하십시오.
 
 ## 명령
 
@@ -63,7 +72,7 @@ sb chat "retry request" --out .silobrief/exports/retry-brief.md
 | `sb ignore PATH --as TEXT [--alias NAME]` | 기존 경로를 제외하고 공개용 경계 설명을 등록합니다. |
 | `sb init` | 허용된 Python 파일에서 결정적인 구조 index를 만듭니다. |
 | `sb log PATH --comment TEXT` | 브리프에 포함될 수 있는 사용자 작성 메모를 저장합니다. |
-| `sb chat "PROMPT" --out FILE` | 후보 맥락을 검토하고 승인된 Markdown 한 파일을 만듭니다. |
+| `sb chat "PROMPT" --out FILE` | 검토한 main 브리프와 선택적인 `.sources.md` 동반 파일을 만듭니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
 `setup` 외 명령은 현재 디렉터리에서 프로젝트 루트를 찾습니다. `chat`에는 대화형 터미널,
@@ -80,8 +89,8 @@ sb chat "retry request" --out .silobrief/exports/retry-brief.md
 └─ exports/
 ```
 
-상태 파일은 로컬 구현 데이터이며 외부 전달용 결과가 아닙니다. 생성된 Markdown만 의도한
-산출물이며, 이동하기 전에 사람이 전체 내용을 다시 확인해야 합니다.
+상태 파일은 로컬 구현 데이터이며 외부 전달용 결과가 아닙니다. 생성된 main 브리프와 선택적인
+source 동반 파일만 의도한 산출물이며, 이동하기 전에 사람이 둘 다 전체 확인해야 합니다.
 
 ## 종료 코드
 
