@@ -50,12 +50,12 @@ class PythonStructureTests(unittest.TestCase):
         self.assertEqual(
             module.definitions,
             (
-                Definition("class", "Outer", "Outer", False, 1, 1),
-                Definition("class", "Inner", "Outer.Inner", False, 2, 5),
-                Definition("function", "method", "Outer.method", False, 4, 5),
-                Definition("function", "fetch", "Outer.fetch", True, 6, 5),
-                Definition("function", "top", "top", False, 8, 1),
-                Definition("function", "nested", "top.nested", False, 9, 5),
+                Definition("class", "Outer", "Outer", False, 1, 1, 1, 7),
+                Definition("class", "Inner", "Outer.Inner", False, 2, 5, 2, 3),
+                Definition("function", "method", "Outer.method", False, 4, 5, 4, 5),
+                Definition("function", "fetch", "Outer.fetch", True, 6, 5, 6, 7),
+                Definition("function", "top", "top", False, 8, 1, 8, 10),
+                Definition("function", "nested", "top.nested", False, 9, 5, 9, 10),
             ),
         )
         self.assertEqual(module.imports, ())
@@ -136,7 +136,7 @@ class PythonStructureTests(unittest.TestCase):
 
         self.assertEqual(
             result[0].definitions,
-            (Definition("function", "run", "run", False, 4, 1),),
+            (Definition("function", "run", "run", False, 4, 1, 4, 6),),
         )
         for canary in (
             "DOCSTRING_CANARY",
