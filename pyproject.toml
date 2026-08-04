@@ -29,6 +29,7 @@ dev = [
     "build>=1.2",
     "mypy>=1.15",
     "ruff>=0.11",
+    "setuptools>=77",
 ]
 
 [project.scripts]
