@@ -1,6 +1,8 @@
 # siloBrief v0.2 manual model gate
 
-Status: `PACKET FIXTURE FROZEN; INSTALLED-WHEEL VERIFICATION PENDING`
+Status: `READY FOR MANUAL MODEL TEST`
+
+Installed-wheel evidence: [`INSTALLED_WHEEL_VERIFICATION.md`](INSTALLED_WHEEL_VERIFICATION.md)
 
 This gate evaluates whether an external model can produce an actionable maintenance answer from
 the two files created by siloBrief. It does not validate security, market demand, or general model
