@@ -143,6 +143,11 @@ class BriefRendererTests(unittest.TestCase):
         )
         self.assertIn("공개 import", rendered.main_markdown)
         self.assertIn("## 바로 적용할 변경", rendered.main_markdown)
+        self.assertIn("## 패치", rendered.main_markdown)
+        self.assertIn("unified diff", rendered.main_markdown)
+        for marker in ("--- a/경로", "+++ b/경로", "@@", "`-`", "`+`"):
+            self.assertIn(marker, rendered.main_markdown)
+        self.assertNotIn("패치 또는 교체 코드", rendered.main_markdown)
         self.assertNotIn("TASK_ANSWER_CANARY", rendered.main_markdown)
         self.assertEqual(
             rendered.disclosure,
