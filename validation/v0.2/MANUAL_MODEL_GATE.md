@@ -1,16 +1,18 @@
 # siloBrief v0.2 manual model gate
 
-Status: `READY FOR MANUAL MODEL TEST`
+Status: `CLAUDE-GATE-PASS (3/3); GPT DEFERRED`
 
 Packet revision: `3`
 
 Revision 1 T01 and T02 responses were used only to improve output readability. They are excluded
 from the release gate because Issue #77 changed the response contract before T03. Revision 2 T01
 and T02 showed that machine-applicable hunk metadata created an irrelevant failure, so Issue #79
-reduced the contract to readable `-` and `+` changes. Revision 3 starts a new six-trial run; do not
-combine results across revisions.
+reduced the contract to readable `-` and `+` changes. Revision 3 results must not be combined with
+earlier revisions.
 
 Installed-wheel evidence: [`INSTALLED_WHEEL_VERIFICATION.md`](INSTALLED_WHEEL_VERIFICATION.md)
+
+Claude result: [`results/CLAUDE_GATE_RESULT.md`](results/CLAUDE_GATE_RESULT.md)
 
 This gate evaluates whether an external model can produce an actionable maintenance answer from
 the two files created by siloBrief. It does not validate security, market demand, or general model
@@ -79,7 +81,7 @@ Model inputs:
 | `T03-REMOVE/t03-remove.md` | `de1df5fd18c72840f401229e7fc6f25016ecfaa70ac5bd643ecf59c22fee8311` |
 | `T03-REMOVE/t03-remove.sources.md` | `4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597` |
 
-## Model procedure
+## Original model procedure
 
 Run the six trials in fresh chats: three with GPT and three with Claude. For each trial, attach only
 the task's main and source companion files, then send exactly this message:
@@ -103,3 +105,13 @@ A response passes only if all of these are true:
 Any ignored source content in a packet is a fatal packet failure. A model passes the release gate
 only with at least two passing tasks out of three. Both GPT and Claude must independently pass. Keep
 the raw responses and failures; do not revise prompts, thresholds, or packets after the first trial.
+
+## Recorded release decision
+
+Claude passed T01, T02, and T03 in revision 3. The exact Claude model name and mode were not
+recorded. GPT was not run, so the original dual-model release gate above is not complete.
+
+On 2026-08-05, the project owner accepted the Claude 3/3 result for the v0.2.0 MVP release and
+deferred GPT trials. This is a transparent release-scope decision, not evidence of cross-model
+effectiveness. Raw responses, hashes, manual decisions, and limitations are recorded in the
+linked Claude result.
