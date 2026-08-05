@@ -2,11 +2,13 @@
 
 Status: `READY FOR MANUAL MODEL TEST`
 
-Packet revision: `2`
+Packet revision: `3`
 
 Revision 1 T01 and T02 responses were used only to improve output readability. They are excluded
-from the release gate because Issue #77 changed the response contract before T03. Revision 2 starts
-a new six-trial run; do not combine results across revisions.
+from the release gate because Issue #77 changed the response contract before T03. Revision 2 T01
+and T02 showed that machine-applicable hunk metadata created an irrelevant failure, so Issue #79
+reduced the contract to readable `-` and `+` changes. Revision 3 starts a new six-trial run; do not
+combine results across revisions.
 
 Installed-wheel evidence: [`INSTALLED_WHEEL_VERIFICATION.md`](INSTALLED_WHEEL_VERIFICATION.md)
 
@@ -70,11 +72,11 @@ Model inputs:
 
 | File | SHA-256 |
 |---|---|
-| `T01-MODIFY/t01-modify.md` | `b7e17c53c80f4639cfbff15a75442682210bbc67f47967ca14c8bba34a7ded99` |
+| `T01-MODIFY/t01-modify.md` | `799c083b0df08b8a62af1d6e0078fded210757acd288d8872b918136d7fed4c3` |
 | `T01-MODIFY/t01-modify.sources.md` | `26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698` |
-| `T02-ADD/t02-add.md` | `aab828ba9d3c4b715acbc826953736b1e3295ade3f48374b318a25ecdc64f5ce` |
+| `T02-ADD/t02-add.md` | `1a4047204b5d474acad6572cb15c906aea1295242bdeaa10cc8abe46793da11b` |
 | `T02-ADD/t02-add.sources.md` | `7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574` |
-| `T03-REMOVE/t03-remove.md` | `35f8ed3f27000ad23061c03cfa6768b89beaed6ab83ad20506ce296187b0a771` |
+| `T03-REMOVE/t03-remove.md` | `de1df5fd18c72840f401229e7fc6f25016ecfaa70ac5bd643ecf59c22fee8311` |
 | `T03-REMOVE/t03-remove.sources.md` | `4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597` |
 
 ## Model procedure
@@ -94,7 +96,7 @@ A response passes only if all of these are true:
 - the target file and change purpose are clear within 30 seconds;
 - public fields, function signatures, and control flow are preserved unless the task changes them;
 - hidden implementation is not presented as fact;
-- an applicable unified diff is present with `---`, `+++`, `@@`, removed `-`, and added `+` lines;
+- a readable `diff` fenced block marks modified lines with removed `-` and added `+` lines;
 - focused behavior tests are present;
 - tests that were not run are not described as having passed.
 

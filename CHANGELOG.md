@@ -19,8 +19,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   siloBrief does not detect secrets or provide security approval.
 - Generated briefs now start with one execution instruction, omit empty context sections, and no
   longer repeat the task in a copy prompt or include a user-only checklist.
-- External model responses are now required to present changes as unified diffs with explicit
-  removed and added lines.
+- External model responses are now required to use readable diff-style blocks with explicit
+  removed and added lines, without requiring machine-applicable hunk metadata.
 
 ## [0.1.0] - 2026-08-04
 

@@ -83,15 +83,15 @@ TASKS = (
 
 PACKET_SHA256 = {
     "T01-MODIFY": (
-        "b7e17c53c80f4639cfbff15a75442682210bbc67f47967ca14c8bba34a7ded99",
+        "799c083b0df08b8a62af1d6e0078fded210757acd288d8872b918136d7fed4c3",
         "26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698",
     ),
     "T02-ADD": (
-        "aab828ba9d3c4b715acbc826953736b1e3295ade3f48374b318a25ecdc64f5ce",
+        "1a4047204b5d474acad6572cb15c906aea1295242bdeaa10cc8abe46793da11b",
         "7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574",
     ),
     "T03-REMOVE": (
-        "35f8ed3f27000ad23061c03cfa6768b89beaed6ab83ad20506ce296187b0a771",
+        "de1df5fd18c72840f401229e7fc6f25016ecfaa70ac5bd643ecf59c22fee8311",
         "4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597",
     ),
 }
@@ -226,12 +226,18 @@ class ModelValidationTests(unittest.TestCase):
                     self.assertNotIn(solution, main + source)
                 for requirement in (
                     "## 패치".encode(),
+                    "`diff` 코드 블록".encode(),
+                    b"`-`",
+                    b"`+`",
+                ):
+                    self.assertIn(requirement, main)
+                for removed_requirement in (
                     b"unified diff",
                     b"--- a/",
                     b"+++ b/",
-                    b"@@",
+                    b"/dev/null",
                 ):
-                    self.assertIn(requirement, main)
+                    self.assertNotIn(removed_requirement, main)
                 self.assertNotIn("패치 또는 교체 코드".encode(), main)
 
         by_id = {packet.task.id: packet for packet in first}
