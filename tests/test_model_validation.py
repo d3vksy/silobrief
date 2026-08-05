@@ -83,15 +83,15 @@ TASKS = (
 
 PACKET_SHA256 = {
     "T01-MODIFY": (
-        "2abef2ffab73464640a803112245a6bb5a3a7636c1bbe561bb6639e066793204",
+        "b7e17c53c80f4639cfbff15a75442682210bbc67f47967ca14c8bba34a7ded99",
         "26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698",
     ),
     "T02-ADD": (
-        "efd4ed00a621dc4c8f0249e39f86fdf708fe503c4dd51291b065c4cd3cbbc784",
+        "aab828ba9d3c4b715acbc826953736b1e3295ade3f48374b318a25ecdc64f5ce",
         "7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574",
     ),
     "T03-REMOVE": (
-        "cf680593e7681bf54a9c4e8c56ae9fe845c450f9294e82556d3f87581ec07fa1",
+        "35f8ed3f27000ad23061c03cfa6768b89beaed6ab83ad20506ce296187b0a771",
         "4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597",
     ),
 }
@@ -224,6 +224,15 @@ class ModelValidationTests(unittest.TestCase):
                     self.assertNotIn(canary.encode(), main + source)
                 for solution in FORBIDDEN_SOLUTION_SNIPPETS:
                     self.assertNotIn(solution, main + source)
+                for requirement in (
+                    "## 패치".encode(),
+                    b"unified diff",
+                    b"--- a/",
+                    b"+++ b/",
+                    b"@@",
+                ):
+                    self.assertIn(requirement, main)
+                self.assertNotIn("패치 또는 교체 코드".encode(), main)
 
         by_id = {packet.task.id: packet for packet in first}
         self.assertNotIn(b"retry_policy =", by_id["T01-MODIFY"].main)

@@ -2,6 +2,12 @@
 
 Status: `READY FOR MANUAL MODEL TEST`
 
+Packet revision: `2`
+
+Revision 1 T01 and T02 responses were used only to improve output readability. They are excluded
+from the release gate because Issue #77 changed the response contract before T03. Revision 2 starts
+a new six-trial run; do not combine results across revisions.
+
 Installed-wheel evidence: [`INSTALLED_WHEEL_VERIFICATION.md`](INSTALLED_WHEEL_VERIFICATION.md)
 
 This gate evaluates whether an external model can produce an actionable maintenance answer from
@@ -64,11 +70,11 @@ Model inputs:
 
 | File | SHA-256 |
 |---|---|
-| `T01-MODIFY/t01-modify.md` | `2abef2ffab73464640a803112245a6bb5a3a7636c1bbe561bb6639e066793204` |
+| `T01-MODIFY/t01-modify.md` | `b7e17c53c80f4639cfbff15a75442682210bbc67f47967ca14c8bba34a7ded99` |
 | `T01-MODIFY/t01-modify.sources.md` | `26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698` |
-| `T02-ADD/t02-add.md` | `efd4ed00a621dc4c8f0249e39f86fdf708fe503c4dd51291b065c4cd3cbbc784` |
+| `T02-ADD/t02-add.md` | `aab828ba9d3c4b715acbc826953736b1e3295ade3f48374b318a25ecdc64f5ce` |
 | `T02-ADD/t02-add.sources.md` | `7deb0e384fbf625f295ade605d6cb1da2d2bc4a9c68ebe83c6fb4e46b4ed6574` |
-| `T03-REMOVE/t03-remove.md` | `cf680593e7681bf54a9c4e8c56ae9fe845c450f9294e82556d3f87581ec07fa1` |
+| `T03-REMOVE/t03-remove.md` | `35f8ed3f27000ad23061c03cfa6768b89beaed6ab83ad20506ce296187b0a771` |
 | `T03-REMOVE/t03-remove.sources.md` | `4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597` |
 
 ## Model procedure
@@ -88,7 +94,7 @@ A response passes only if all of these are true:
 - the target file and change purpose are clear within 30 seconds;
 - public fields, function signatures, and control flow are preserved unless the task changes them;
 - hidden implementation is not presented as fact;
-- an applicable patch or complete replacement is present;
+- an applicable unified diff is present with `---`, `+++`, `@@`, removed `-`, and added `+` lines;
 - focused behavior tests are present;
 - tests that were not run are not described as having passed.
 
