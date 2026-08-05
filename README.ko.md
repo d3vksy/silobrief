@@ -6,9 +6,10 @@ siloBrief는 검토한 Python 프로젝트 맥락을 Markdown 브리프로 만�
 경우 선택한 source excerpt를 동반 파일로 만드는 로컬 CLI입니다. 소스가 있는 개발 환경과
 인터넷 검색 환경이 분리된 상황을 대상으로 합니다.
 
-현재 공개 버전은 v0.1.0입니다. 해당 동작은
-[`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md)에 고정되어 있습니다. `develop` 브랜치는
-[`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md)에 따른 v0.2 출시 전 개발 단계입니다.
+현재 공개 버전은 v0.2.0입니다. 해당 동작은
+[`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md)에 기록되어 있습니다. Claude는 합성
+유지보수 과제 3개를 모두 통과했으며 GPT 검증은 후속 과제이므로, 여러 모델에서의
+효과가 검증됐다고 표현하지 않습니다.
 
 ## 요구사항과 설치
 
@@ -26,7 +27,7 @@ sb --version
 예상 출력:
 
 ```text
-siloBrief 0.1.0
+siloBrief 0.2.0
 ```
 
 ## 빠른 시작

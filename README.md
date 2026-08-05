@@ -6,9 +6,9 @@ siloBrief is a local command-line tool that turns reviewed Python project contex
 Markdown brief and, when explicitly approved, a companion containing selected source excerpts.
 It is intended for development environments where source code and internet access are separated.
 
-The current release is v0.1.0. Its frozen behavior is documented in
-[`docs/V0_1_CONTRACT.md`](docs/V0_1_CONTRACT.md). v0.2 pre-release development is on the
-`develop` branch and is governed by [`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md).
+The current release is v0.2.0. Its behavior is documented in
+[`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md). Claude passed all three synthetic maintenance
+tasks; GPT validation remains follow-up work and cross-model effectiveness is not established.
 
 ## Requirements and installation
 
@@ -26,7 +26,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.1.0
+siloBrief 0.2.0
 ```
 
 ## Quick start

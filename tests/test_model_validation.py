@@ -20,6 +20,7 @@ FIXTURE_ROOT = REPOSITORY_ROOT / "examples" / "model-validation-fixture"
 PACKET_ROOT = REPOSITORY_ROOT / "validation" / "v0.2" / "packets"
 GUIDE = REPOSITORY_ROOT / "validation" / "v0.2" / "MANUAL_MODEL_GATE.md"
 VERIFICATION = REPOSITORY_ROOT / "validation" / "v0.2" / "INSTALLED_WHEEL_VERIFICATION.md"
+CLAUDE_RESULT = REPOSITORY_ROOT / "validation" / "v0.2" / "results" / "CLAUDE_GATE_RESULT.md"
 MODEL_MESSAGE = "첨부한 main brief의 지시를 수행하세요."
 PRIVATE_VALUES = ("PRIVATE_MODEL_GATE_CANARY", "ignored-adapter-source", "private_adapter")
 MODULE_CANARIES = (
@@ -94,6 +95,12 @@ PACKET_SHA256 = {
         "de1df5fd18c72840f401229e7fc6f25016ecfaa70ac5bd643ecf59c22fee8311",
         "4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597",
     ),
+}
+
+CLAUDE_RESPONSE_SHA256 = {
+    "T01-MODIFY.md": "ee4b72b598fec70b1d6f552c38b31d4a374ddeea8ad4fbed6dea87083b014936",
+    "T02-ADD.md": "a261bfc694ca8ef43daf2d3dce21aa4aa2fc51844e6e2eee90a8702f1d269807",
+    "T03-REMOVE.md": "d7e32f7309c985c3cd92f743fb0a1bf213d55df9f4c8c684e2f578f4f18c6ab2",
 }
 
 
@@ -262,16 +269,31 @@ class ModelValidationTests(unittest.TestCase):
         self.assertIn("examples/model-validation-fixture", manifest)
         self.assertIn("validation/v0.2", manifest)
 
-    def test_installed_wheel_verification_records_superseded_handoff(self) -> None:
+    def test_claude_gate_result_records_limited_release_decision(self) -> None:
+        result = CLAUDE_RESULT.read_text(encoding="utf-8")
+        self.assertIn("CLAUDE-GATE-PASS (3/3)", result)
+        self.assertIn("exact Claude model name and mode were not recorded", result)
+        self.assertIn("GPT was not run", result)
+        self.assertIn("does not establish cross-model effectiveness", result)
+
+        raw_root = CLAUDE_RESULT.parent / "claude"
+        for filename, expected in CLAUDE_RESPONSE_SHA256.items():
+            with self.subTest(filename=filename):
+                actual = hashlib.sha256((raw_root / filename).read_bytes()).hexdigest()
+                self.assertEqual(actual, expected)
+                self.assertIn(expected, result)
+
+    def test_installed_wheel_verification_records_release_candidate(self) -> None:
         verification = VERIFICATION.read_text(encoding="utf-8")
-        self.assertIn("SUPERSEDED", verification)
-        self.assertIn("8b29934fe1ee144443600cf8a9a9675fc86ad981", verification)
+        self.assertIn("PASS FOR v0.2.0 RELEASE CANDIDATE", verification)
+        self.assertIn("84747f3d2be6243f56a09d94998cdd1c54fbdc4b", verification)
+        self.assertIn("silobrief-0.2.0-py3-none-any.whl", verification)
         self.assertIn(
-            "dc77f27ac740edfcac8c825e8e343e9e08a86abdcd27cfc4d5d4ad8250bcc037",
+            "0d74eaabe402c2f6d00a85bca590017d91b3e4899c1d31daa247ed86c1485de5",
             verification,
         )
-        self.assertIn("30926093793", verification)
-        self.assertIn("No GPT or Claude chat was opened", verification)
+        self.assertIn("30967246484", verification)
+        self.assertIn("GPT validation is deferred", verification)
 
 
 if __name__ == "__main__":
