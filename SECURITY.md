@@ -4,9 +4,10 @@
 
 | Version | Supported |
 |---|---|
-| 0.1.x | :white_check_mark: |
+| 0.2.x | :white_check_mark: |
+| 0.1.x | :x: |
 
-The latest 0.1.x release is the currently supported line.
+The latest 0.2.x release is the currently supported line.
 
 ## Reporting a vulnerability
 

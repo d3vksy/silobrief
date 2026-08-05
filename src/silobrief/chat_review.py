@@ -21,6 +21,12 @@ from silobrief.review import (
     candidate_options,
     review_selection,
 )
+from silobrief.source_review import (
+    ApprovedSourceExcerpt,
+    SourceReviewError,
+    review_source_disclosure,
+)
+from silobrief.sources import SourceSnapshot
 from silobrief.state import NotesData
 
 
@@ -38,11 +44,14 @@ def review_brief(
     *,
     input_stream: TextIO,
     output_stream: TextIO,
+    snapshot: SourceSnapshot | None = None,
+    source_companion: str | None = None,
 ) -> RenderedBrief:
     if not prompt.strip():
         raise ChatReviewError("request must not be empty")
     if not input_stream.isatty() or not output_stream.isatty():
         raise ChatReviewError("review requires an interactive terminal")
+    _confirm_request(input_stream, output_stream)
 
     try:
         options = candidate_options(rank_candidates(prompt, index, notes))
@@ -71,8 +80,32 @@ def review_brief(
         selection.selected, selection.expanded, _read_fields(input_stream, output_stream)
     )
 
+    approved_sources: tuple[ApprovedSourceExcerpt, ...] = ()
+    if snapshot is not None:
+        try:
+            approved_sources = review_source_disclosure(
+                index,
+                snapshot,
+                reviewed,
+                input_stream=input_stream,
+                output_stream=output_stream,
+            )
+        except SourceReviewError as error:
+            raise ChatReviewError(str(error)) from error
+    if approved_sources and source_companion is None:
+        raise ChatReviewError("approved source requires a companion file name")
+
     try:
-        return render_brief(_brief_input(prompt, index, notes, reviewed))
+        return render_brief(
+            _brief_input(
+                prompt,
+                index,
+                notes,
+                reviewed,
+                source_companion=source_companion if approved_sources else None,
+                source_excerpts=approved_sources,
+            )
+        )
     except RenderError as error:
         raise ChatReviewError(str(error)) from error
 
@@ -91,6 +124,21 @@ def _show_candidates(options: tuple[CandidateOption, ...], output: TextIO) -> No
             f"comment={evidence.comment_matches} note={note} "
             f"connected={evidence.connected_nodes}\n",
         )
+
+
+def _confirm_request(input_stream: TextIO, output_stream: TextIO) -> None:
+    _write(
+        output_stream,
+        "Request completeness:\n"
+        "- work goal\n"
+        "- required deliverables\n"
+        "- completion or acceptance criteria\n",
+    )
+    if (
+        _read_line("Continue with this complete request? [y/N]: ", input_stream, output_stream)
+        != "y"
+    ):
+        raise ChatReviewError("request completeness was not confirmed")
 
 
 def _read_numbers(input_stream: TextIO, output_stream: TextIO) -> tuple[int, ...]:
@@ -162,6 +210,9 @@ def _brief_input(
     index: IndexData,
     notes: NotesData,
     selection: ReviewSelection,
+    *,
+    source_companion: str | None = None,
+    source_excerpts: tuple[ApprovedSourceExcerpt, ...] = (),
 ) -> BriefInput:
     nodes = (*selection.selected, *selection.expanded)
     node_ids = {node.id for node in nodes}
@@ -175,15 +226,15 @@ def _brief_input(
             if choices.symbols
             else ()
         ),
-        public_dependencies=_public_dependencies(index, node_ids)
-        if choices.public_libraries
-        else (),
+        public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
         boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
+        source_companion=source_companion,
+        source_excerpts=source_excerpts,
     )
 
 
-def _public_dependencies(index: IndexData, node_ids: set[str]) -> tuple[str, ...]:
+def _public_imports(index: IndexData, node_ids: set[str]) -> tuple[str, ...]:
     return tuple(
         edge.target
         for edge in index.edges

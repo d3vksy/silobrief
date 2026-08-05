@@ -7,6 +7,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-05
+
+### Added
+
+- Explicit review of selected function and class source excerpts with optional paired
+  `.sources.md` output.
+- Additional `EXPOSE` approval for boundary identifiers visible in approved source.
+
+### Changed
+
+- `sb setup` and the public guides now warn that approved source is copied verbatim and that
+  siloBrief does not detect secrets or provide security approval.
+- Generated briefs now start with one execution instruction, omit empty context sections, and no
+  longer repeat the task in a copy prompt or include a user-only checklist.
+- External model responses are now required to use readable diff-style blocks with explicit
+  removed and added lines, without requiring machine-applicable hunk metadata.
+
+### Known limitations
+
+- Claude passed all three synthetic maintenance tasks, but GPT and real-project validation remain
+  follow-up work; this release does not establish cross-model effectiveness, security, or demand.
+
 ## [0.1.0] - 2026-08-04
 
 ### Added

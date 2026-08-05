@@ -1,0 +1,1 @@
+"""Ignored synthetic boundary."""
