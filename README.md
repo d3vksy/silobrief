@@ -2,15 +2,46 @@
 
 [한국어](README.ko.md)
 
-siloBrief is a local command-line tool that turns reviewed Python project context into a
-Markdown brief and, when explicitly approved, a companion containing selected source excerpts.
-It is intended for development environments where source code and internet access are separated.
+siloBrief helps Python developers choose what project information and source code to share with
+an external AI assistant. It works locally, shows everything before writing, and creates Markdown
+files that you transfer yourself.
 
-The current release is v0.2.0. Its behavior is documented in
-[`docs/V0_2_CONTRACT.md`](docs/V0_2_CONTRACT.md). Claude passed all three synthetic maintenance
-tasks; GPT validation remains follow-up work and cross-model effectiveness is not established.
+Use it when an AI assistant cannot access your repository and some project paths must stay out of
+the material you share.
 
-## Requirements and installation
+siloBrief does not connect to an AI service or send files over the network.
+
+## What it produces
+
+You give siloBrief a development task and review the project items it finds. The result can
+contain two files:
+
+```text
+retry-brief.md          task and approved project context
+retry-brief.sources.md  source code you selected and approved
+```
+
+Send both files to the AI assistant when the `.sources.md` file exists. If you decline every
+source selection, siloBrief creates only the main brief.
+
+See a generated [main brief](validation/v0.2/packets/T01-MODIFY/t01-modify.md) and its
+[code attachment](validation/v0.2/packets/T01-MODIFY/t01-modify.sources.md).
+
+## How it works
+
+1. `setup` creates local siloBrief state in an existing project.
+2. `ignore` registers paths that siloBrief must not read.
+3. `init` scans the remaining Python files and builds a local search list.
+4. `log` optionally records a project fact that the code structure cannot show.
+5. `chat` finds relevant functions and classes, then asks you what may be included.
+6. After a complete preview and exact `WRITE` approval, siloBrief creates the Markdown files.
+
+The generated files are inputs for another AI assistant. siloBrief does not generate the code
+change itself.
+
+## Install
+
+Requirements:
 
 - Python 3.10 or newer
 - Windows or Ubuntu
@@ -29,68 +60,97 @@ Expected output:
 siloBrief 0.2.0
 ```
 
-## Quick start
+## Try the complete workflow
 
-Use a disposable copy of the synthetic
-[`parcel-sync-fixture`](examples/parcel-sync-fixture/README.md). From its root, run:
+Copy the synthetic [`parcel-sync-fixture`](examples/parcel-sync-fixture/README.md) to a disposable
+directory. Run the following commands from the copied project root:
 
 ```console
 sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
 sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
-sb chat "retry request" --out .silobrief/exports/retry-brief.md
+sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
-For this fixture, confirm the request with `y`, select candidate `1`, submit blank add and exclude
-prompts, and approve the five context field groups. The selected function is then shown in full.
-Answer `y` only after reviewing it, type `EXPOSE` to approve the visible boundary identifier, and
-inspect both complete previews. Exact `WRITE` creates `retry-brief.md` and
-`retry-brief.sources.md`. Declining the source excerpt creates only the main brief.
+During `chat`:
 
-## Writing useful input
+1. Confirm the task and choose the relevant function or class.
+2. Review each proposed project field.
+3. Choose whether to include the displayed source code. The default answer is no.
+4. If the source reveals an excluded boundary identifier, type `EXPOSE` only after reviewing it.
+5. Review the complete main brief and code attachment.
+6. Type `WRITE` to create the files.
 
-Write `PROMPT` as a concrete task rather than a few keywords. Include the required deliverables
-and acceptance criteria so the recipient can tell what a useful answer must contain.
+Open both generated files before moving them to a different environment.
 
-Use `sb log` only for context that project structure cannot show. Record only context that you
-have approved for external disclosure, such as a reviewed, de-identified control-flow constraint.
-Do not copy private source bodies, secrets, or real names from ignored boundaries into a note.
+## Write a useful task
 
-Non-ignored Python files are analyzed locally. Only selected and approved function or class
-excerpts can be exported verbatim; the source default is no. Verbatim source may contain
-comments, docstrings, strings, and internal identifiers. A boundary reference additionally needs
-exact `EXPOSE`, but siloBrief does not detect secrets or certify the result as safe. Review both
-the main file and any `.sources.md` companion before sharing them.
+Write `PROMPT` as a concrete task instead of a few keywords. State the required deliverables and
+acceptance criteria so the AI assistant can tell what a complete answer must contain.
+
+Enter only information approved for external disclosure with `sb log`.
+Do not put private source code, secrets, or real names from excluded areas in a project note. Only
+source code you select and approve can be included verbatim in the code attachment; the default
+answer is no.
+
+## Terms used in this project
+
+| Term | Plain meaning |
+|---|---|
+| Main brief | The main `.md` file containing the task and approved project context. It does not contain source code bodies. |
+| Code attachment | The optional `.sources.md` file containing source code selected and approved by the user. The technical contract calls this the source companion. |
+| Excluded path | A file or directory registered with `sb ignore`. siloBrief does not scan files below an excluded directory. |
+| Public name for an excluded area | An alias and description used in place of the excluded path's real name. The technical contract calls this a boundary alias. |
+| Local search list | `.silobrief/index.json`, which records allowed Python files, functions, and classes. The technical contract calls this the index. |
+| Project note | A user-written fact saved with `sb log` that may be offered during review. |
 
 ## Commands
 
-| Command | Behavior |
+| Command | What it does |
 |---|---|
-| `sb setup [PATH]` | Creates or validates `.silobrief/` state in an existing project. |
-| `sb ignore PATH --as TEXT [--alias NAME]` | Excludes an existing path and registers its public boundary description. |
-| `sb init` | Builds a deterministic structure index from allowed Python files. |
-| `sb log PATH --comment TEXT` | Stores a user-authored note that may appear in a brief. |
-| `sb chat "PROMPT" --out FILE` | Writes a reviewed main brief and optional approved `.sources.md` companion. |
+| `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
+| `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
+| `sb init` | Builds the local search list from allowed Python files. |
+| `sb log PATH --comment TEXT` | Saves an approved project note. |
+| `sb chat "PROMPT" --out FILE` | Reviews context and writes the main brief and optional code attachment. |
 | `sb --version` | Prints the installed siloBrief version. |
 
-Commands other than `setup` discover the project root from the current directory. `chat`
-requires an interactive terminal, a current index, and a new `.md` output path. Output inside
-the project must be below `.silobrief/exports/`; existing files are never overwritten.
+Commands other than `setup` find the project root from the current directory. `chat` requires an
+interactive terminal, a current index, and a new `.md` output path. Output inside the project must
+be below `.silobrief/exports/`. Existing files are never overwritten.
 
-## Local state
+## What siloBrief does and does not protect
 
-```text
-.silobrief/
-├─ config.json
-├─ index.json
-├─ notes.json
-└─ exports/
-```
+siloBrief:
 
-State files are local implementation data, not transfer-ready output. Only the generated main
-brief and optional source companion are intended artifacts, and both still require a complete
-human review before moving them.
+- does not follow symbolic links while indexing;
+- does not open registered excluded subtrees;
+- replaces references to excluded code with an approved public label in the main brief;
+- requires a preview before writing output; and
+- uses no network connection, language model, or automatic transfer.
+
+siloBrief does not detect secrets inside allowed files or clean text entered with `sb log`.
+Approved source code can contain comments, docstrings, strings, and internal identifiers. It is
+not a security scanner, an organizational export-approval system, or a guarantee against
+disclosure. Review every generated file before sharing it.
+
+## Current evidence
+
+The current release is v0.2.0. The same package produced identical Markdown files on Windows and
+Ubuntu. Claude completed three example code-maintenance tasks using those files.
+GPT validation remains follow-up work. These results do not establish effectiveness across
+models, real private projects, or independent users.
+
+- [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
+- [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)
+- [Claude gate result](validation/v0.2/results/CLAUDE_GATE_RESULT.md)
+
+## Technical reference
+
+- [v0.2 behavior contract](docs/V0_2_CONTRACT.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Security policy](SECURITY.md)
 
 ## Exit codes
 
@@ -101,22 +161,6 @@ human review before moving them.
 | `2` | Input, path, or configuration error |
 | `3` | Indexing or Python parsing error |
 | `4` | Boundary validation, approval, or output was blocked |
-
-## Boundaries
-
-- Indexing does not follow symbolic links or open registered excluded subtrees.
-- Boundary references are stored with an approved alias and description instead of their real
-  excluded names.
-- The tool does not use a network connection, language model, or automatic transfer.
-- Path-based exclusions do not identify sensitive names inside otherwise allowed files.
-
-siloBrief is not a security scanner, export-approval system, or guarantee against data
-disclosure. Its effect on research speed and user demand has not been validated.
-
-## Contributing
-
-The project accepts changes through an Issue and a pull request to `develop`. Read
-[`CONTRIBUTING.md`](CONTRIBUTING.md) before starting work.
 
 ## License
 
