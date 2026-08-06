@@ -7,6 +7,12 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Search comments and docstrings only within their owning module, class, or function instead of
+  copying module-wide text into every index node.
+- Run `sb init` once after upgrading to rebuild an existing index with scoped text tokens.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

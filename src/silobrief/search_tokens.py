@@ -6,7 +6,7 @@ import re
 import tokenize
 from dataclasses import dataclass
 
-from silobrief.python_structure import PythonParseError
+from silobrief.python_structure import Definition, PythonParseError
 from silobrief.sources import SourceFile
 
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
@@ -18,6 +18,12 @@ _CODING_COOKIE = re.compile(r"coding[:=][ \t]*[-\w.]+", re.ASCII)
 class SourceTextTokens:
     comments: tuple[str, ...]
     docstrings: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ScopedSourceTextTokens:
+    module: SourceTextTokens
+    definitions: tuple[tuple[str, SourceTextTokens], ...]
 
 
 def normalize_search_tokens(*values: str) -> tuple[str, ...]:
@@ -38,6 +44,20 @@ def extract_source_text_tokens(source: SourceFile) -> SourceTextTokens:
     return SourceTextTokens(
         comments=normalize_search_tokens(*comments),
         docstrings=normalize_search_tokens(*docstrings),
+    )
+
+
+def extract_scoped_source_text_tokens(
+    source: SourceFile,
+    definitions: tuple[Definition, ...],
+) -> ScopedSourceTextTokens:
+    tree = _parse_source(source)
+    docstrings = _scoped_docstrings(tree)
+    comments = _scoped_comments(source, definitions)
+    names = tuple(sorted({definition.qualified_name for definition in definitions}))
+    return ScopedSourceTextTokens(
+        module=_scope_tokens(None, comments, docstrings),
+        definitions=tuple((name, _scope_tokens(name, comments, docstrings)) for name in names),
     )
 
 
@@ -64,18 +84,110 @@ def _docstrings(tree: ast.Module) -> list[str]:
 
 
 def _comments(source: SourceFile) -> list[str]:
-    result: list[str] = []
+    return [value for _, value in _comment_entries(source)]
+
+
+def _comment_entries(source: SourceFile) -> list[tuple[int, str]]:
+    result: list[tuple[int, str]] = []
     try:
         tokens = tokenize.tokenize(io.BytesIO(source.content).readline)
         for token in tokens:
             if token.type != tokenize.COMMENT or _is_metadata_comment(token):
                 continue
-            result.append(token.string.removeprefix("#"))
+            result.append((token.start[0], token.string.removeprefix("#")))
     except tokenize.TokenError as error:
         line, column = _token_error_location(error)
         reason = str(error.args[0]) if error.args else "tokenization failed"
         raise PythonParseError(source.path, line, column, reason) from error
     return result
+
+
+def _scoped_comments(
+    source: SourceFile,
+    definitions: tuple[Definition, ...],
+) -> dict[str | None, list[str]]:
+    result: dict[str | None, list[str]] = {}
+    for line, value in _comment_entries(source):
+        owner = _comment_owner(line, definitions)
+        result.setdefault(owner, []).append(value)
+    return result
+
+
+def _comment_owner(line: int, definitions: tuple[Definition, ...]) -> str | None:
+    containing = tuple(
+        definition
+        for definition in definitions
+        if definition.start_line <= line <= definition.end_line
+    )
+    if not containing:
+        return None
+    owner = max(
+        containing,
+        key=lambda definition: (
+            definition.qualified_name.count("."),
+            definition.start_line,
+            -definition.end_line,
+        ),
+    )
+    return owner.qualified_name
+
+
+def _scoped_docstrings(tree: ast.Module) -> dict[str | None, list[str]]:
+    visitor = _DocstringVisitor()
+    visitor.visit(tree)
+    return visitor.values
+
+
+def _scope_tokens(
+    scope: str | None,
+    comments: dict[str | None, list[str]],
+    docstrings: dict[str | None, list[str]],
+) -> SourceTextTokens:
+    return SourceTextTokens(
+        comments=normalize_search_tokens(*comments.get(scope, ())),
+        docstrings=normalize_search_tokens(*docstrings.get(scope, ())),
+    )
+
+
+class _DocstringVisitor(ast.NodeVisitor):
+    def __init__(self) -> None:
+        self.values: dict[str | None, list[str]] = {}
+        self._contexts: list[str] = []
+
+    def visit_Module(self, node: ast.Module) -> None:
+        self._record(None, node)
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self._visit_definition(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_definition(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_definition(node)
+
+    def _visit_definition(
+        self,
+        node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> None:
+        parent = self._contexts[-1] if self._contexts else None
+        qualified_name = f"{parent}.{node.name}" if parent else node.name
+        self._record(qualified_name, node)
+        self._contexts.append(qualified_name)
+        try:
+            self.generic_visit(node)
+        finally:
+            self._contexts.pop()
+
+    def _record(
+        self,
+        scope: str | None,
+        node: ast.Module | ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    ) -> None:
+        value = ast.get_docstring(node, clean=False)
+        if value is not None:
+            self.values.setdefault(scope, []).append(value)
 
 
 def _is_metadata_comment(token: tokenize.TokenInfo) -> bool:

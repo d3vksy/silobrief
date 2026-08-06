@@ -12,7 +12,7 @@ from silobrief.boundary_placeholders import (
     import_target,
 )
 from silobrief.python_structure import ImportEntry, ModuleStructure, SymbolUse
-from silobrief.search_tokens import extract_source_text_tokens, normalize_search_tokens
+from silobrief.search_tokens import extract_scoped_source_text_tokens, normalize_search_tokens
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import BoundaryData, ConfigData
 
@@ -147,7 +147,8 @@ def _build_module_context(
 ) -> _ModuleContext:
     module_name = _module_name(source.path)
     module_id = stable_node_id(source.path, "module", module_name)
-    text_tokens = extract_source_text_tokens(source)
+    text_tokens = extract_scoped_source_text_tokens(source, structure.definitions)
+    definition_tokens = dict(text_tokens.definitions)
     path_tokens = normalize_search_tokens(source.path.removesuffix(".py"))
     boundary_matcher = BoundaryMatcher(source.path, structure.imports, boundaries)
     import_tokens = normalize_search_tokens(
@@ -158,6 +159,7 @@ def _build_module_context(
     context_ids: dict[str, str] = {}
     seen_ids: set[str] = set()
     for definition in structure.definitions:
+        scoped_tokens = definition_tokens[definition.qualified_name]
         node_id = stable_node_id(source.path, definition.kind, definition.qualified_name)
         context_ids.setdefault(definition.qualified_name, node_id)
         if node_id in seen_ids:
@@ -174,8 +176,8 @@ def _build_module_context(
                     path=path_tokens,
                     symbol=normalize_search_tokens(definition.qualified_name),
                     imports=import_tokens,
-                    comments=text_tokens.comments,
-                    docstrings=text_tokens.docstrings,
+                    comments=scoped_tokens.comments,
+                    docstrings=scoped_tokens.docstrings,
                 ),
             )
         )
@@ -187,8 +189,8 @@ def _build_module_context(
         context_ids=context_ids,
         path_tokens=path_tokens,
         import_tokens=import_tokens,
-        comment_tokens=text_tokens.comments,
-        docstring_tokens=text_tokens.docstrings,
+        comment_tokens=text_tokens.module.comments,
+        docstring_tokens=text_tokens.module.docstrings,
         boundary_matcher=boundary_matcher,
     )
 
