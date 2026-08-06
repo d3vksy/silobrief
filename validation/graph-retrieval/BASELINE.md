@@ -2,6 +2,9 @@
 
 Status: **baseline complete / offline comparison only / product change NO-GO**
 
+후속 비교는 [COMPARISON.md](COMPARISON.md)에 기록했다. 두 후보 모두 제품 반영 기준을 넘지
+못해 최종 판정은 NO-GO다.
+
 이 기준선의 목적은 GraphRAG 기능을 정당화하는 것이 아니라, 현재 lexical ranking과 1-hop
 확장이 실제 유지보수 요청에서 무엇을 놓치는지 확인하는 것이다. 측정 결과는 개선 실험을
 계속할 근거는 되지만, 지금 바로 제품 ranking이나 index schema를 바꿀 근거는 되지 않는다.
