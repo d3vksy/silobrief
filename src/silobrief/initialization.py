@@ -36,7 +36,18 @@ def initialize_index(start: Path) -> tuple[SourceWarning, ...]:
         save_index(root, render_index_json(index))
     except SetupError as error:
         raise IndexingError(str(error)) from error
-    return before.warnings
+    if before.files:
+        return before.warnings
+    return (
+        *before.warnings,
+        SourceWarning(
+            path=".",
+            reason=(
+                "no supported Python files were found; "
+                "siloBrief currently supports Python projects only"
+            ),
+        ),
+    )
 
 
 def _source_change_message(changes: SourceChanges) -> str:

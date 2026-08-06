@@ -18,8 +18,10 @@ from silobrief.review import (
     DisclosureChoices,
     ReviewError,
     ReviewSelection,
+    SymbolOption,
     candidate_options,
     review_selection,
+    selector_symbol_options,
 )
 from silobrief.source_review import (
     ApprovedSourceExcerpt,
@@ -51,18 +53,20 @@ def review_brief(
         raise ChatReviewError("request must not be empty")
     if not input_stream.isatty() or not output_stream.isatty():
         raise ChatReviewError("review requires an interactive terminal")
+    if not index.nodes:
+        raise ChatReviewError(
+            "no indexed Python symbols are available; "
+            "siloBrief currently supports Python projects only"
+        )
     _confirm_request(input_stream, output_stream)
 
     try:
         options = candidate_options(rank_candidates(prompt, index, notes))
     except ReviewError as error:
         raise ChatReviewError(str(error)) from error
-    if not options:
-        raise ChatReviewError("no candidate matches the request")
-
     _show_candidates(options, output_stream)
     selected_numbers = _read_numbers(input_stream, output_stream)
-    added = _read_selectors("Add path or node ID", input_stream, output_stream)
+    added = _read_additions(index, input_stream, output_stream)
     excluded = _read_selectors("Exclude path or node ID", input_stream, output_stream)
     try:
         selection = review_selection(
@@ -112,6 +116,8 @@ def review_brief(
 
 def _show_candidates(options: tuple[CandidateOption, ...], output: TextIO) -> None:
     _write(output, "Candidates:\n")
+    if not options:
+        _write(output, "- none\n")
     for option in options:
         evidence = option.evidence
         note = "yes" if evidence.note_match else "no"
@@ -156,6 +162,59 @@ def _read_selectors(label: str, input_stream: TextIO, output_stream: TextIO) -> 
     while value := _read_line(f"{label} (blank to finish): ", input_stream, output_stream):
         values.append(value)
     return tuple(values)
+
+
+def _read_additions(
+    index: IndexData,
+    input_stream: TextIO,
+    output_stream: TextIO,
+) -> tuple[str, ...]:
+    selectors: list[str] = []
+    while selector := _read_line(
+        "Add path or node ID (blank to finish): ", input_stream, output_stream
+    ):
+        try:
+            options = selector_symbol_options(index, selector)
+        except ReviewError as error:
+            raise ChatReviewError(str(error)) from error
+        selectors.append(selector)
+        if options is None:
+            continue
+        _show_symbol_options(selector, options, output_stream)
+        for number in _read_symbol_numbers(input_stream, output_stream):
+            if number > len(options):
+                raise ChatReviewError(f"unknown symbol number: {number}")
+            selectors.append(options[number - 1].node.id)
+    return tuple(selectors)
+
+
+def _show_symbol_options(
+    path: str,
+    options: tuple[SymbolOption, ...],
+    output: TextIO,
+) -> None:
+    _write(output, f"Symbols in `{path}`:\n")
+    if not options:
+        _write(output, "- none\n")
+    for option in options:
+        _write(output, f"{option.number}. {option.node.kind} {option.node.qualified_name}\n")
+
+
+def _read_symbol_numbers(input_stream: TextIO, output_stream: TextIO) -> tuple[int, ...]:
+    value = _read_line(
+        "Select symbol numbers from this file (blank for module only): ",
+        input_stream,
+        output_stream,
+    )
+    if not value:
+        return ()
+    try:
+        numbers = tuple(int(part) for part in value.split())
+    except ValueError as error:
+        raise ChatReviewError("symbol numbers must be space-separated positive integers") from error
+    if any(number < 1 for number in numbers):
+        raise ChatReviewError("symbol numbers must be space-separated positive integers")
+    return numbers
 
 
 def _show_selection(selection: ReviewSelection, output: TextIO) -> None:
