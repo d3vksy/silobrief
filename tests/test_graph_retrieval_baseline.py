@@ -216,6 +216,16 @@ def build_corpora(root: Path) -> dict[CorpusName, IndexData]:
             alias="benchmark-harness",
             description="Baseline harness",
         ),
+        BoundaryData(
+            path="tests/test_graph_retrieval_comparison.py",
+            alias="comparison-harness",
+            description="Comparison harness",
+        ),
+        BoundaryData(
+            path="tests/__init__.py",
+            alias="test-package-marker",
+            description="Test package marker",
+        ),
     )
     fixture_boundaries = (
         BoundaryData(

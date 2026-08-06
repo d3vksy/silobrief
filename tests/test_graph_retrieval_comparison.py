@@ -46,6 +46,13 @@ class GraphRetrievalComparisonTests(unittest.TestCase):
                     self.assertLessEqual(len(task.ranked), 10)
                     self.assertLessEqual(len(task.expanded), 10)
 
+    def test_source_first_keeps_the_fixed_repository_split(self) -> None:
+        source_first = self.result.strategies[0]
+        for task in source_first.tasks[3:]:
+            with self.subTest(task=task.id):
+                self.assertTrue(all(node.path.startswith("src/") for node in task.ranked[:7]))
+                self.assertTrue(all(not node.path.startswith("src/") for node in task.ranked[7:]))
+
     def test_gate_decision_lists_every_failed_criterion(self) -> None:
         for strategy in self.result.strategies:
             with self.subTest(strategy=strategy.name):
