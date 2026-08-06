@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-4f46e5" alt="릴리스 v0.2.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-4f46e5" alt="릴리스 v0.3.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.2.0
+siloBrief 0.3.0
 ```
 
 ## 명령어
@@ -128,7 +128,8 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 
 `chat`을 실행하면 다음 순서로 진행됩니다.
 
-1. 요청한 작업이 맞는지 확인하고 관련 함수나 클래스를 고릅니다.
+1. 요청한 작업이 맞는지 확인하고 관련 함수나 클래스를 고릅니다. 추천 후보에 원하는 코드가
+   없다면 색인에 있는 Python 파일의 정확한 상대 경로를 입력한 뒤 함수나 클래스를 고릅니다.
 2. AI 요청 문서에 넣을 프로젝트 정보를 하나씩 검토합니다.
 3. 화면에 표시된 소스 코드를 첨부할지 선택합니다. 기본값은 `아니요`입니다.
 4. 제외 영역의 실제 식별자가 노출될 때는 내용을 확인한 뒤 `EXPOSE`를 입력해야 합니다.
@@ -176,12 +177,14 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.2.0입니다. Windows와 Ubuntu에서 같은 패키지와 같은 입력으로 동일한
-Markdown이 생성되는 것을 확인했습니다. Claude에는 예제 코드 유지보수 과제 세 개를 전달했고,
-세 과제 모두 요구한 형식의 답변을 받았습니다.
+현재 공개 버전은 v0.3.0입니다. v0.2의 검토·출력 방식을 그대로 유지하면서, 추천 결과에 원하는
+코드가 없을 때 정확한 파일 경로로 함수와 클래스를 찾는 기능을 추가했습니다. 색인에 지원하는
+Python 심볼이 하나도 없으면 빈 문서를 만들지 않고 지원 범위를 분명하게 안내합니다.
 
-GPT 검증은 후속 과제입니다. 현재 결과만으로 여러 AI 모델, 실제 비공개 프로젝트, 독립 사용자에게
-동일한 효과가 있다고 말할 수는 없습니다.
+v0.2 패키지는 Windows와 Ubuntu에서 같은 입력으로 동일한 Markdown을 만들었고, Claude에 전달한
+합성 코드 유지보수 과제 세 개도 모두 요구한 형식의 답변을 받았습니다. GPT 검증은 후속 과제입니다.
+현재 결과만으로 여러 AI 모델, 실제 비공개 프로젝트, 독립 사용자에게 같은 효과가 있다고 말할 수는
+없습니다.
 
 - [설치 wheel 검증](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [수동 모델 평가 절차](validation/v0.2/MANUAL_MODEL_GATE.md)
@@ -199,7 +202,7 @@ GPT 검증은 후속 과제입니다. 현재 결과만으로 여러 AI 모델, �
 
 ## 문서
 
-- [v0.2 동작 계약](docs/V0_2_CONTRACT.md)
+- [출력 및 보호 범위 계약](docs/V0_2_CONTRACT.md)
 - [보안 문제 신고 안내](SECURITY.md)
 
 ## 기여하기

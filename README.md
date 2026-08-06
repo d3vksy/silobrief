@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-4f46e5" alt="Release v0.2.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-4f46e5" alt="Release v0.3.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.2.0
+siloBrief 0.3.0
 ```
 
 ## Commands
@@ -123,7 +123,8 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 
 During `chat`:
 
-1. Confirm the task and choose the relevant function or class.
+1. Confirm the task and choose the relevant function or class. If the suggested candidates miss
+   the target, enter an exact indexed Python file path and select its functions or classes.
 2. Review each proposed project field.
 3. Choose whether to include the displayed source code. The default answer is no.
 4. If the source reveals an excluded boundary identifier, type `EXPOSE` only after reviewing it.
@@ -169,10 +170,13 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.2.0. The same package produced identical Markdown files on Windows and
-Ubuntu. Claude completed three example code-maintenance tasks using those files.
-GPT validation remains follow-up work. These results do not establish effectiveness across
-models, real private projects, or independent users.
+The current release is v0.3.0. It keeps the reviewed v0.2 output flow and adds exact-path symbol
+selection when lexical suggestions miss the intended code. It also stops before review with a clear
+Python-only message when the index contains no supported symbols.
+
+The v0.2 package produced identical Markdown files on Windows and Ubuntu, and Claude completed three
+synthetic code-maintenance tasks using those files. GPT validation remains follow-up work. These
+results do not establish effectiveness across models, real private projects, or independent users.
 
 - [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)
@@ -190,7 +194,7 @@ models, real private projects, or independent users.
 
 ## Documentation
 
-- [v0.2 behavior contract](docs/V0_2_CONTRACT.md)
+- [Output and safety contract](docs/V0_2_CONTRACT.md)
 - [Security policy](SECURITY.md)
 
 ## Contributing
