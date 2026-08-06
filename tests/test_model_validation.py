@@ -14,6 +14,8 @@ from pathlib import Path
 from unittest import mock
 
 from silobrief.cli import main
+from silobrief.current_index import load_current_index
+from silobrief.review import ReviewError, selector_symbol_options
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPOSITORY_ROOT / "examples" / "model-validation-fixture"
@@ -201,6 +203,79 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
 
 
 class ModelValidationTests(unittest.TestCase):
+    def test_guided_outline_cannot_select_a_symlinked_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            project.mkdir()
+            outside = root / "outside.py"
+            outside.write_text(
+                "SYMLINK_GUIDED_CANARY = True\n\ndef outside_function():\n    return None\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            linked = project / "linked.py"
+            try:
+                linked.symlink_to(outside)
+            except OSError as error:
+                self.skipTest(f"symbolic links unavailable: {error}")
+
+            terminal = TtyBuffer()
+            with contextlib.redirect_stdout(terminal), contextlib.redirect_stderr(terminal):
+                self.assertEqual(main(["setup", str(project)]), 0)
+                with working_directory(project):
+                    self.assertEqual(main(["init"]), 0)
+            index, _ = load_current_index(project)
+
+        self.assertNotIn("SYMLINK_GUIDED_CANARY", repr(index))
+        with self.assertRaisesRegex(ReviewError, "not present in the current index"):
+            selector_symbol_options(index, "linked.py")
+
+    def test_guided_outline_covers_the_three_frozen_task_files(self) -> None:
+        expected = {
+            "src/parcel_lab/retry.py": (("function", "retry_request"),),
+            "src/parcel_lab/labels.py": (
+                ("class", "LabelOptions"),
+                ("function", "format_label"),
+            ),
+            "src/parcel_lab/cleanup.py": (("function", "choose_reference"),),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "fixture"
+            shutil.copytree(FIXTURE_ROOT, project)
+            terminal = TtyBuffer()
+            with contextlib.redirect_stdout(terminal), contextlib.redirect_stderr(terminal):
+                self.assertEqual(main(["setup", str(project)]), 0)
+                with working_directory(project):
+                    self.assertEqual(
+                        main(
+                            [
+                                "ignore",
+                                "private_adapter",
+                                "--as",
+                                "External delivery adapter",
+                                "--alias",
+                                "delivery-boundary",
+                            ]
+                        ),
+                        0,
+                    )
+                    self.assertEqual(main(["init"]), 0)
+            index, _ = load_current_index(project)
+
+        for path, symbols in expected.items():
+            with self.subTest(path=path):
+                options = selector_symbol_options(index, path)
+                self.assertIsNotNone(options)
+                self.assertEqual(
+                    tuple(
+                        (option.node.kind, option.node.qualified_name) for option in options or ()
+                    ),
+                    symbols,
+                )
+        with self.assertRaisesRegex(ReviewError, "not present in the current index"):
+            selector_symbol_options(index, "private_adapter/client.py")
+
     def test_frozen_packets_match_current_cli_and_preserve_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as first_directory:
             first = generate_packets(Path(first_directory))

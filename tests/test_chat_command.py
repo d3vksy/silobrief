@@ -109,6 +109,7 @@ def prepare_project(project: Path) -> Path:
 
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\n"
 NO_SOURCE_REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\nn\n"
+GUIDED_REVIEW_INPUT = "y\n\npackage/service.py\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\n"
 
 
 def run_chat(
@@ -193,6 +194,75 @@ class ChatCommandTests(unittest.TestCase):
             self.assertTrue(destination.is_file())
             self.assertFalse(destination.with_name("context-only.sources.md").exists())
             self.assertIn('source_companion: "none"', destination.read_text(encoding="utf-8"))
+
+    def test_selects_an_approved_source_from_a_file_outline(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            output = ".silobrief/exports/guided.md"
+
+            result, _, stdout, stderr = run_chat(
+                project,
+                output,
+                GUIDED_REVIEW_INPUT + "WRITE\n",
+            )
+
+            destination = project / output
+            source_destination = destination.with_name("guided.sources.md")
+            self.assertEqual(result, 0)
+            self.assertEqual(stderr, "")
+            self.assertIn("Symbols in `package/service.py`:", stdout)
+            self.assertIn("1. function run", stdout)
+            generated = source_destination.read_text(encoding="utf-8")
+            self.assertIn("def run():", generated)
+            self.assertNotIn("private-boundary-canary", generated)
+
+    def test_rejects_an_invalid_guided_symbol_without_writing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            output = ".silobrief/exports/invalid-guided.md"
+
+            result, _, _, stderr = run_chat(
+                project,
+                output,
+                "y\n\npackage/service.py\n2\n",
+            )
+
+            self.assertEqual(result, 4)
+            self.assertIn("unknown symbol number", stderr)
+            self.assertFalse((project / output).exists())
+            self.assertFalse((project / ".silobrief/exports/invalid-guided.sources.md").exists())
+
+    def test_explains_python_only_scope_when_index_has_no_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            source = project / "src" / "App.tsx"
+            source.parent.mkdir()
+            source.write_text(
+                "export function App() { return <button>Start</button>; }\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            before = source.read_bytes()
+            self.assertEqual(main(["setup", str(project)]), 0)
+            init_stderr = io.StringIO()
+            with (
+                working_directory(project),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(init_stderr),
+            ):
+                self.assertEqual(main(["init"]), 0)
+
+            output = ".silobrief/exports/frontend.md"
+            result, _, _, chat_stderr = run_chat(project, output, "y\n\n\n")
+
+            self.assertIn("no supported Python files were found", init_stderr.getvalue())
+            self.assertEqual(result, 4)
+            self.assertIn("siloBrief currently supports Python projects only", chat_stderr)
+            self.assertFalse((project / output).exists())
+            self.assertFalse((project / ".silobrief/exports/frontend.sources.md").exists())
+            self.assertEqual(source.read_bytes(), before)
 
     def test_maps_invalid_input_and_index_state_to_contract_codes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

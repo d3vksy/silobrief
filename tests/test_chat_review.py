@@ -89,7 +89,7 @@ def source_notes() -> NotesData:
     )
 
 
-APPROVED_INPUT = "y\n1\nsrc/direct.py\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
+APPROVED_INPUT = "y\n1\nsrc/direct.py\n\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
 
 
 def disclosure_counts(rendered: RenderedBrief) -> tuple[int, int, int, int, int]:
@@ -138,11 +138,12 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("path=1", visible)
         self.assertIn("connected=1", visible)
         hidden_values = (
-            "source-body-canary|internal-real-name|.models.SyncResult|src/direct.py|src/second.py|"
+            "source-body-canary|internal-real-name|.models.SyncResult|src/second.py|"
             "second-hop-canary|unselected-note-canary|root-id"
         )
         for hidden in hidden_values.split("|"):
             self.assertNotIn(hidden, visible + rendered.main_markdown)
+        self.assertNotIn("src/direct.py", rendered.main_markdown)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
         rendered = review_brief(
@@ -158,10 +159,84 @@ class ChatReviewTests(unittest.TestCase):
         for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
             self.assertNotIn(f"## {title}", rendered.main_markdown)
 
+    def test_recovers_from_empty_candidates_with_a_file_outline(self) -> None:
+        module = node("module", "src/guided.py", "module", "guided")
+        service = node("service", "src/guided.py", "class", "Service")
+        method = node("method", "src/guided.py", "function", "run", "Service.run")
+        index = IndexData(
+            config_digest="a" * 64,
+            edges=(),
+            index_version=1,
+            nodes=(method, module, service),
+            source_digest="b" * 64,
+            stale=False,
+        )
+        output = TtyBuffer()
+
+        rendered = review_brief(
+            "no matching terms",
+            index,
+            NotesData(notes=[], notes_version=1),
+            input_stream=TtyBuffer("y\n\nsrc/guided.py\n1 1\n\n\ny\ny\nn\nn\nn\n"),
+            output_stream=output,
+        )
+        node_id_output = TtyBuffer()
+        selected_by_id = review_brief(
+            "no matching terms",
+            index,
+            NotesData(notes=[], notes_version=1),
+            input_stream=TtyBuffer("y\n\nmodule\nservice\n\n\ny\ny\nn\nn\nn\n"),
+            output_stream=node_id_output,
+        )
+
+        visible = output.getvalue()
+        self.assertEqual(rendered, selected_by_id)
+        self.assertIn("Candidates:\n- none", visible)
+        self.assertIn("Symbols in `src/guided.py`:", visible)
+        self.assertIn("1. class Service", visible)
+        self.assertIn("2. function Service.run", visible)
+        outline = visible.split("Symbols in `src/guided.py`:\n", 1)[1].split(
+            "Select symbol numbers", 1
+        )[0]
+        self.assertNotIn("module guided", outline)
+        self.assertNotIn("Symbols in", node_id_output.getvalue())
+        self.assertIn("class Service", visible)
+        self.assertIn("src/guided.py", rendered.main_markdown)
+        self.assertEqual(rendered.disclosure.symbol_names, 2)
+
+    def test_rejects_unknown_file_and_invalid_outline_number(self) -> None:
+        module = node("module", "src/guided.py", "module", "guided")
+        function = node("function", "src/guided.py", "function", "run")
+        index = IndexData(
+            config_digest="a" * 64,
+            edges=(),
+            index_version=1,
+            nodes=(module, function),
+            source_digest="b" * 64,
+            stale=False,
+        )
+        cases = (
+            ("y\n\n../secret.py\n", "not present in the current index"),
+            ("y\n\nsrc/guided.py\n-1\n", "positive integers"),
+            ("y\n\nsrc/guided.py\n0\n", "symbol number"),
+            ("y\n\nsrc/guided.py\none\n", "positive integers"),
+            ("y\n\nsrc/guided.py\n2\n", "symbol number"),
+        )
+        for input_text, message in cases:
+            with self.subTest(message=message):
+                with self.assertRaisesRegex(ChatReviewError, message):
+                    review_brief(
+                        "no matching terms",
+                        index,
+                        NotesData(notes=[], notes_version=1),
+                        input_stream=TtyBuffer(input_text),
+                        output_stream=TtyBuffer(),
+                    )
+
     def test_rejects_invalid_or_empty_review_input(self) -> None:
         cases = (
             (" ", "", "request"),
-            ("absent", "y\n", "candidate"),
+            ("absent", "y\n", "start selection"),
             ("retry", "y\n2\n\n\n", "candidate number"),
             ("retry", "y\n1\n\n\nY\n", "y or n"),
         )
