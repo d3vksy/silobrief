@@ -3,7 +3,10 @@ include CODE_OF_CONDUCT.md
 include CONTRIBUTING.md
 include README.ko.md
 include SECURITY.md
-recursive-include docs *.md
+exclude docs/*.md
+include docs/V0_1_CONTRACT.md
+include docs/V0_2_CONTRACT.md
+include docs/assets/silobrief-wordmark.svg
 recursive-include examples/parcel-sync-fixture *.md *.py
 recursive-include examples/model-validation-fixture *.md *.py
 recursive-include validation/v0.2 *.md

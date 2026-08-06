@@ -7,6 +7,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-06
+
+### Added
+
+- Continue an interactive review with an exact indexed Python file path and select its classes or
+  functions, including when lexical search finds no candidates.
+
+### Changed
+
+- Search comments and docstrings only within their owning module, class, or function instead of
+  copying module-wide text into every index node.
+- Run `sb init` once after upgrading to rebuild an existing index with scoped text tokens.
+- Explain the Python-only scope when indexing finds no supported source files or a review has no
+  indexed symbols.
+
+### Known limitations
+
+- Source indexing supports Python only. A project with no indexed Python symbols is rejected before
+  review instead of producing an empty brief.
+- Exact-path recovery is guided selection, not semantic retrieval; the user must know an indexed
+  relative Python file path.
+- GPT and independent real-project validation remain follow-up work. This release does not
+  establish cross-model effectiveness, security, or demand.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

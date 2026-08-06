@@ -61,12 +61,18 @@ class DeterministicIndexTests(unittest.TestCase):
             "package/service.py",
             (
                 b'"""Service module."""\n'
+                b"# Module request routing\n"
                 b"import requests as http\n"
                 b"def helper():\n"
+                b'    """Helper docs."""\n'
+                b"    # Helper comment\n"
                 b"    pass\n"
                 b"class Worker:\n"
                 b'    """Worker docs."""\n'
+                b"    # Worker coordination\n"
                 b"    def execute(self):\n"
+                b'        """Execute retries."""\n'
+                b"        # Dispatch parcel\n"
                 b"        helper()\n"
                 b"        self.finish()\n"
                 b"        external.call()\n"
@@ -88,13 +94,21 @@ class DeterministicIndexTests(unittest.TestCase):
         self.assertEqual(execute.tokens.path, ("package", "service"))
         self.assertEqual(execute.tokens.symbol, ("execute", "worker"))
         self.assertEqual(execute.tokens.imports, ("http", "requests"))
-        self.assertEqual(execute.tokens.comments, ())
-        self.assertEqual(execute.tokens.docstrings, ("docs", "module", "service", "worker"))
+        self.assertEqual(execute.tokens.comments, ("dispatch", "parcel"))
+        self.assertEqual(execute.tokens.docstrings, ("execute", "retries"))
 
         module = nodes["package.service"]
         worker = nodes["Worker"]
         helper = nodes["helper"]
         finish = nodes["Worker.finish"]
+        self.assertEqual(module.tokens.comments, ("module", "request", "routing"))
+        self.assertEqual(module.tokens.docstrings, ("module", "service"))
+        self.assertEqual(worker.tokens.comments, ("coordination", "worker"))
+        self.assertEqual(worker.tokens.docstrings, ("docs", "worker"))
+        self.assertEqual(helper.tokens.comments, ("comment", "helper"))
+        self.assertEqual(helper.tokens.docstrings, ("docs", "helper"))
+        self.assertEqual(finish.tokens.comments, ())
+        self.assertEqual(finish.tokens.docstrings, ())
         self.assertEqual(
             set(index.edges),
             {
@@ -108,6 +122,30 @@ class DeterministicIndexTests(unittest.TestCase):
                 IndexEdge(execute.id, "call", "external.call", None),
             },
         )
+
+    def test_module_text_tokens_are_not_copied_to_definition_nodes(self) -> None:
+        source = source_file(
+            "module.py",
+            (
+                b'"""Unique module documentation."""\n'
+                b"# Unique module comment\n"
+                b"def first():\n"
+                b"    pass\n"
+                b"def second():\n"
+                b"    pass\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        self.assertIn("documentation", nodes["module"].tokens.docstrings)
+        self.assertIn("comment", nodes["module"].tokens.comments)
+        for name in ("first", "second"):
+            with self.subTest(name=name):
+                self.assertNotIn("documentation", nodes[name].tokens.docstrings)
+                self.assertNotIn("comment", nodes[name].tokens.comments)
 
     def test_json_is_identical_for_equivalent_input_order(self) -> None:
         first_source = source_file(

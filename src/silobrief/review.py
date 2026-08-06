@@ -32,6 +32,12 @@ class CandidateOption:
 
 
 @dataclass(frozen=True, slots=True)
+class SymbolOption:
+    number: int
+    node: ReviewNode
+
+
+@dataclass(frozen=True, slots=True)
 class DisclosureChoices:
     paths: bool
     symbols: bool
@@ -66,6 +72,27 @@ def candidate_options(candidates: tuple[RankedCandidate, ...]) -> tuple[Candidat
     return tuple(options[:_MAX_OPTIONS])
 
 
+def selector_symbol_options(
+    index: IndexData,
+    selector: str,
+) -> tuple[SymbolOption, ...] | None:
+    nodes = _node_map(index)
+    if selector in nodes:
+        return None
+    modules = _module_path_map(nodes.values())
+    if selector not in modules:
+        raise ReviewError("file path or node ID is not present in the current index")
+    symbols = sorted(
+        (
+            _review_node(node)
+            for node in nodes.values()
+            if node.path == selector and node.kind != "module"
+        ),
+        key=_symbol_outline_key,
+    )
+    return tuple(SymbolOption(number, node) for number, node in enumerate(symbols, start=1))
+
+
 def review_selection(
     index: IndexData,
     options: tuple[CandidateOption, ...],
@@ -75,9 +102,6 @@ def review_selection(
     excluded: tuple[str, ...],
     fields: DisclosureChoices,
 ) -> ReviewSelection:
-    if not options:
-        raise ReviewError("no ranked candidates are available")
-
     nodes = _node_map(index)
     modules = _module_path_map(nodes.values())
     option_by_number = _option_map(options, nodes)
@@ -199,3 +223,7 @@ def _index_node_key(node: IndexNode) -> tuple[str, int, str, str, str]:
 
 def _review_node_key(node: ReviewNode) -> tuple[str, int, str, str, str]:
     return node.path, _KIND_ORDER[node.kind], node.name, node.qualified_name, node.id
+
+
+def _symbol_outline_key(node: ReviewNode) -> tuple[str, int, str]:
+    return node.qualified_name, _KIND_ORDER[node.kind], node.id

@@ -30,7 +30,7 @@ class PackageMetadataTests(unittest.TestCase):
 
 
 class SourceDistributionTests(unittest.TestCase):
-    def test_sdist_contains_public_documentation_and_fixture(self) -> None:
+    def test_sdist_contains_public_assets_and_excludes_internal_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             result = subprocess.run(
                 [
@@ -62,8 +62,18 @@ class SourceDistributionTests(unittest.TestCase):
             f"{root}/README.ko.md",
             f"{root}/SECURITY.md",
             f"{root}/docs/V0_1_CONTRACT.md",
+            f"{root}/docs/V0_2_CONTRACT.md",
+            f"{root}/docs/assets/silobrief-wordmark.svg",
             f"{root}/examples/parcel-sync-fixture/README.md",
             f"{root}/examples/parcel-sync-fixture/private_adapter/client.py",
             f"{root}/examples/parcel-sync-fixture/src/parcel_sync/service.py",
         }
+        forbidden = {
+            f"{root}/docs/DEVELOPMENT_PLAN.md",
+            f"{root}/docs/V0_3_CONTRACT.md",
+            f"{root}/validation/graph-retrieval/BASELINE.md",
+            f"{root}/validation/graph-retrieval/COMPARISON.md",
+            f"{root}/validation/graph_retrieval_comparison.py",
+        }
         self.assertFalse(required - members, required - members)
+        self.assertFalse(forbidden & members, forbidden & members)
