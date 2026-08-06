@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Remove one registered boundary by its exact stored path or alias with `sb unignore`, leaving the
+  current index stale until the user runs `sb init` again.
+
 ## [0.3.0] - 2026-08-06
 
 ### Added
