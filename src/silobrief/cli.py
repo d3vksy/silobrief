@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from silobrief import __version__
-from silobrief.boundaries import register_boundary
+from silobrief.boundaries import register_boundary, unregister_boundary
 from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
@@ -43,6 +43,8 @@ def _build_parser() -> argparse.ArgumentParser:
     ignore.add_argument("path")
     ignore.add_argument("--as", dest="description", required=True)
     ignore.add_argument("--alias")
+    unignore = subcommands.add_parser("unignore", help="Remove a registered project boundary.")
+    unignore.add_argument("selector")
     subcommands.add_parser("init", help="Build the local source index.")
     log = subcommands.add_parser("log", help="Record public project context.")
     log.add_argument("path")
@@ -91,6 +93,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         else:
             print(f"boundary {boundary['alias']} for {boundary['path']} is already registered")
+
+    if arguments.command == "unignore":
+        selector = arguments.selector
+        if not isinstance(selector, str):
+            parser.error("unignore selector must be text")
+        try:
+            boundary = unregister_boundary(selector, start=Path.cwd())
+        except SetupError as error:
+            parser.error(str(error))
+        print(
+            f"removed boundary {boundary['alias']} for {boundary['path']}; "
+            "run sb init before sb chat"
+        )
 
     if arguments.command == "init":
         try:

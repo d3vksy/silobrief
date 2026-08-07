@@ -71,14 +71,45 @@ def register_boundary(
         default_excludes=list(config["default_excludes"]),
         schema_version=1,
     )
+    _save_config_with_stale_index(root, updated)
+    return RegistrationResult(boundary=boundary, changed=True)
+
+
+def unregister_boundary(selector: str, *, start: Path) -> BoundaryData:
+    if not selector.strip():
+        raise SetupError("boundary selector must not be empty")
+
+    root = find_project_root(start)
+    config = load_config(root)
+    boundaries = config["boundaries"]
+    matches = [
+        boundary
+        for boundary in boundaries
+        if selector == boundary["path"] or selector == boundary["alias"]
+    ]
+    if not matches:
+        raise SetupError("boundary selector is not registered")
+    if len(matches) > 1:
+        raise SetupError("boundary selector matches more than one registered boundary")
+
+    boundary = matches[0]
+    updated = ConfigData(
+        boundaries=[item for item in boundaries if item != boundary],
+        default_excludes=list(config["default_excludes"]),
+        schema_version=1,
+    )
+    _save_config_with_stale_index(root, updated)
+    return boundary
+
+
+def _save_config_with_stale_index(root: Path, config: ConfigData) -> None:
     index_snapshot = _snapshot_index(root)
     try:
         mark_index_stale(root)
-        save_config(root, updated)
+        save_config(root, config)
     except SetupError:
         _restore_snapshot(index_snapshot)
         raise
-    return RegistrationResult(boundary=boundary, changed=True)
 
 
 def _boundary_path(root: Path, start: Path, path_text: str) -> str:
