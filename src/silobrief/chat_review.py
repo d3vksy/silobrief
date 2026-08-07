@@ -177,11 +177,15 @@ def _read_additions(
             options = selector_symbol_options(index, selector)
         except ReviewError as error:
             raise ChatReviewError(str(error)) from error
-        selectors.append(selector)
         if options is None:
+            selectors.append(selector)
             continue
         _show_symbol_options(selector, options, output_stream)
-        for number in _read_symbol_numbers(input_stream, output_stream):
+        numbers = _read_symbol_numbers(input_stream, output_stream)
+        if not numbers:
+            selectors.append(selector)
+            continue
+        for number in numbers:
             if number > len(options):
                 raise ChatReviewError(f"unknown symbol number: {number}")
             selectors.append(options[number - 1].node.id)
