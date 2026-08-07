@@ -12,6 +12,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Remove one registered boundary by its exact stored path or alias with `sb unignore`, leaving the
   current index stale until the user runs `sb init` again.
 
+### Fixed
+
+- Keep exact-path symbol selection focused on the chosen symbols instead of expanding the whole
+  module.
+
 ## [0.3.0] - 2026-08-06
 
 ### Added
