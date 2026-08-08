@@ -7,7 +7,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [0.4.0] - 2026-08-07
+## [0.4.0] - 2026-08-09
 
 ### Added
 
@@ -18,6 +18,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Keep exact-path symbol selection focused on the chosen symbols instead of expanding the whole
   module.
+- Replace excluded src-layout module and symbol names with their registered boundary placeholder
+  in the index and generated brief.
 
 ### Known limitations
 
