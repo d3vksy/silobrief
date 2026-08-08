@@ -23,7 +23,7 @@ CHANGELOG_EXPECTATIONS = (*PUBLIC_COMMANDS[:-1], "WRITE", "parcel-sync-fixture")
 V0_1_RELEASE_DATE = "2026-08-04"
 V0_2_RELEASE_DATE = "2026-08-05"
 V0_3_RELEASE_DATE = "2026-08-06"
-V0_4_RELEASE_DATE = "2026-08-07"
+V0_4_RELEASE_DATE = "2026-08-09"
 BRIEF_GUIDANCE_EXPECTATIONS = {
     "README.md": (
         "concrete task",
@@ -85,7 +85,13 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertIn(f"## [0.3.0] - {V0_3_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.2.0] - {V0_2_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.1.0] - {V0_1_RELEASE_DATE}", changelog)
-        for fragment in ("### Added", "### Fixed", "### Known limitations", "source bodies"):
+        for fragment in (
+            "### Added",
+            "### Fixed",
+            "### Known limitations",
+            "source bodies",
+            "excluded src-layout module and symbol names",
+        ):
             self.assertIn(fragment, changelog)
 
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
