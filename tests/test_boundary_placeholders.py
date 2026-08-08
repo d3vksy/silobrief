@@ -27,6 +27,31 @@ def config(*boundaries: BoundaryData) -> ConfigData:
 
 
 class BoundaryPlaceholderTests(unittest.TestCase):
+    def test_replaces_absolute_import_for_src_layout_boundary(self) -> None:
+        snapshot = source_snapshot(
+            "src/pkg/app.py",
+            (
+                b"from pkg.secretmod import hidden_internal_name\n"
+                b"def run():\n"
+                b"    return hidden_internal_name()\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="secret-boundary",
+            description="Approved internal module",
+            path="src/pkg/secretmod.py",
+        )
+
+        rendered = render_index_json(
+            build_index(snapshot, extract_structures(snapshot), config(boundary))
+        )
+
+        self.assertIn(b'"alias": "secret-boundary"', rendered)
+        self.assertIn(b'"description": "Approved internal module"', rendered)
+        for forbidden in (b"pkg.secretmod", b"secretmod", b"hidden_internal_name"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, rendered)
+
     def test_replaces_directory_boundary_imports_calls_and_references(self) -> None:
         snapshot = source_snapshot(
             "app.py",
