@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-4f46e5" alt="릴리스 v0.3.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="릴리스 v0.4.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.3.0
+siloBrief 0.4.0
 ```
 
 ## 명령어
@@ -193,14 +193,15 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.3.0입니다. v0.2의 검토·출력 방식을 그대로 유지하면서, 추천 결과에 원하는
-코드가 없을 때 정확한 파일 경로로 함수와 클래스를 찾는 기능을 추가했습니다. 색인에 지원하는
-Python 심볼이 하나도 없으면 빈 문서를 만들지 않고 지원 범위를 분명하게 안내합니다.
+현재 공개 버전은 v0.4.0입니다. `sb unignore`로 등록된 제외 경계를 경로나 alias로 해제할 수
+있으며, 해제 후에는 다시 `sb init`을 실행해야 검토를 시작할 수 있습니다. 정확한 파일 경로에서
+심볼을 고르면 사용자가 선택한 소스만 공개 검토 대상으로 유지합니다.
 
-v0.2 패키지는 Windows와 Ubuntu에서 같은 입력으로 동일한 Markdown을 만들었고, Claude에 전달한
-합성 코드 유지보수 과제 세 개도 모두 요구한 형식의 답변을 받았습니다. GPT 검증은 후속 과제입니다.
-현재 결과만으로 여러 AI 모델, 실제 비공개 프로젝트, 독립 사용자에게 같은 효과가 있다고 말할 수는
-없습니다.
+설치한 wheel로 동결된 오픈소스 Python 저장소 여섯 개에서 경계 해제, 오래된 색인 차단, 정확한
+경로 검토, Markdown 두 파일 생성을 확인했습니다. 다만 독립 과제 여섯 개 중 자동 lexical 검색이
+목표 심볼을 Top 10에 넣은 경우는 한 개뿐이어서, 아직은 사용자가 경로를 직접 고르는 과정이
+중요합니다. 이 결과가 비밀정보 탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개
+프로젝트에서의 효과를 입증하지는 않습니다.
 
 - [설치 wheel 검증](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [수동 모델 평가 절차](validation/v0.2/MANUAL_MODEL_GATE.md)

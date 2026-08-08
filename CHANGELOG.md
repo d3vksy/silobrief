@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-07
+
 ### Added
 
 - Remove one registered boundary by its exact stored path or alias with `sb unignore`, leaving the
@@ -16,6 +18,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Keep exact-path symbol selection focused on the chosen symbols instead of expanding the whole
   module.
+
+### Known limitations
+
+- Exact-path recovery remains guided selection: the user must know an indexed relative Python
+  file path.
+- The installed-wheel workflow passed on six frozen open-source repositories, but independent
+  lexical retrieval reached the intended symbol in the Top 10 for only one of six tasks.
+- This release does not establish secret detection, export approval, market demand, or general
+  answer quality across external AI models.
 
 ## [0.3.0] - 2026-08-06
 

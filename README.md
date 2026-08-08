@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-4f46e5" alt="Release v0.3.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="Release v0.4.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.3.0
+siloBrief 0.4.0
 ```
 
 ## Commands
@@ -186,13 +186,15 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.3.0. It keeps the reviewed v0.2 output flow and adds exact-path symbol
-selection when lexical suggestions miss the intended code. It also stops before review with a clear
-Python-only message when the index contains no supported symbols.
+The current release is v0.4.0. It can remove one registered boundary by path or alias with
+`sb unignore`, then requires `sb init` before review. Exact-path review now keeps source disclosure
+focused on the symbols the user selected.
 
-The v0.2 package produced identical Markdown files on Windows and Ubuntu, and Claude completed three
-synthetic code-maintenance tasks using those files. GPT validation remains follow-up work. These
-results do not establish effectiveness across models, real private projects, or independent users.
+The installed-wheel workflow passed on six frozen open-source Python repositories, including
+boundary removal, stale-index blocking, exact-path review, and paired Markdown output. Automatic
+lexical retrieval found the intended symbol in the Top 10 for only one of six independent tasks, so
+guided path selection remains important. These results do not establish secret detection, export
+approval, market demand, or effectiveness across external AI models and private projects.
 
 - [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)
