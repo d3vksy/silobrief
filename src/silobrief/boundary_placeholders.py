@@ -15,7 +15,7 @@ class BoundaryPlaceholder:
 
 @dataclass(frozen=True, slots=True)
 class _BoundaryRule:
-    module: str
+    modules: tuple[str, ...]
     placeholder: BoundaryPlaceholder
 
 
@@ -31,8 +31,8 @@ class BoundaryMatcher:
             sorted(
                 (_boundary_rule(boundary) for boundary in boundaries),
                 key=lambda rule: (
-                    -(rule.module.count(".") + 1 if rule.module else 0),
-                    rule.module,
+                    -(rule.modules[0].count(".") + 1 if rule.modules[0] else 0),
+                    rule.modules,
                     rule.placeholder.alias,
                     rule.placeholder.description,
                 ),
@@ -94,8 +94,9 @@ class BoundaryMatcher:
         if module is None:
             return None
         for rule in self._rules:
-            if not rule.module or module == rule.module or module.startswith(f"{rule.module}."):
-                return rule.placeholder
+            for candidate in rule.modules:
+                if not candidate or module == candidate or module.startswith(f"{candidate}."):
+                    return rule.placeholder
         return None
 
 
@@ -121,12 +122,20 @@ def _boundary_rule(boundary: BoundaryData) -> _BoundaryRule:
     else:
         module = ".".join(parts)
     return _BoundaryRule(
-        module=module,
+        modules=_module_candidates(module),
         placeholder=BoundaryPlaceholder(
             alias=boundary["alias"],
             description=boundary["description"],
         ),
     )
+
+
+def _module_candidates(module: str) -> tuple[str, ...]:
+    if not module:
+        return ("",)
+    # Stored paths are project-relative, while absolute imports start at a package root.
+    parts = module.split(".")
+    return tuple(".".join(parts[index:]) for index in range(len(parts)))
 
 
 def _resolved_import_target(source_path: str, imported: ImportEntry) -> str | None:

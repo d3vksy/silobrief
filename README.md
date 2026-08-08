@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-4f46e5" alt="Release v0.3.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="Release v0.4.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.3.0
+siloBrief 0.4.0
 ```
 
 ## Commands
@@ -70,6 +70,7 @@ siloBrief 0.3.0
 |---|---|
 | `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
+| `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb chat "PROMPT" --out FILE` | Reviews context and writes the main brief and optional code attachment. |
@@ -111,6 +112,20 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 `setup` prepares local state, `ignore` registers a path that must not be read, and `init` builds a
 local search list from the remaining Python files. `chat` then proposes relevant project context
 for review.
+
+### Remove a registered boundary
+
+If an ignore entry is no longer correct, remove it by the exact stored path or alias, then rebuild
+the index:
+
+```console
+sb unignore delivery-boundary
+sb init
+```
+
+`unignore` changes only local configuration and does not open the removed path. It marks an existing
+index as stale, so `sb chat` remains blocked until `sb init` finishes. After rebuilding, files below
+that path may be offered for review and source disclosure.
 
 ### Complete review
 
@@ -159,6 +174,7 @@ siloBrief:
 
 - does not follow symbolic links while indexing;
 - does not open registered excluded subtrees;
+- does not open a boundary target while removing its registration;
 - replaces references to excluded code with an approved public label in the main brief;
 - requires a preview before writing output; and
 - uses no network connection, language model, or automatic transfer.
@@ -170,13 +186,15 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.3.0. It keeps the reviewed v0.2 output flow and adds exact-path symbol
-selection when lexical suggestions miss the intended code. It also stops before review with a clear
-Python-only message when the index contains no supported symbols.
+The current release is v0.4.0. It can remove one registered boundary by path or alias with
+`sb unignore`, then requires `sb init` before review. Exact-path review now keeps source disclosure
+focused on the symbols the user selected.
 
-The v0.2 package produced identical Markdown files on Windows and Ubuntu, and Claude completed three
-synthetic code-maintenance tasks using those files. GPT validation remains follow-up work. These
-results do not establish effectiveness across models, real private projects, or independent users.
+The installed-wheel workflow passed on six frozen open-source Python repositories, including
+boundary removal, stale-index blocking, exact-path review, and paired Markdown output. Automatic
+lexical retrieval found the intended symbol in the Top 10 for only one of six independent tasks, so
+guided path selection remains important. These results do not establish secret detection, export
+approval, market demand, or effectiveness across external AI models and private projects.
 
 - [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)

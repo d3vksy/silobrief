@@ -163,11 +163,18 @@ class ChatReviewTests(unittest.TestCase):
         module = node("module", "src/guided.py", "module", "guided")
         service = node("service", "src/guided.py", "class", "Service")
         method = node("method", "src/guided.py", "function", "run", "Service.run")
+        helper = node("helper", "src/guided.py", "function", "helper")
+        external = node("external", "src/external.py", "function", "external")
         index = IndexData(
             config_digest="a" * 64,
-            edges=(),
+            edges=(
+                IndexEdge("helper", "call", "external", "external"),
+                IndexEdge("module", "contains", "Service", "service"),
+                IndexEdge("module", "contains", "Service.run", "method"),
+                IndexEdge("module", "contains", "helper", "helper"),
+            ),
             index_version=1,
-            nodes=(method, module, service),
+            nodes=(external, helper, method, module, service),
             source_digest="b" * 64,
             stale=False,
         )
@@ -177,7 +184,7 @@ class ChatReviewTests(unittest.TestCase):
             "no matching terms",
             index,
             NotesData(notes=[], notes_version=1),
-            input_stream=TtyBuffer("y\n\nsrc/guided.py\n1 1\n\n\ny\ny\nn\nn\nn\n"),
+            input_stream=TtyBuffer("y\n\nsrc/guided.py\n1 2\n\n\ny\ny\nn\nn\nn\n"),
             output_stream=output,
         )
         node_id_output = TtyBuffer()
@@ -185,7 +192,7 @@ class ChatReviewTests(unittest.TestCase):
             "no matching terms",
             index,
             NotesData(notes=[], notes_version=1),
-            input_stream=TtyBuffer("y\n\nmodule\nservice\n\n\ny\ny\nn\nn\nn\n"),
+            input_stream=TtyBuffer("y\n\nservice\nmethod\n\n\ny\ny\nn\nn\nn\n"),
             output_stream=node_id_output,
         )
 
@@ -202,7 +209,39 @@ class ChatReviewTests(unittest.TestCase):
         self.assertNotIn("Symbols in", node_id_output.getvalue())
         self.assertIn("class Service", visible)
         self.assertIn("src/guided.py", rendered.main_markdown)
-        self.assertEqual(rendered.disclosure.symbol_names, 2)
+        self.assertIn("function: Service.run", rendered.main_markdown)
+        self.assertNotIn("function: helper", rendered.main_markdown)
+        self.assertNotIn("src/external.py", rendered.main_markdown)
+        self.assertEqual(rendered.disclosure.symbol_names, 3)
+
+    def test_keeps_module_when_file_outline_has_no_symbol_selection(self) -> None:
+        module = node("module", "src/guided.py", "module", "guided")
+        service = node("service", "src/guided.py", "class", "Service")
+        helper = node("helper", "src/guided.py", "function", "helper")
+        index = IndexData(
+            config_digest="a" * 64,
+            edges=(
+                IndexEdge("module", "contains", "Service", "service"),
+                IndexEdge("module", "contains", "helper", "helper"),
+            ),
+            index_version=1,
+            nodes=(helper, module, service),
+            source_digest="b" * 64,
+            stale=False,
+        )
+
+        rendered = review_brief(
+            "no matching terms",
+            index,
+            NotesData(notes=[], notes_version=1),
+            input_stream=TtyBuffer("y\n\nsrc/guided.py\n\n\n\ny\ny\nn\nn\nn\n"),
+            output_stream=TtyBuffer(),
+        )
+
+        self.assertIn("module: guided", rendered.main_markdown)
+        self.assertIn("class: Service", rendered.main_markdown)
+        self.assertIn("function: helper", rendered.main_markdown)
+        self.assertEqual(rendered.disclosure.symbol_names, 3)
 
     def test_rejects_unknown_file_and_invalid_outline_number(self) -> None:
         module = node("module", "src/guided.py", "module", "guided")

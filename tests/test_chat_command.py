@@ -195,6 +195,55 @@ class ChatCommandTests(unittest.TestCase):
             self.assertFalse(destination.with_name("context-only.sources.md").exists())
             self.assertIn('source_companion: "none"', destination.read_text(encoding="utf-8"))
 
+    def test_src_layout_boundary_is_redacted_in_exact_path_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            package = project / "src" / "pkg"
+            package.mkdir(parents=True)
+            (package / "app.py").write_text(
+                "from pkg.secretmod import hidden_internal_name\n\n"
+                "def run():\n"
+                "    return hidden_internal_name()\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            (package / "secretmod.py").write_text(
+                "def hidden_internal_name():\n    return 'PRIVATE_CANARY'\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+
+            self.assertEqual(main(["setup", str(project)]), 0)
+            with working_directory(project):
+                self.assertEqual(
+                    main(
+                        [
+                            "ignore",
+                            "src/pkg/secretmod.py",
+                            "--as",
+                            "Approved internal module",
+                            "--alias",
+                            "secret-boundary",
+                        ]
+                    ),
+                    0,
+                )
+                self.assertEqual(main(["init"]), 0)
+
+            output = ".silobrief/exports/src-layout.md"
+            review = "y\n\nsrc/pkg/app.py\n1\n\n\ny\ny\ny\nn\ny\nn\nWRITE\n"
+            result, _, _, stderr = run_chat(project, output, review)
+
+            destination = project / output
+            self.assertEqual(result, 0)
+            self.assertEqual(stderr, "")
+            generated = destination.read_text(encoding="utf-8")
+            self.assertIn("secret-boundary", generated)
+            self.assertIn("Approved internal module", generated)
+            for forbidden in ("pkg.secretmod", "hidden_internal_name", "PRIVATE_CANARY"):
+                with self.subTest(forbidden=forbidden):
+                    self.assertNotIn(forbidden, generated)
+
     def test_selects_an_approved_source_from_a_file_outline(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
