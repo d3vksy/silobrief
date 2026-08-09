@@ -16,7 +16,7 @@ from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
 from silobrief.notes import add_note
-from silobrief.output import OutputBlockedError, approve_and_write, source_companion_name
+from silobrief.output import OutputBlockedError, approve_and_write
 from silobrief.sources import SourceCollectionError
 from silobrief.state import (
     IndexStateError,
@@ -201,7 +201,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         for warning in snapshot.warnings:
             print(f"warning: {warning.path}: {warning.reason}", file=sys.stderr)
         try:
-            companion_name = source_companion_name(output_text)
             rendered = review_brief(
                 prompt,
                 index,
@@ -209,9 +208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 input_stream=sys.stdin,
                 output_stream=sys.stdout,
                 snapshot=snapshot,
-                source_companion=companion_name,
             )
-            written = approve_and_write(
+            approve_and_write(
                 root,
                 output_text,
                 rendered,
@@ -224,7 +222,5 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"sb: error: {error}", file=sys.stderr)
             return 4
         print(f"\nwrote {output_text}")
-        if written.source is not None:
-            print(f"wrote source companion {written.source.name}")
 
     return 0

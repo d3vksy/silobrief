@@ -21,7 +21,7 @@ SECTION_TITLES = (
     "승인된 프로젝트 맥락",
     "사용자 작성 메모",
     "등록된 경계",
-    "소스 동반 파일",
+    "승인된 소스 코드",
     "외부 AI 응답 계약",
     "Disclosure manifest",
 )
@@ -57,7 +57,6 @@ def brief_input(**changes: object) -> BriefInput:
         "public_imports": ("urllib3",),
         "human_notes": ("Python 3.10과 urllib3 2.7.0을 사용한다",),
         "boundaries": (ApprovedBoundary("private-api", "사내 전송 계층"),),
-        "source_companion": "retry-brief.sources.md",
         "source_excerpts": (source_excerpt(),),
     }
     values.update(changes)
@@ -68,13 +67,12 @@ def brief_input(**changes: object) -> BriefInput:
         public_imports=cast(tuple[str, ...], values["public_imports"]),
         human_notes=cast(tuple[str, ...], values["human_notes"]),
         boundaries=cast(tuple[ApprovedBoundary, ...], values["boundaries"]),
-        source_companion=cast(str | None, values["source_companion"]),
         source_excerpts=cast(tuple[ApprovedSourceExcerpt, ...], values["source_excerpts"]),
     )
 
 
 class BriefRendererTests(unittest.TestCase):
-    def test_renders_v2_main_companion_and_manifest_deterministically(self) -> None:
+    def test_renders_v3_single_brief_and_manifest_deterministically(self) -> None:
         first_excerpt = source_excerpt()
         second_excerpt = source_excerpt(
             path="src/client.py",
@@ -112,50 +110,45 @@ class BriefRendererTests(unittest.TestCase):
                 public_imports=tuple(reversed(source.public_imports)),
                 human_notes=source.human_notes,
                 boundaries=tuple(reversed(source.boundaries)),
-                source_companion=source.source_companion,
                 source_excerpts=tuple(reversed(source.source_excerpts)),
             )
         )
 
         headings: list[str] = []
         in_fence = False
-        for line in rendered.main_markdown.splitlines():
+        for line in rendered.markdown.splitlines():
             if line.startswith("```"):
                 in_fence = not in_fence
             elif not in_fence and line.startswith("## "):
                 headings.append(line.removeprefix("## "))
         self.assertEqual(rendered, reordered)
         self.assertEqual(tuple(headings), SECTION_TITLES)
-        self.assertTrue(rendered.main_markdown.endswith("\n"))
-        self.assertIsNotNone(rendered.source_markdown)
-        self.assertNotIn("\r", rendered.main_markdown + cast(str, rendered.source_markdown))
-        self.assertNotIn("PUBLIC_SOURCE_CANARY", rendered.main_markdown)
-        self.assertIn("PUBLIC_SOURCE_CANARY", cast(str, rendered.source_markdown))
-        self.assertIn("````python", cast(str, rendered.source_markdown))
-        self.assertNotIn("조사 질문", rendered.main_markdown)
-        self.assertNotIn("추천 검색어", rendered.main_markdown)
-        self.assertNotIn("외부 AI에 전달할 요청", rendered.main_markdown)
-        self.assertNotIn("수동 확인 체크리스트", rendered.main_markdown)
+        self.assertTrue(rendered.markdown.endswith("\n"))
+        self.assertNotIn("\r", rendered.markdown)
+        self.assertIn("PUBLIC_SOURCE_CANARY", rendered.markdown)
+        self.assertIn("````python", rendered.markdown)
+        self.assertNotIn("조사 질문", rendered.markdown)
+        self.assertNotIn("추천 검색어", rendered.markdown)
+        self.assertNotIn("외부 AI에 전달할 요청", rendered.markdown)
+        self.assertNotIn("수동 확인 체크리스트", rendered.markdown)
         self.assertTrue(
-            rendered.main_markdown.startswith(
-                "> 이 문서와 동반된 `retry-brief.sources.md` 파일만 사용하여"
-            )
+            rendered.markdown.startswith("> 이 문서의 승인된 프로젝트 맥락과 소스 코드만 사용하여")
         )
-        self.assertIn("공개 import", rendered.main_markdown)
-        self.assertIn("## 바로 적용할 변경", rendered.main_markdown)
-        self.assertIn("## 패치", rendered.main_markdown)
-        self.assertIn("`diff` 코드 블록", rendered.main_markdown)
+        self.assertIn("공개 import", rendered.markdown)
+        self.assertIn("## 바로 적용할 변경", rendered.markdown)
+        self.assertIn("## 패치", rendered.markdown)
+        self.assertIn("`diff` 코드 블록", rendered.markdown)
         for marker in ("`-`", "`+`"):
-            self.assertIn(marker, rendered.main_markdown)
+            self.assertIn(marker, rendered.markdown)
         for optional in ("unified diff", "--- a/경로", "+++ b/경로", "/dev/null"):
-            self.assertNotIn(optional, rendered.main_markdown)
-        self.assertIn("`git apply` 가능성을 주장하지 마세요", rendered.main_markdown)
-        self.assertNotIn("패치 또는 교체 코드", rendered.main_markdown)
-        self.assertNotIn("TASK_ANSWER_CANARY", rendered.main_markdown)
+            self.assertNotIn(optional, rendered.markdown)
+        self.assertIn("`git apply` 가능성을 주장하지 마세요", rendered.markdown)
+        self.assertNotIn("패치 또는 교체 코드", rendered.markdown)
+        self.assertNotIn("TASK_ANSWER_CANARY", rendered.markdown)
         self.assertEqual(
             rendered.disclosure,
             DisclosureManifest(
-                schema_version=2,
+                schema_version=3,
                 user_prompt="included",
                 relative_paths=2,
                 symbol_names=2,
@@ -163,7 +156,7 @@ class BriefRendererTests(unittest.TestCase):
                 human_notes=2,
                 human_notes_content="user-supplied-unclassified",
                 boundary_aliases=2,
-                source_companion="retry-brief.sources.md",
+                source_delivery="embedded",
                 source_excerpts=2,
                 source_lines=5,
                 source_utf8_bytes=sum(
@@ -177,14 +170,11 @@ class BriefRendererTests(unittest.TestCase):
         )
 
     def test_renders_main_only_when_no_source_is_approved(self) -> None:
-        rendered = render_brief(brief_input(source_companion=None, source_excerpts=()))
+        rendered = render_brief(brief_input(source_excerpts=()))
 
-        self.assertIsNone(rendered.source_markdown)
-        self.assertNotIn("## 소스 동반 파일", rendered.main_markdown)
-        self.assertTrue(
-            rendered.main_markdown.startswith("> 이 문서에 공개된 프로젝트 맥락만 사용하여")
-        )
-        self.assertEqual(rendered.disclosure.source_companion, "none")
+        self.assertNotIn("## 승인된 소스 코드", rendered.markdown)
+        self.assertTrue(rendered.markdown.startswith("> 이 문서에 공개된 프로젝트 맥락만 사용하여"))
+        self.assertEqual(rendered.disclosure.source_delivery, "none")
         self.assertEqual(rendered.disclosure.source_excerpts, 0)
         self.assertEqual(rendered.disclosure.source_content_mode, "none")
 
@@ -193,13 +183,12 @@ class BriefRendererTests(unittest.TestCase):
             brief_input(
                 human_notes=(),
                 boundaries=(),
-                source_companion=None,
                 source_excerpts=(),
             )
         )
 
-        for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
-            self.assertNotIn(f"## {title}", rendered.main_markdown)
+        for title in ("사용자 작성 메모", "등록된 경계", "승인된 소스 코드"):
+            self.assertNotIn(f"## {title}", rendered.markdown)
 
     def test_rejects_objects_outside_the_renderer_whitelist(self) -> None:
         unsafe: object = {"user_prompt": "task", "source_body": "SOURCE_BODY_CANARY"}
@@ -214,7 +203,7 @@ class BriefRendererTests(unittest.TestCase):
         with self.assertRaises(FrozenInstanceError):
             source.user_prompt = "changed"  # type: ignore[misc]
 
-    def test_rejects_invalid_fields_source_spans_and_companion_pairs(self) -> None:
+    def test_rejects_invalid_fields_and_source_spans(self) -> None:
         invalid_inputs = (
             (brief_input(user_prompt="  \n"), "user prompt"),
             (brief_input(relative_paths=("../secret.py",)), "relative path"),
@@ -227,10 +216,6 @@ class BriefRendererTests(unittest.TestCase):
                 brief_input(boundaries=(ApprovedBoundary("", "public description"),)),
                 "boundary alias",
             ),
-            (brief_input(source_companion=None), "source companion"),
-            (brief_input(source_excerpts=()), "source companion"),
-            (brief_input(source_companion="folder/retry.sources.md"), "source companion"),
-            (brief_input(source_companion="retry.md"), "source companion"),
             (brief_input(source_excerpts=(source_excerpt(path="../secret.py"),)), "relative path"),
             (brief_input(source_excerpts=(source_excerpt(start_line=0),)), "source span"),
             (brief_input(source_excerpts=(source_excerpt(end_line=11),)), "source span"),

@@ -38,7 +38,7 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
         "included verbatim",
         "does not detect secrets",
         "EXPOSE",
-        ".sources.md",
+        "source code you approved",
     ),
     "README.ko.md": (
         "구체적인 작업",
@@ -52,7 +52,7 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
         "원문 그대로 포함",
         "비밀정보를 탐지하지",
         "EXPOSE",
-        ".sources.md",
+        "소스 코드",
     ),
 }
 
