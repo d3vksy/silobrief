@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-09
+
 ### Added
 
 - Inspect up to ten deterministic code candidates with `sb search`, including the exact request
@@ -23,6 +25,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Candidate search remains lexical and advisory. It does not automatically identify or approve
   every source excerpt required for a change.
+- The intended symbol appeared in the Top 10 for three of six prompts in the existing lexical
+  regression set. Guided exact-path selection remains necessary when search misses.
+- This release does not validate automatic context closure, secret detection, export approval,
+  market demand, or answer quality across external AI models.
 
 ## [0.4.0] - 2026-08-09
 
