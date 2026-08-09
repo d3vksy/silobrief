@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="릴리스 v0.4.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="릴리스 v0.5.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.4.0
+siloBrief 0.5.0
 ```
 
 ## 명령어
@@ -194,15 +194,16 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.4.0입니다. `sb unignore`로 등록된 제외 경계를 경로나 alias로 해제할 수
-있으며, 해제 후에는 다시 `sb init`을 실행해야 검토를 시작할 수 있습니다. 정확한 파일 경로에서
-심볼을 고르면 사용자가 선택한 소스만 공개 검토 대상으로 유지합니다.
+현재 공개 버전은 v0.5.0입니다. `sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대
+10개까지 보여줍니다. `sb chat`은 작업 요청, 승인한 맥락, 승인한 소스 조각을
+하나의 자족적인 Markdown 파일로 묶습니다.
 
-설치한 wheel로 동결된 오픈소스 Python 저장소 여섯 개에서 경계 해제, 오래된 색인 차단, 정확한
-경로 검토와 승인된 Markdown 생성을 확인했습니다. 다만 독립 과제 여섯 개 중 자동 lexical 검색이
-목표 심볼을 Top 10에 넣은 경우는 한 개뿐이어서, 아직은 사용자가 경로를 직접 고르는 과정이
-중요합니다. 이 결과가 비밀정보 탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개
-프로젝트에서의 효과를 입증하지는 않습니다.
+Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트워크에 연결하지 않고 같은
+브리프가 반복 생성되는 것을 확인했습니다. 더 넓은 여섯 과제 lexical 회귀 검사에서는 목표
+심볼이 세 과제에서만 Top 10에 들었습니다. 후보 검색은 어디까지나 단어 기반 제안이므로, 놓친
+경우에는 정확한 파일 경로를 직접 고르는 과정이 필요합니다. 이 결과가 자동 맥락 완성, 비밀정보
+탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개 프로젝트에서의 효과를 입증하지는
+않습니다.
 
 - [설치 wheel 검증](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [수동 모델 평가 절차](validation/v0.2/MANUAL_MODEL_GATE.md)
@@ -220,7 +221,7 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 문서
 
-- [출력 및 보호 범위 계약](docs/V0_2_CONTRACT.md)
+- [v0.2 출력 및 보호 범위 계약(과거 문서)](docs/V0_2_CONTRACT.md)
 - [보안 문제 신고 안내](SECURITY.md)
 
 ## 기여하기

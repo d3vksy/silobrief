@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="Release v0.4.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="Release v0.5.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.4.0
+siloBrief 0.5.0
 ```
 
 ## Commands
@@ -146,9 +146,9 @@ During `chat`:
 3. Choose whether to include the displayed source code. The default answer is no.
 4. If the source reveals an excluded boundary identifier, type `EXPOSE` only after reviewing it.
 5. Review the complete self-contained brief.
-6. Type `WRITE` to create the files.
+6. Type `WRITE` to create the file.
 
-Open both generated files before moving them to a different environment.
+Open the generated file before moving it to a different environment.
 
 ### Write a useful task
 
@@ -187,15 +187,16 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.4.0. It can remove one registered boundary by path or alias with
-`sb unignore`, then requires `sb init` before review. Exact-path review now keeps source disclosure
-focused on the symbols the user selected.
+The current release is v0.5.0. `sb search` shows up to ten candidates with concrete lexical match
+evidence, and `sb chat` packages the task, approved context, and approved source excerpts into one
+self-contained Markdown file.
 
-The installed-wheel workflow passed on six frozen open-source Python repositories, including
-boundary removal, stale-index blocking, exact-path review, and guarded Markdown output. Automatic
-lexical retrieval found the intended symbol in the Top 10 for only one of six independent tasks, so
-guided path selection remains important. These results do not establish secret detection, export
-approval, market demand, or effectiveness across external AI models and private projects.
+The deterministic end-to-end flow passed on Django Ninja, pytest, and Jinja checkouts without
+changing Python source files or opening a network connection.
+The six-task lexical regression put the intended symbol in the Top 10 for three prompts.
+Candidate search remains lexical and advisory; guided exact-path selection is still required when
+it misses. These results do not establish automatic context completeness, secret detection,
+export approval, market demand, or effectiveness across external AI models and private projects.
 
 - [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)
@@ -213,7 +214,7 @@ approval, market demand, or effectiveness across external AI models and private 
 
 ## Documentation
 
-- [Output and safety contract](docs/V0_2_CONTRACT.md)
+- [Historical v0.2 output and safety contract](docs/V0_2_CONTRACT.md)
 - [Security policy](SECURITY.md)
 
 ## Contributing
