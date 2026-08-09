@@ -25,6 +25,7 @@ V0_1_RELEASE_DATE = "2026-08-04"
 V0_2_RELEASE_DATE = "2026-08-05"
 V0_3_RELEASE_DATE = "2026-08-06"
 V0_4_RELEASE_DATE = "2026-08-09"
+V0_5_RELEASE_DATE = "2026-08-09"
 BRIEF_GUIDANCE_EXPECTATIONS = {
     "README.md": (
         "concrete task",
@@ -79,9 +80,10 @@ class ReleaseDocumentationTests(unittest.TestCase):
                 for fragment in fragments:
                     self.assertIn(fragment, text)
 
-    def test_v0_4_release_metadata_is_current(self) -> None:
+    def test_v0_5_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn(f"## [0.5.0] - {V0_5_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.4.0] - {V0_4_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.3.0] - {V0_3_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.2.0] - {V0_2_RELEASE_DATE}", changelog)
@@ -96,24 +98,27 @@ class ReleaseDocumentationTests(unittest.TestCase):
             self.assertIn(fragment, changelog)
 
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("The current release is v0.4.0.", readme)
+        self.assertIn("The current release is v0.5.0.", readme)
+        self.assertIn("one self-contained Markdown file", readme)
+        self.assertIn("Candidate search remains lexical and advisory", readme)
         self.assertIn("exact indexed Python file path", readme)
         self.assertIn("six frozen open-source Python repositories", readme)
         self.assertIn("docs/V0_2_CONTRACT.md", readme)
         readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
-        self.assertIn("현재 공개 버전은 v0.4.0입니다.", readme_ko)
+        self.assertIn("현재 공개 버전은 v0.5.0입니다.", readme_ko)
+        self.assertIn("하나의 자족적인 Markdown 파일", readme_ko)
         self.assertIn("색인에 있는 Python 파일의 정확한 상대 경로", readme_ko)
         self.assertIn("오픈소스 Python 저장소 여섯 개", readme_ko)
         self.assertIn("docs/V0_2_CONTRACT.md", readme_ko)
 
         security = (REPOSITORY_ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("| 0.4.x | :white_check_mark: |", security)
-        self.assertIn("| 0.3.x | :x: |", security)
+        self.assertIn("| 0.5.x | :white_check_mark: |", security)
+        self.assertIn("| 0.4.x | :x: |", security)
         self.assertNotIn("has not released a supported version yet", security)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "0.4.0"'), 1)
-        self.assertEqual(version("silobrief"), "0.4.0")
+        self.assertEqual(pyproject.count('version = "0.5.0"'), 1)
+        self.assertEqual(version("silobrief"), "0.5.0")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())
