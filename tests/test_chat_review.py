@@ -135,8 +135,8 @@ class ChatReviewTests(unittest.TestCase):
         visible = output.getvalue()
         self.assertIn("src/service.py", visible)
         self.assertIn("src/helper.py", visible)
-        self.assertIn("path=1", visible)
-        self.assertIn("connected=1", visible)
+        self.assertIn("path=retry", visible)
+        self.assertIn("connections: 1", visible)
         hidden_values = (
             "source-body-canary|internal-real-name|.models.SyncResult|src/second.py|"
             "second-hop-canary|unselected-note-canary|root-id"

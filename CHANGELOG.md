@@ -7,6 +7,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Inspect up to ten deterministic code candidates with `sb search`, including the exact request
+  terms matched by each indexed field.
+
+### Changed
+
+- Show concrete matching terms instead of only match counts during `sb chat` candidate review.
+
+### Known limitations
+
+- Candidate search remains lexical and advisory. It does not automatically identify or approve
+  every source excerpt required for a change.
+
 ## [0.4.0] - 2026-08-09
 
 ### Added

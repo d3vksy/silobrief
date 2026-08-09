@@ -111,12 +111,12 @@ class LexicalRankingTests(unittest.TestCase):
                     node=candidate,
                     score=27,
                     evidence=RankEvidence(
-                        path_matches=1,
-                        symbol_matches=2,
-                        import_matches=1,
-                        docstring_matches=1,
-                        comment_matches=1,
-                        note_match=True,
+                        path_matches=("retry",),
+                        symbol_matches=("client", "retry"),
+                        import_matches=("http",),
+                        docstring_matches=("docs",),
+                        comment_matches=("comment",),
+                        note_matches=("note",),
                         connected_nodes=4,
                     ),
                 ),
@@ -151,7 +151,7 @@ class LexicalRankingTests(unittest.TestCase):
         self.assertEqual(ranked, reordered)
         self.assertEqual([item.node.id for item in ranked], ["worker", "service"])
         self.assertTrue(all(item.score == 4 for item in ranked))
-        self.assertTrue(all(item.evidence.note_match for item in ranked))
+        self.assertTrue(all(item.evidence.note_matches == ("retry",) for item in ranked))
 
     def test_limits_results_and_uses_deterministic_tie_breakers(self) -> None:
         same_path = (
