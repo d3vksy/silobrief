@@ -130,20 +130,20 @@ class ChatReviewTests(unittest.TestCase):
             "Keep the retry policy public|transport|Public transport adapter"
         )
         for approved in approved_values.split("|"):
-            self.assertIn(approved, rendered.main_markdown)
+            self.assertIn(approved, rendered.markdown)
 
         visible = output.getvalue()
         self.assertIn("src/service.py", visible)
         self.assertIn("src/helper.py", visible)
-        self.assertIn("path=1", visible)
-        self.assertIn("connected=1", visible)
+        self.assertIn("path=retry", visible)
+        self.assertIn("connections: 1", visible)
         hidden_values = (
             "source-body-canary|internal-real-name|.models.SyncResult|src/second.py|"
             "second-hop-canary|unselected-note-canary|root-id"
         )
         for hidden in hidden_values.split("|"):
-            self.assertNotIn(hidden, visible + rendered.main_markdown)
-        self.assertNotIn("src/direct.py", rendered.main_markdown)
+            self.assertNotIn(hidden, visible + rendered.markdown)
+        self.assertNotIn("src/direct.py", rendered.markdown)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
         rendered = review_brief(
@@ -155,9 +155,9 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         self.assertEqual(disclosure_counts(rendered), (0, 0, 0, 0, 0))
-        self.assertEqual(rendered.main_markdown.count("- 없음"), 3)
+        self.assertEqual(rendered.markdown.count("- 없음"), 3)
         for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
-            self.assertNotIn(f"## {title}", rendered.main_markdown)
+            self.assertNotIn(f"## {title}", rendered.markdown)
 
     def test_recovers_from_empty_candidates_with_a_file_outline(self) -> None:
         module = node("module", "src/guided.py", "module", "guided")
@@ -208,10 +208,10 @@ class ChatReviewTests(unittest.TestCase):
         self.assertNotIn("module guided", outline)
         self.assertNotIn("Symbols in", node_id_output.getvalue())
         self.assertIn("class Service", visible)
-        self.assertIn("src/guided.py", rendered.main_markdown)
-        self.assertIn("function: Service.run", rendered.main_markdown)
-        self.assertNotIn("function: helper", rendered.main_markdown)
-        self.assertNotIn("src/external.py", rendered.main_markdown)
+        self.assertIn("src/guided.py", rendered.markdown)
+        self.assertIn("function: Service.run", rendered.markdown)
+        self.assertNotIn("function: helper", rendered.markdown)
+        self.assertNotIn("src/external.py", rendered.markdown)
         self.assertEqual(rendered.disclosure.symbol_names, 3)
 
     def test_keeps_module_when_file_outline_has_no_symbol_selection(self) -> None:
@@ -238,9 +238,9 @@ class ChatReviewTests(unittest.TestCase):
             output_stream=TtyBuffer(),
         )
 
-        self.assertIn("module: guided", rendered.main_markdown)
-        self.assertIn("class: Service", rendered.main_markdown)
-        self.assertIn("function: helper", rendered.main_markdown)
+        self.assertIn("module: guided", rendered.markdown)
+        self.assertIn("class: Service", rendered.markdown)
+        self.assertIn("function: helper", rendered.markdown)
         self.assertEqual(rendered.disclosure.symbol_names, 3)
 
     def test_rejects_unknown_file_and_invalid_outline_number(self) -> None:

@@ -7,11 +7,16 @@ from pathlib import Path
 
 from silobrief import __version__
 from silobrief.boundaries import register_boundary, unregister_boundary
+from silobrief.candidate_search import (
+    CandidateSearchError,
+    render_candidate_results,
+    search_candidates,
+)
 from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
 from silobrief.notes import add_note
-from silobrief.output import OutputBlockedError, approve_and_write, source_companion_name
+from silobrief.output import OutputBlockedError, approve_and_write
 from silobrief.sources import SourceCollectionError
 from silobrief.state import (
     IndexStateError,
@@ -49,6 +54,8 @@ def _build_parser() -> argparse.ArgumentParser:
     log = subcommands.add_parser("log", help="Record public project context.")
     log.add_argument("path")
     log.add_argument("--comment", required=True)
+    search = subcommands.add_parser("search", help="Find candidate code for a request.")
+    search.add_argument("prompt")
     chat = subcommands.add_parser("chat", help="Create a reviewed research brief.")
     chat.add_argument("prompt")
     chat.add_argument("--out", dest="output", required=True)
@@ -139,6 +146,33 @@ def main(argv: Sequence[str] | None = None) -> int:
             parser.error(str(error))
         print(f"recorded note {note['id']} for {note['path']}; updated .silobrief/notes.json")
 
+    if arguments.command == "search":
+        prompt = arguments.prompt
+        if not isinstance(prompt, str) or not prompt.strip():
+            parser.error("request must not be empty")
+
+        start = Path.cwd()
+        try:
+            root = find_project_root(start)
+            index, snapshot = load_current_index(root)
+            notes = load_notes(root)
+            search_output = render_candidate_results(search_candidates(prompt, index, notes))
+        except IndexStateError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 3
+        except SetupError as error:
+            parser.error(str(error))
+        except StoredIndexError as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 3
+        except (CurrentIndexError, SourceCollectionError, CandidateSearchError) as error:
+            print(f"sb: error: {error}", file=sys.stderr)
+            return 4
+
+        for warning in snapshot.warnings:
+            print(f"warning: {warning.path}: {warning.reason}", file=sys.stderr)
+        print(search_output, end="")
+
     if arguments.command == "chat":
         prompt = arguments.prompt
         output_text = arguments.output
@@ -167,7 +201,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         for warning in snapshot.warnings:
             print(f"warning: {warning.path}: {warning.reason}", file=sys.stderr)
         try:
-            companion_name = source_companion_name(output_text)
             rendered = review_brief(
                 prompt,
                 index,
@@ -175,9 +208,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 input_stream=sys.stdin,
                 output_stream=sys.stdout,
                 snapshot=snapshot,
-                source_companion=companion_name,
             )
-            written = approve_and_write(
+            approve_and_write(
                 root,
                 output_text,
                 rendered,
@@ -190,7 +222,5 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(f"sb: error: {error}", file=sys.stderr)
             return 4
         print(f"\nwrote {output_text}")
-        if written.source is not None:
-            print(f"wrote source companion {written.source.name}")
 
     return 0

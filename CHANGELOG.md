@@ -7,6 +7,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-09
+
+### Added
+
+- Inspect up to ten deterministic code candidates with `sb search`, including the exact request
+  terms matched by each indexed field.
+
+### Changed
+
+- Show concrete matching terms instead of only match counts during `sb chat` candidate review.
+- Write the task, approved context, and approved source excerpts into one self-contained Markdown
+  file instead of a main brief plus `.sources.md` companion.
+- Record embedded source with disclosure manifest schema 3 and `source_delivery`.
+
+### Known limitations
+
+- Candidate search remains lexical and advisory. It does not automatically identify or approve
+  every source excerpt required for a change.
+- The intended symbol appeared in the Top 10 for three of six prompts in the existing lexical
+  regression set. Guided exact-path selection remains necessary when search misses.
+- This release does not validate automatic context closure, secret detection, export approval,
+  market demand, or answer quality across external AI models.
+
 ## [0.4.0] - 2026-08-09
 
 ### Added

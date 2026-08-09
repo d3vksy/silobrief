@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-4f46e5" alt="릴리스 v0.4.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="릴리스 v0.5.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.4.0
+siloBrief 0.5.0
 ```
 
 ## 명령어
@@ -75,7 +75,8 @@ siloBrief 0.4.0
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
-| `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 AI 요청 문서와 선택적 코드 첨부 파일을 만듭니다. |
+| `sb search "PROMPT"` | 관련 코드 후보를 최대 10개까지 찾고 어떤 요청 단어가 일치했는지 보여줍니다. |
+| `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
 `setup`을 제외한 명령은 현재 위치에서 프로젝트 루트를 자동으로 찾습니다. `chat`은 대화형
@@ -85,18 +86,17 @@ siloBrief 0.4.0
 
 ## 생성되는 파일
 
-검토 결과에 따라 한 개 또는 두 개의 파일이 만들어집니다.
+검토가 끝나면 자족적인 Markdown 파일 하나가 만들어집니다.
 
 ```text
-retry-brief.md          작업 요청과 공개를 승인한 프로젝트 정보
-retry-brief.sources.md  사용자가 선택하고 승인한 소스 코드
+retry-brief.md  작업 요청, 승인한 프로젝트 정보, 공개를 승인한 소스 코드
 ```
 
-`.sources.md` 파일이 만들어졌다면 두 파일을 함께 AI에 전달합니다. 소스 코드를 하나도 선택하지
-않았다면 기본 AI 요청 문서만 만들어집니다.
+이 파일 하나를 그대로 AI에 전달하면 됩니다. 소스 코드를 하나도 선택하지 않았다면 같은 파일에
+작업 요청과 승인한 프로젝트 정보만 들어갑니다.
 
-저장소에는 siloBrief로 직접 만든 [AI 요청 문서](validation/v0.2/packets/T01-MODIFY/t01-modify.md)와
-[코드 첨부 파일](validation/v0.2/packets/T01-MODIFY/t01-modify.sources.md)이 들어 있습니다.
+저장소에는 검증 이력을 위해
+[v0.2의 분리 출력 예시](validation/v0.2/packets/T01-MODIFY/t01-modify.md)도 남겨 두었습니다.
 
 ## 사용법
 
@@ -110,12 +110,14 @@ retry-brief.sources.md  사용자가 선택하고 승인한 소스 코드
 sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
+sb search "Update retry_request to retry HTTP 503 but not 500."
 sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
 이 과정에서 `setup`은 작업 공간을 만들고, `ignore`는 읽으면 안 되는 경로를 등록합니다. `init`은
-나머지 Python 파일을 분석해 색인을 만들고, `chat`은 작업과 관련 있어 보이는 정보를 찾아
-검토 대상으로 보여줍니다.
+나머지 Python 파일을 분석해 색인을 만듭니다. `search`는 공개 검토를 시작하지 않고 관련 코드
+후보와 선정 근거를 확인할 때 사용합니다. `chat`은 같은 후보를 보여 준 뒤 실제로 포함할 내용을
+직접 선택하게 합니다.
 
 ### 등록한 제외 경로 해제하기
 
@@ -129,7 +131,7 @@ sb init
 
 `unignore`는 설정만 바꾸며 해제할 경로의 파일을 열지 않습니다. 기존 색인은 즉시 오래된 상태로
 표시되므로 `sb init`이 끝나기 전까지 `sb chat`을 실행할 수 없습니다. 색인을 다시 만들면 해당
-경로의 파일이 검토 대상이나 코드 첨부 후보로 나타날 수 있습니다.
+경로의 파일이 검토 대상이나 소스 코드 후보로 나타날 수 있습니다.
 
 ### 프로젝트 정보 더하기
 
@@ -148,7 +150,7 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 2. AI 요청 문서에 넣을 프로젝트 정보를 하나씩 검토합니다.
 3. 화면에 표시된 소스 코드를 첨부할지 선택합니다. 기본값은 `아니요`입니다.
 4. 제외 영역의 실제 식별자가 노출될 때는 내용을 확인한 뒤 `EXPOSE`를 입력해야 합니다.
-5. AI 요청 문서와 코드 첨부 파일의 전체 내용을 미리 확인합니다.
+5. 생성할 Markdown 파일의 전체 내용을 미리 확인합니다.
 6. 문제가 없으면 정확히 `WRITE`를 입력해 파일을 만듭니다.
 
 다른 환경으로 옮기기 전에는 생성된 파일을 직접 열어 마지막으로 확인하세요.
@@ -159,15 +161,14 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 판단할 수 있도록 필요한 결과와 완료 조건도 함께 적는 것이 좋습니다.
 
 `sb log`에는 외부 공개를 승인한 정보만 입력해야 합니다. 비공개 소스 코드, 비밀값 또는
-제외 영역의 실제 이름을 프로젝트 메모에 적지 마세요. 소스 코드는 사용자가 직접 선택하고
-승인한 경우에만 코드 첨부 파일에 원문 그대로 포함됩니다. 기본값은 포함하지 않는 것입니다.
+제외 영역의 실제 이름을 프로젝트 메모에 적지 마세요. 소스 코드는 사용자가 직접 선택하고 승인한
+경우에만 생성 파일에 원문 그대로 포함됩니다. 기본값은 포함하지 않는 것입니다.
 
 ## 용어 정리
 
 | 용어 | 뜻 |
 |---|---|
-| AI 요청 문서 | 작업 요청과 공개를 승인한 프로젝트 정보가 담긴 기본 `.md` 파일입니다. 소스 코드 본문은 포함하지 않습니다. 기술 문서에서는 main brief라고 부릅니다. |
-| 코드 첨부 파일 | 사용자가 선택한 소스 코드가 담기는 선택적 `.sources.md` 파일입니다. 기술 문서에서는 source companion이라고 부릅니다. |
+| 자족적인 브리프 | 작업 요청, 승인한 프로젝트 정보, 공개를 승인한 소스 코드가 한데 담긴 `.md` 파일입니다. |
 | 제외 경로 | `sb ignore`로 등록한 파일이나 디렉터리입니다. siloBrief는 제외한 디렉터리 아래를 분석하지 않습니다. |
 | 제외 영역의 공개용 이름 | 제외 경로의 실제 이름 대신 AI 요청 문서에 표시할 별칭과 설명입니다. 기술 문서에서는 boundary alias라고 부릅니다. |
 | 로컬 색인 | 허용된 Python 파일과 그 안의 함수·클래스를 기록한 `.silobrief/index.json` 파일입니다. |
@@ -193,15 +194,16 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.4.0입니다. `sb unignore`로 등록된 제외 경계를 경로나 alias로 해제할 수
-있으며, 해제 후에는 다시 `sb init`을 실행해야 검토를 시작할 수 있습니다. 정확한 파일 경로에서
-심볼을 고르면 사용자가 선택한 소스만 공개 검토 대상으로 유지합니다.
+현재 공개 버전은 v0.5.0입니다. `sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대
+10개까지 보여줍니다. `sb chat`은 작업 요청, 승인한 맥락, 승인한 소스 조각을
+하나의 자족적인 Markdown 파일로 묶습니다.
 
-설치한 wheel로 동결된 오픈소스 Python 저장소 여섯 개에서 경계 해제, 오래된 색인 차단, 정확한
-경로 검토, Markdown 두 파일 생성을 확인했습니다. 다만 독립 과제 여섯 개 중 자동 lexical 검색이
-목표 심볼을 Top 10에 넣은 경우는 한 개뿐이어서, 아직은 사용자가 경로를 직접 고르는 과정이
-중요합니다. 이 결과가 비밀정보 탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개
-프로젝트에서의 효과를 입증하지는 않습니다.
+Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트워크에 연결하지 않고 같은
+브리프가 반복 생성되는 것을 확인했습니다. 더 넓은 여섯 과제 lexical 회귀 검사에서는 목표
+심볼이 세 과제에서만 Top 10에 들었습니다. 후보 검색은 어디까지나 단어 기반 제안이므로, 놓친
+경우에는 정확한 파일 경로를 직접 고르는 과정이 필요합니다. 이 결과가 자동 맥락 완성, 비밀정보
+탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개 프로젝트에서의 효과를 입증하지는
+않습니다.
 
 - [설치 wheel 검증](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [수동 모델 평가 절차](validation/v0.2/MANUAL_MODEL_GATE.md)
@@ -219,7 +221,7 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 문서
 
-- [출력 및 보호 범위 계약](docs/V0_2_CONTRACT.md)
+- [v0.2 출력 및 보호 범위 계약(과거 문서)](docs/V0_2_CONTRACT.md)
 - [보안 문제 신고 안내](SECURITY.md)
 
 ## 기여하기

@@ -3,8 +3,12 @@ from __future__ import annotations
 from typing import TextIO
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
+from silobrief.candidate_search import (
+    CandidateSearchError,
+    render_candidate_results,
+    search_candidates,
+)
 from silobrief.index import IndexData
-from silobrief.ranking import rank_candidates
 from silobrief.renderer import (
     ApprovedBoundary,
     ApprovedSymbol,
@@ -19,7 +23,6 @@ from silobrief.review import (
     ReviewError,
     ReviewSelection,
     SymbolOption,
-    candidate_options,
     review_selection,
     selector_symbol_options,
 )
@@ -47,7 +50,6 @@ def review_brief(
     input_stream: TextIO,
     output_stream: TextIO,
     snapshot: SourceSnapshot | None = None,
-    source_companion: str | None = None,
 ) -> RenderedBrief:
     if not prompt.strip():
         raise ChatReviewError("request must not be empty")
@@ -61,8 +63,8 @@ def review_brief(
     _confirm_request(input_stream, output_stream)
 
     try:
-        options = candidate_options(rank_candidates(prompt, index, notes))
-    except ReviewError as error:
+        options = search_candidates(prompt, index, notes)
+    except CandidateSearchError as error:
         raise ChatReviewError(str(error)) from error
     _show_candidates(options, output_stream)
     selected_numbers = _read_numbers(input_stream, output_stream)
@@ -96,9 +98,6 @@ def review_brief(
             )
         except SourceReviewError as error:
             raise ChatReviewError(str(error)) from error
-    if approved_sources and source_companion is None:
-        raise ChatReviewError("approved source requires a companion file name")
-
     try:
         return render_brief(
             _brief_input(
@@ -106,7 +105,6 @@ def review_brief(
                 index,
                 notes,
                 reviewed,
-                source_companion=source_companion if approved_sources else None,
                 source_excerpts=approved_sources,
             )
         )
@@ -115,21 +113,7 @@ def review_brief(
 
 
 def _show_candidates(options: tuple[CandidateOption, ...], output: TextIO) -> None:
-    _write(output, "Candidates:\n")
-    if not options:
-        _write(output, "- none\n")
-    for option in options:
-        evidence = option.evidence
-        note = "yes" if evidence.note_match else "no"
-        _write(
-            output,
-            f"{option.number}. {option.node.path} | {option.node.kind} "
-            f"{option.node.qualified_name} | score={option.score} | "
-            f"path={evidence.path_matches} symbol={evidence.symbol_matches} "
-            f"import={evidence.import_matches} docstring={evidence.docstring_matches} "
-            f"comment={evidence.comment_matches} note={note} "
-            f"connected={evidence.connected_nodes}\n",
-        )
+    _write(output, render_candidate_results(options))
 
 
 def _confirm_request(input_stream: TextIO, output_stream: TextIO) -> None:
@@ -274,7 +258,6 @@ def _brief_input(
     notes: NotesData,
     selection: ReviewSelection,
     *,
-    source_companion: str | None = None,
     source_excerpts: tuple[ApprovedSourceExcerpt, ...] = (),
 ) -> BriefInput:
     nodes = (*selection.selected, *selection.expanded)
@@ -292,7 +275,6 @@ def _brief_input(
         public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
         boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
-        source_companion=source_companion,
         source_excerpts=source_excerpts,
     )
 

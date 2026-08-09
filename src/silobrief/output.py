@@ -10,7 +10,7 @@ from silobrief.renderer import RenderedBrief
 from silobrief.sources import SourceCollectionError, SourceSnapshot, snapshot_sources
 from silobrief.state import STATE_DIRECTORY, SetupError, load_config
 
-_APPROVAL_PROMPT = "Type exactly WRITE to create the Markdown file(s): "
+_APPROVAL_PROMPT = "Type exactly WRITE to create the Markdown file: "
 
 
 class OutputBlockedError(Exception):
@@ -20,27 +20,12 @@ class OutputBlockedError(Exception):
 @dataclass(frozen=True, slots=True)
 class WrittenBrief:
     main: Path
-    source: Path | None
 
 
 @dataclass(frozen=True, slots=True)
 class _FileIdentity:
     device: int
     inode: int
-
-
-def source_companion_name(output_text: str) -> str:
-    if not isinstance(output_text, str) or not output_text:
-        raise OutputBlockedError("output path must not be empty")
-    if "/" in output_text and "\\" in output_text:
-        raise OutputBlockedError("output path must not mix path separators")
-
-    path = PureWindowsPath(output_text) if "\\" in output_text else PurePosixPath(output_text)
-    if path.suffix != ".md":
-        raise OutputBlockedError("output path must use the .md extension")
-    if path.name.endswith(".sources.md"):
-        raise OutputBlockedError("main output path must not end with .sources.md")
-    return f"{path.name[:-3]}.sources.md"
 
 
 def approve_and_write(
@@ -58,21 +43,11 @@ def approve_and_write(
     if type(rendered) is not RenderedBrief:
         raise OutputBlockedError("output requires a rendered brief")
 
-    companion_name = source_companion_name(output_text)
     destination = _output_path(root, start, output_text)
-    source_destination = (
-        _available_path(destination.with_name(companion_name), root)
-        if rendered.source_markdown is not None
-        else None
-    )
-    _validate_rendered_pair(rendered, companion_name)
     baseline = source_snapshot if source_snapshot is not None else _snapshot(root)
 
     try:
-        output_stream.write(rendered.main_markdown)
-        if rendered.source_markdown is not None:
-            output_stream.write(f"\n--- Source companion: {companion_name} ---\n\n")
-            output_stream.write(rendered.source_markdown)
+        output_stream.write(rendered.markdown)
         output_stream.write(f"\n{_APPROVAL_PROMPT}")
         output_stream.flush()
         approval = input_stream.readline()
@@ -85,29 +60,8 @@ def approve_and_write(
     if current.digest != baseline.digest:
         raise OutputBlockedError("project sources changed during review; run sb init")
 
-    if rendered.source_markdown is None:
-        _write_new_file(destination, rendered.main_markdown)
-        return WrittenBrief(destination, None)
-
-    if source_destination is None:
-        raise OutputBlockedError("source companion destination is missing")
-    source_identity = _write_new_file(source_destination, rendered.source_markdown)
-    try:
-        _write_new_file(destination, rendered.main_markdown)
-    except OutputBlockedError:
-        _remove_created_file(source_destination, source_identity)
-        raise
-    return WrittenBrief(destination, source_destination)
-
-
-def _validate_rendered_pair(rendered: RenderedBrief, companion_name: str) -> None:
-    disclosed = rendered.disclosure.source_companion
-    if rendered.source_markdown is None:
-        if disclosed != "none":
-            raise OutputBlockedError("rendered source disclosure is inconsistent")
-        return
-    if disclosed != companion_name:
-        raise OutputBlockedError("rendered source companion does not match the output path")
+    _write_new_file(destination, rendered.markdown)
+    return WrittenBrief(destination)
 
 
 def _output_path(root: Path, start: Path, output_text: str) -> Path:
