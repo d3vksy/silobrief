@@ -73,6 +73,7 @@ siloBrief 0.4.0
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
+| `sb search "PROMPT"` | Lists up to ten code candidates and the request terms that matched each one. |
 | `sb chat "PROMPT" --out FILE` | Reviews context and writes the main brief and optional code attachment. |
 | `sb --version` | Prints the installed siloBrief version. |
 
@@ -106,12 +107,14 @@ directory. Run these commands from the copied project root:
 sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
+sb search "Update retry_request to retry HTTP 503 but not 500."
 sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
 `setup` prepares local state, `ignore` registers a path that must not be read, and `init` builds a
-local search list from the remaining Python files. `chat` then proposes relevant project context
-for review.
+local search list from the remaining Python files. `search` lets you inspect ranked candidates
+without starting disclosure review. `chat` uses the same candidates and then asks you to choose
+what may be included.
 
 ### Remove a registered boundary
 

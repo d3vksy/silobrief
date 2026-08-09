@@ -75,6 +75,7 @@ siloBrief 0.4.0
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
+| `sb search "PROMPT"` | 관련 코드 후보를 최대 10개까지 찾고 어떤 요청 단어가 일치했는지 보여줍니다. |
 | `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 AI 요청 문서와 선택적 코드 첨부 파일을 만듭니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
@@ -110,12 +111,14 @@ retry-brief.sources.md  사용자가 선택하고 승인한 소스 코드
 sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
+sb search "Update retry_request to retry HTTP 503 but not 500."
 sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
 이 과정에서 `setup`은 작업 공간을 만들고, `ignore`는 읽으면 안 되는 경로를 등록합니다. `init`은
-나머지 Python 파일을 분석해 색인을 만들고, `chat`은 작업과 관련 있어 보이는 정보를 찾아
-검토 대상으로 보여줍니다.
+나머지 Python 파일을 분석해 색인을 만듭니다. `search`는 공개 검토를 시작하지 않고 관련 코드
+후보와 선정 근거를 확인할 때 사용합니다. `chat`은 같은 후보를 보여 준 뒤 실제로 포함할 내용을
+직접 선택하게 합니다.
 
 ### 등록한 제외 경로 해제하기
 

@@ -12,6 +12,7 @@ PUBLIC_COMMANDS = (
     "sb unignore",
     "sb init",
     "sb log",
+    "sb search",
     "sb chat",
     "sb --version",
 )

@@ -56,12 +56,12 @@ def ranked(candidate: IndexNode, score: int) -> RankedCandidate:
         node=candidate,
         score=score,
         evidence=RankEvidence(
-            path_matches=1,
-            symbol_matches=0,
-            import_matches=0,
-            docstring_matches=0,
-            comment_matches=0,
-            note_match=False,
+            path_matches=("match",),
+            symbol_matches=(),
+            import_matches=(),
+            docstring_matches=(),
+            comment_matches=(),
+            note_matches=(),
             connected_nodes=0,
         ),
     )

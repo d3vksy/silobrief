@@ -18,13 +18,17 @@ _MAX_CANDIDATES = 10
 
 @dataclass(frozen=True, slots=True)
 class RankEvidence:
-    path_matches: int
-    symbol_matches: int
-    import_matches: int
-    docstring_matches: int
-    comment_matches: int
-    note_match: bool
+    path_matches: tuple[str, ...]
+    symbol_matches: tuple[str, ...]
+    import_matches: tuple[str, ...]
+    docstring_matches: tuple[str, ...]
+    comment_matches: tuple[str, ...]
+    note_matches: tuple[str, ...]
     connected_nodes: int
+
+    @property
+    def note_match(self) -> bool:
+        return bool(self.note_matches)
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,14 +74,20 @@ def _evidence(
     note_tokens: tuple[tuple[HumanNoteData, frozenset[str]], ...],
 ) -> RankEvidence:
     return RankEvidence(
-        path_matches=_match_count(query, node.tokens.path),
-        symbol_matches=_match_count(query, node.tokens.symbol),
-        import_matches=_match_count(query, node.tokens.imports),
-        docstring_matches=_match_count(query, node.tokens.docstrings),
-        comment_matches=_match_count(query, node.tokens.comments),
-        note_match=any(
-            _note_applies(note["path"], node.path) and not query.isdisjoint(tokens)
-            for note, tokens in note_tokens
+        path_matches=_matches(query, node.tokens.path),
+        symbol_matches=_matches(query, node.tokens.symbol),
+        import_matches=_matches(query, node.tokens.imports),
+        docstring_matches=_matches(query, node.tokens.docstrings),
+        comment_matches=_matches(query, node.tokens.comments),
+        note_matches=tuple(
+            sorted(
+                {
+                    token
+                    for note, tokens in note_tokens
+                    if _note_applies(note["path"], node.path)
+                    for token in query.intersection(tokens)
+                }
+            )
         ),
         connected_nodes=len(adjacency.get(node.id, ())),
     )
@@ -103,8 +113,8 @@ def _note_applies(note_path: str, node_path: str) -> bool:
     return note_path == "." or node_path == note_path or node_path.startswith(f"{note_path}/")
 
 
-def _match_count(query: frozenset[str], tokens: tuple[str, ...]) -> int:
-    return len(query.intersection(tokens))
+def _matches(query: frozenset[str], tokens: tuple[str, ...]) -> tuple[str, ...]:
+    return tuple(sorted(query.intersection(tokens)))
 
 
 def _has_text_match(evidence: RankEvidence) -> bool:
@@ -120,11 +130,11 @@ def _has_text_match(evidence: RankEvidence) -> bool:
 
 def _score(evidence: RankEvidence) -> int:
     return (
-        evidence.symbol_matches * _SYMBOL_WEIGHT
-        + evidence.path_matches * _PATH_WEIGHT
-        + evidence.import_matches * _IMPORT_WEIGHT
-        + evidence.docstring_matches * _DOCSTRING_WEIGHT
-        + evidence.comment_matches * _COMMENT_WEIGHT
+        len(evidence.symbol_matches) * _SYMBOL_WEIGHT
+        + len(evidence.path_matches) * _PATH_WEIGHT
+        + len(evidence.import_matches) * _IMPORT_WEIGHT
+        + len(evidence.docstring_matches) * _DOCSTRING_WEIGHT
+        + len(evidence.comment_matches) * _COMMENT_WEIGHT
         + (_NOTE_WEIGHT if evidence.note_match else 0)
         + min(evidence.connected_nodes, _MAX_CONNECTIVITY_SCORE)
     )
