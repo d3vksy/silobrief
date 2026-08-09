@@ -145,18 +145,16 @@ class ChatCommandTests(unittest.TestCase):
             )
 
             destination = project / output
-            source_destination = destination.with_name(f"{destination.stem}.sources.md")
             self.assertEqual(result, 0)
             self.assertIs(input_stream.output_absent_before_write, True)
             self.assertIs(input_stream.source_output_absent_before_write, True)
             self.assertTrue(destination.is_file())
-            self.assertTrue(source_destination.is_file())
+            self.assertFalse(destination.with_name("run.sources.md").exists())
             self.assertEqual(source_bytes(project), before)
             self.assertEqual(stderr, "")
             self.assertIn("Candidates:", stdout)
             self.assertIn("wrote .silobrief/exports/run.md", stdout)
             markdown = destination.read_text(encoding="utf-8")
-            source_markdown = source_destination.read_text(encoding="utf-8")
             for approved in (
                 "package/service.py",
                 "function: run",
@@ -166,15 +164,16 @@ class ChatCommandTests(unittest.TestCase):
                 "External delivery adapter",
             ):
                 self.assertIn(approved, markdown)
-            self.assertIn("def run():", source_markdown)
-            self.assertIn("send()", source_markdown)
+            self.assertIn("def run():", markdown)
+            self.assertIn("send()", markdown)
+            self.assertIn("source_delivery: embedded", markdown)
             for hidden in (
                 "allowed-source-canary",
                 "private-boundary-canary",
                 "private.secret",
                 str(project),
             ):
-                self.assertNotIn(hidden, stdout + markdown + source_markdown)
+                self.assertNotIn(hidden, stdout + markdown)
 
     def test_writes_only_the_main_brief_when_source_is_declined(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -193,7 +192,7 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(stderr, "")
             self.assertTrue(destination.is_file())
             self.assertFalse(destination.with_name("context-only.sources.md").exists())
-            self.assertIn('source_companion: "none"', destination.read_text(encoding="utf-8"))
+            self.assertIn("source_delivery: none", destination.read_text(encoding="utf-8"))
 
     def test_src_layout_boundary_is_redacted_in_exact_path_brief(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -257,14 +256,14 @@ class ChatCommandTests(unittest.TestCase):
             )
 
             destination = project / output
-            source_destination = destination.with_name("guided.sources.md")
             self.assertEqual(result, 0)
             self.assertEqual(stderr, "")
             self.assertIn("Symbols in `package/service.py`:", stdout)
             self.assertIn("1. function run", stdout)
-            generated = source_destination.read_text(encoding="utf-8")
+            generated = destination.read_text(encoding="utf-8")
             self.assertIn("def run():", generated)
             self.assertNotIn("private-boundary-canary", generated)
+            self.assertFalse(destination.with_name("guided.sources.md").exists())
 
     def test_rejects_an_invalid_guided_symbol_without_writing(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

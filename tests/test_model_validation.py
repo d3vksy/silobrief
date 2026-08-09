@@ -19,7 +19,6 @@ from silobrief.review import ReviewError, selector_symbol_options
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPOSITORY_ROOT / "examples" / "model-validation-fixture"
-PACKET_ROOT = REPOSITORY_ROOT / "validation" / "v0.2" / "packets"
 GUIDE = REPOSITORY_ROOT / "validation" / "v0.2" / "MANUAL_MODEL_GATE.md"
 VERIFICATION = REPOSITORY_ROOT / "validation" / "v0.2" / "INSTALLED_WHEEL_VERIFICATION.md"
 CLAUDE_RESULT = REPOSITORY_ROOT / "validation" / "v0.2" / "results" / "CLAUDE_GATE_RESULT.md"
@@ -50,7 +49,6 @@ class Task:
 class GeneratedPacket:
     task: Task
     main: bytes
-    source: bytes
     index: bytes
     source_before: tuple[tuple[str, str], ...]
     source_after: tuple[tuple[str, str], ...]
@@ -84,7 +82,7 @@ TASKS = (
     ),
 )
 
-PACKET_SHA256 = {
+LEGACY_PACKET_SHA256 = {
     "T01-MODIFY": (
         "799c083b0df08b8a62af1d6e0078fded210757acd288d8872b918136d7fed4c3",
         "26e81597f2edd4c65f226ddafc4a291e595e5fb75f5a133d5136ca94d106e698",
@@ -97,6 +95,12 @@ PACKET_SHA256 = {
         "de1df5fd18c72840f401229e7fc6f25016ecfaa70ac5bd643ecf59c22fee8311",
         "4ad9d025d2027cc569499a0d42cbdaf6b0b650c5cc6cce09c0bbe74c0aa9c597",
     ),
+}
+
+COMBINED_PACKET_SHA256 = {
+    "T01-MODIFY": "d43382535342ce442f4c88e8fb27c33578f72db486f9c2081e2d5c863f225115",
+    "T02-ADD": "3d1c61aa0c274ee3a5d149a11def4458f11381fc714606775204e015666bd8b5",
+    "T03-REMOVE": "1aa3dc9ff544ddca94787a8f8d5e8d0cab559935c77b5e6bf0e56b820a57531d",
 }
 
 CLAUDE_RESPONSE_SHA256 = {
@@ -168,7 +172,6 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
             task_root = destination_root / task.id
             task_root.mkdir(parents=True, exist_ok=True)
             main_path = (task_root / f"{task.output_stem}.md").resolve()
-            source_path = main_path.with_name(f"{task.output_stem}.sources.md")
             stdin = TtyBuffer(task.review_input)
             stdout = TtyBuffer()
             stderr = io.StringIO()
@@ -193,7 +196,6 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
                 GeneratedPacket(
                     task,
                     main_path.read_bytes(),
-                    source_path.read_bytes(),
                     (project / ".silobrief" / "index.json").read_bytes(),
                     before,
                     source_manifest(project),
@@ -276,7 +278,7 @@ class ModelValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ReviewError, "not present in the current index"):
             selector_symbol_options(index, "private_adapter/client.py")
 
-    def test_frozen_packets_match_current_cli_and_preserve_fixture(self) -> None:
+    def test_combined_packets_are_deterministic_and_preserve_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as first_directory:
             first = generate_packets(Path(first_directory))
         with tempfile.TemporaryDirectory() as second_directory:
@@ -285,51 +287,41 @@ class ModelValidationTests(unittest.TestCase):
         self.assertEqual(first, second)
         for packet in first:
             with self.subTest(task=packet.task.id):
-                committed = PACKET_ROOT / packet.task.id
-                main = (committed / f"{packet.task.output_stem}.md").read_bytes()
-                source = (committed / f"{packet.task.output_stem}.sources.md").read_bytes()
-                self.assertEqual(packet.main, main)
-                self.assertEqual(packet.source, source)
                 self.assertEqual(packet.source_before, packet.source_after)
                 self.assertEqual(
-                    (
-                        hashlib.sha256(main).hexdigest(),
-                        hashlib.sha256(source).hexdigest(),
-                    ),
-                    PACKET_SHA256[packet.task.id],
+                    hashlib.sha256(packet.main).hexdigest(),
+                    COMBINED_PACKET_SHA256[packet.task.id],
                 )
 
-                combined = packet.index + main + source
+                combined = packet.index + packet.main
                 for private in PRIVATE_VALUES:
                     self.assertNotIn(private.encode(), combined)
                 for canary in MODULE_CANARIES:
-                    self.assertNotIn(canary.encode(), main + source)
+                    self.assertNotIn(canary.encode(), packet.main)
                 for solution in FORBIDDEN_SOLUTION_SNIPPETS:
-                    self.assertNotIn(solution, main + source)
+                    self.assertNotIn(solution, packet.main)
                 for requirement in (
                     "## 패치".encode(),
                     "`diff` 코드 블록".encode(),
                     b"`-`",
                     b"`+`",
+                    b"source_delivery: embedded",
                 ):
-                    self.assertIn(requirement, main)
+                    self.assertIn(requirement, packet.main)
                 for removed_requirement in (
                     b"unified diff",
                     b"--- a/",
                     b"+++ b/",
                     b"/dev/null",
                 ):
-                    self.assertNotIn(removed_requirement, main)
-                self.assertNotIn("패치 또는 교체 코드".encode(), main)
+                    self.assertNotIn(removed_requirement, packet.main)
+                self.assertNotIn("패치 또는 교체 코드".encode(), packet.main)
 
         by_id = {packet.task.id: packet for packet in first}
-        self.assertNotIn(b"retry_policy =", by_id["T01-MODIFY"].main)
-        self.assertIn(b"retry_policy =", by_id["T01-MODIFY"].source)
-        self.assertNotIn(b"class LabelOptions", by_id["T02-ADD"].main)
-        self.assertIn(b"class LabelOptions", by_id["T02-ADD"].source)
-        self.assertIn(b"def format_label", by_id["T02-ADD"].source)
-        self.assertNotIn(b"def choose_reference", by_id["T03-REMOVE"].main)
-        self.assertIn(b"def choose_reference", by_id["T03-REMOVE"].source)
+        self.assertIn(b"retry_policy =", by_id["T01-MODIFY"].main)
+        self.assertIn(b"class LabelOptions", by_id["T02-ADD"].main)
+        self.assertIn(b"def format_label", by_id["T02-ADD"].main)
+        self.assertIn(b"def choose_reference", by_id["T03-REMOVE"].main)
 
     def test_evaluator_guide_freezes_prompts_and_distribution_includes_assets(self) -> None:
         guide = GUIDE.read_text(encoding="utf-8")
@@ -338,7 +330,7 @@ class ModelValidationTests(unittest.TestCase):
         for task in TASKS:
             self.assertIn(task.id, guide)
             self.assertIn(task.prompt, normalized_guide)
-            for digest in PACKET_SHA256[task.id]:
+            for digest in LEGACY_PACKET_SHA256[task.id]:
                 self.assertIn(digest, guide)
         manifest = (REPOSITORY_ROOT / "MANIFEST.in").read_text(encoding="utf-8")
         self.assertIn("examples/model-validation-fixture", manifest)

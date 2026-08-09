@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import Literal
@@ -40,13 +39,12 @@ class BriefInput:
     public_imports: tuple[str, ...]
     human_notes: tuple[str, ...]
     boundaries: tuple[ApprovedBoundary, ...]
-    source_companion: str | None
     source_excerpts: tuple[ApprovedSourceExcerpt, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class DisclosureManifest:
-    schema_version: Literal[2]
+    schema_version: Literal[3]
     user_prompt: Literal["included"]
     relative_paths: int
     symbol_names: int
@@ -54,7 +52,7 @@ class DisclosureManifest:
     human_notes: int
     human_notes_content: Literal["user-supplied-unclassified"]
     boundary_aliases: int
-    source_companion: str
+    source_delivery: Literal["embedded", "none"]
     source_excerpts: int
     source_lines: int
     source_utf8_bytes: int
@@ -66,8 +64,7 @@ class DisclosureManifest:
 
 @dataclass(frozen=True, slots=True)
 class RenderedBrief:
-    main_markdown: str
-    source_markdown: str | None
+    markdown: str
     disclosure: DisclosureManifest
 
 
@@ -75,7 +72,7 @@ def render_brief(source: BriefInput) -> RenderedBrief:
     approved = _prepare(source)
     disclosure = _disclosure(approved)
     sections = [
-        _execution_instruction(approved.source_companion),
+        _execution_instruction(bool(approved.source_excerpts)),
         _section("경고와 공개 범위", _WARNING),
         _section("작업 요청", _quote(approved.user_prompt)),
         _section("승인된 프로젝트 맥락", _project_context(approved)),
@@ -84,10 +81,9 @@ def render_brief(source: BriefInput) -> RenderedBrief:
         sections.append(_section("사용자 작성 메모", _quoted_list(approved.human_notes)))
     if approved.boundaries:
         sections.append(_section("등록된 경계", _boundary_list(approved.boundaries)))
-    if approved.source_companion is not None:
-        sections.append(
-            _section("소스 동반 파일", _source_companion_section(approved.source_companion))
-        )
+    source_markdown = _source_markdown(approved.source_excerpts)
+    if source_markdown is not None:
+        sections.append(_section("승인된 소스 코드", source_markdown))
     sections.extend(
         (
             _section("외부 AI 응답 계약", _response_contract()),
@@ -95,8 +91,7 @@ def render_brief(source: BriefInput) -> RenderedBrief:
         )
     )
     return RenderedBrief(
-        main_markdown="\n\n".join(sections) + "\n",
-        source_markdown=_source_markdown(approved.source_excerpts),
+        markdown="\n\n".join(sections) + "\n",
         disclosure=disclosure,
     )
 
@@ -113,9 +108,6 @@ def _prepare(source: BriefInput) -> BriefInput:
     notes = tuple(_text(value, "human note") for value in source.human_notes)
     boundaries = _boundaries(source.boundaries)
     excerpts = _source_excerpts(source.source_excerpts)
-    companion = _source_companion(source.source_companion)
-    if bool(excerpts) != (companion is not None):
-        raise RenderError("source companion and source excerpts must be provided together")
     return BriefInput(
         prompt,
         paths,
@@ -123,7 +115,6 @@ def _prepare(source: BriefInput) -> BriefInput:
         public_imports,
         notes,
         boundaries,
-        companion,
         excerpts,
     )
 
@@ -231,20 +222,6 @@ def _validate_source_overlaps(values: tuple[ApprovedSourceExcerpt, ...]) -> None
         previous = value
 
 
-def _source_companion(value: object) -> str | None:
-    if value is None:
-        return None
-    name = _single_line(value, "source companion")
-    if (
-        "/" in name
-        or "\\" in name
-        or PurePosixPath(name).name != name
-        or not name.endswith(".sources.md")
-    ):
-        raise RenderError("source companion must be a .sources.md file name")
-    return name
-
-
 def _text(value: object, label: str) -> str:
     if not isinstance(value, str):
         raise RenderError(f"{label} must be text")
@@ -280,7 +257,7 @@ def _relative_path(value: object) -> str:
 def _disclosure(source: BriefInput) -> DisclosureManifest:
     aliases = {alias for excerpt in source.source_excerpts for alias in excerpt.boundary_aliases}
     return DisclosureManifest(
-        schema_version=2,
+        schema_version=3,
         user_prompt="included",
         relative_paths=len(source.relative_paths),
         symbol_names=len(source.symbols),
@@ -288,7 +265,7 @@ def _disclosure(source: BriefInput) -> DisclosureManifest:
         human_notes=len(source.human_notes),
         human_notes_content="user-supplied-unclassified",
         boundary_aliases=len(source.boundaries),
-        source_companion=source.source_companion or "none",
+        source_delivery="embedded" if source.source_excerpts else "none",
         source_excerpts=len(source.source_excerpts),
         source_lines=sum(value.line_count for value in source.source_excerpts),
         source_utf8_bytes=sum(value.utf8_bytes for value in source.source_excerpts),
@@ -303,10 +280,10 @@ def _section(title: str, body: str) -> str:
     return f"## {title}\n\n{body}"
 
 
-def _execution_instruction(companion: str | None) -> str:
+def _execution_instruction(has_source: bool) -> str:
     scope = (
-        f"이 문서와 동반된 {_code_span(companion)} 파일"
-        if companion is not None
+        "이 문서의 승인된 프로젝트 맥락과 소스 코드"
+        if has_source
         else "이 문서에 공개된 프로젝트 맥락"
     )
     return (
@@ -349,10 +326,6 @@ def _boundary_list(values: tuple[ApprovedBoundary, ...]) -> str:
     return "\n".join(lines)
 
 
-def _source_companion_section(value: str) -> str:
-    return f"- 파일: {_code_span(value)}\n- main brief와 이 파일을 함께 전달해야 합니다."
-
-
 def _response_contract() -> str:
     return "\n".join(
         (
@@ -391,7 +364,7 @@ def _manifest_yaml(value: DisclosureManifest) -> str:
             f"  human_notes: {value.human_notes}",
             f"  human_notes_content: {value.human_notes_content}",
             f"  boundary_aliases: {value.boundary_aliases}",
-            f"  source_companion: {_yaml_text(value.source_companion)}",
+            f"  source_delivery: {value.source_delivery}",
             f"  source_excerpts: {value.source_excerpts}",
             f"  source_lines: {value.source_lines}",
             f"  source_utf8_bytes: {value.source_utf8_bytes}",
@@ -408,9 +381,7 @@ def _source_markdown(values: tuple[ApprovedSourceExcerpt, ...]) -> str | None:
     if not values:
         return None
     parts = [
-        "# Approved source excerpts",
-        "",
-        "이 파일에는 사용자가 외부 공개를 승인한 원문 코드가 포함되어 있습니다. "
+        "이 문서에는 사용자가 외부 공개를 승인한 원문 코드가 포함되어 있습니다. "
         "주석, docstring, 문자열, 경로와 내부 식별자를 직접 확인하십시오.",
     ]
     for value in values:
@@ -418,7 +389,7 @@ def _source_markdown(values: tuple[ApprovedSourceExcerpt, ...]) -> str | None:
         parts.extend(
             (
                 "",
-                f"## {_code_span(value.path)} — "
+                f"### {_code_span(value.path)} — "
                 f"{_code_span(f'{value.kind} {value.qualified_name}')} — "
                 f"lines {value.start_line}-{value.end_line}",
                 "",
@@ -451,7 +422,3 @@ def _longest_backtick_run(value: str) -> int:
         else:
             current = 0
     return longest
-
-
-def _yaml_text(value: str) -> str:
-    return json.dumps(value, ensure_ascii=False)

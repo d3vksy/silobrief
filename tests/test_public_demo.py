@@ -20,11 +20,9 @@ from silobrief.cli import main
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-fixture"
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
-SOURCE_OUTPUT_PATH = ".silobrief/exports/retry-brief.sources.md"
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n"
 INDEX_SHA256 = "e47e1d49d1f3d5ec828e10594922c0586eb5f0eb98bbcf333c7672122e0c901c"
-BRIEF_SHA256 = "a94d5b4f75954be4f72d02752002c8571558fd34953a7a05e24c828edd1c1731"
-SOURCE_BRIEF_SHA256 = "3035173c36872cb7853ec590bc9acb59b69adff63ad23eee446c6b3b86a66d88"
+BRIEF_SHA256 = "c2b7a70c5695bbffdf482b57fa63aa99fb3909b49f41611bb7cdd5e0d154ea79"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
     "PUBLIC_COMMENT_CANARY",
@@ -70,7 +68,7 @@ class DemoResult:
     opened_sources: tuple[str, ...]
     index: bytes
     brief: bytes
-    source_brief: bytes
+    source_companion_absent: bool
     terminal: str
     output_absent_before_write: bool | None
     source_output_absent_before_write: bool | None
@@ -170,7 +168,9 @@ def run_demo(project: Path) -> DemoResult:
         opened_sources=opened,
         index=(project / ".silobrief/index.json").read_bytes(),
         brief=(project / OUTPUT_PATH).read_bytes(),
-        source_brief=(project / SOURCE_OUTPUT_PATH).read_bytes(),
+        source_companion_absent=not (
+            project / ".silobrief/exports/retry-brief.sources.md"
+        ).exists(),
         terminal=stdout.getvalue() + stderr.getvalue(),
         output_absent_before_write=input_stream.output_absent_before_write,
         source_output_absent_before_write=input_stream.source_output_absent_before_write,
@@ -194,10 +194,10 @@ class PublicDemoTests(unittest.TestCase):
         self.assertIs(second.source_output_absent_before_write, True)
         self.assertEqual(first.index, second.index)
         self.assertEqual(first.brief, second.brief)
-        self.assertEqual(first.source_brief, second.source_brief)
+        self.assertTrue(first.source_companion_absent)
+        self.assertTrue(second.source_companion_absent)
         self.assertEqual(hashlib.sha256(first.index).hexdigest(), INDEX_SHA256)
         self.assertEqual(hashlib.sha256(first.brief).hexdigest(), BRIEF_SHA256)
-        self.assertEqual(hashlib.sha256(first.source_brief).hexdigest(), SOURCE_BRIEF_SHA256)
         self.assertEqual(
             first.scanned_directories,
             (".", "src", "src/parcel_sync"),
@@ -214,7 +214,6 @@ class PublicDemoTests(unittest.TestCase):
         self.assertEqual(first.opened_sources, second.opened_sources)
 
         brief_text = first.brief.decode("utf-8")
-        source_brief_text = first.source_brief.decode("utf-8")
         for expected in (
             "src/parcel_sync/service.py",
             "function: retry_request",
@@ -222,20 +221,19 @@ class PublicDemoTests(unittest.TestCase):
             "HTTP 503 responses may be retried.",
             "delivery-boundary",
             "External delivery adapter",
+            "PUBLIC_SOURCE_BODY_CANARY",
+            "PUBLIC_COMMENT_CANARY",
+            "deliver_internal",
+            "source_delivery: embedded",
         ):
             self.assertIn(expected, brief_text)
-        self.assertNotIn("PUBLIC_SOURCE_BODY_CANARY", brief_text)
-        self.assertNotIn("PUBLIC_COMMENT_CANARY", brief_text)
-        self.assertIn("PUBLIC_SOURCE_BODY_CANARY", source_brief_text)
-        self.assertIn("PUBLIC_COMMENT_CANARY", source_brief_text)
-        self.assertIn("deliver_internal", source_brief_text)
-        self.assertNotIn("PUBLIC_DOCSTRING_CANARY", source_brief_text)
-        self.assertNotIn("PUBLIC_STRING_CANARY", source_brief_text)
+        self.assertNotIn("PUBLIC_DOCSTRING_CANARY", brief_text)
+        self.assertNotIn("PUBLIC_STRING_CANARY", brief_text)
         for result in (first, second):
             index_text = result.index.decode("utf-8")
             main_output = result.brief.decode("utf-8")
-            all_output = result.terminal + main_output + result.source_brief.decode("utf-8")
-            for canary in PUBLIC_CANARIES:
+            all_output = result.terminal + main_output
+            for canary in PUBLIC_CANARIES[2:]:
                 self.assertNotIn(canary.casefold(), main_output.casefold())
             for private in STRICT_PRIVATE_VALUES:
                 self.assertNotIn(private.casefold(), (index_text + all_output).casefold())

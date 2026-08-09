@@ -15,6 +15,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Show concrete matching terms instead of only match counts during `sb chat` candidate review.
+- Write the task, approved context, and approved source excerpts into one self-contained Markdown
+  file instead of a main brief plus `.sources.md` companion.
+- Record embedded source with disclosure manifest schema 3 and `source_delivery`.
 
 ### Known limitations
 

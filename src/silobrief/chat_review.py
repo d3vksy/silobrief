@@ -50,7 +50,6 @@ def review_brief(
     input_stream: TextIO,
     output_stream: TextIO,
     snapshot: SourceSnapshot | None = None,
-    source_companion: str | None = None,
 ) -> RenderedBrief:
     if not prompt.strip():
         raise ChatReviewError("request must not be empty")
@@ -99,9 +98,6 @@ def review_brief(
             )
         except SourceReviewError as error:
             raise ChatReviewError(str(error)) from error
-    if approved_sources and source_companion is None:
-        raise ChatReviewError("approved source requires a companion file name")
-
     try:
         return render_brief(
             _brief_input(
@@ -109,7 +105,6 @@ def review_brief(
                 index,
                 notes,
                 reviewed,
-                source_companion=source_companion if approved_sources else None,
                 source_excerpts=approved_sources,
             )
         )
@@ -263,7 +258,6 @@ def _brief_input(
     notes: NotesData,
     selection: ReviewSelection,
     *,
-    source_companion: str | None = None,
     source_excerpts: tuple[ApprovedSourceExcerpt, ...] = (),
 ) -> BriefInput:
     nodes = (*selection.selected, *selection.expanded)
@@ -281,7 +275,6 @@ def _brief_input(
         public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
         boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
-        source_companion=source_companion,
         source_excerpts=source_excerpts,
     )
 
