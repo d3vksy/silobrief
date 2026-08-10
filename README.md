@@ -69,6 +69,7 @@ siloBrief 0.5.0
 | Command | What it does |
 |---|---|
 | `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
+| `sb example PATH` | Creates a synthetic project with three guided maintenance tasks. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
@@ -77,9 +78,9 @@ siloBrief 0.5.0
 | `sb chat "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb --version` | Prints the installed siloBrief version. |
 
-Commands other than `setup` find the project root from the current directory. `chat` requires an
-interactive terminal, a current index, and a new `.md` output path. Output inside the project must
-be below `.silobrief/exports/`. Existing files are never overwritten.
+Commands other than `setup` and `example` find the project root from the current directory. `chat`
+requires an interactive terminal, a current index, and a new `.md` output path. Output inside the
+project must be below `.silobrief/exports/`. Existing files are never overwritten.
 
 ## Generated file
 
@@ -96,6 +97,19 @@ The repository also keeps a [legacy v0.2 split-output example](validation/v0.2/p
 for validation history.
 
 ## Usage
+
+### Guided practice project
+
+Create a disposable project before using siloBrief with real source code:
+
+```console
+sb example ./silobrief-practice
+cd silobrief-practice
+```
+
+The generated `README.md` walks through one modification, one addition, and one removal task. The
+command does not run `setup`, index the project, call an AI service, or overwrite a non-empty
+directory.
 
 ### Basic example
 
