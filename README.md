@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="Release v0.5.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="Release v0.6.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.5.0
+siloBrief 0.6.0
 ```
 
 ## Commands
@@ -216,9 +216,10 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.5.0. `sb search` shows up to ten candidates with concrete lexical match
-evidence, and `sb chat` packages the task, approved context, and approved source excerpts into one
-self-contained Markdown file.
+The current release is v0.6.0. `sb example` creates a disposable guided project, and `sb language`
+configures terminal guidance and generated briefs independently in English or Korean. `sb search`
+shows up to ten candidates with concrete lexical match evidence, and `sb chat` packages the task,
+approved context, and approved source excerpts into one self-contained Markdown file.
 
 The deterministic end-to-end flow passed on Django Ninja, pytest, and Jinja checkouts without
 changing Python source files or opening a network connection.

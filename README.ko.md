@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="릴리스 v0.5.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="릴리스 v0.6.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.5.0
+siloBrief 0.6.0
 ```
 
 ## 명령어
@@ -223,9 +223,10 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.5.0입니다. `sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대
-10개까지 보여줍니다. `sb chat`은 작업 요청, 승인한 맥락, 승인한 소스 조각을
-하나의 자족적인 Markdown 파일로 묶습니다.
+현재 공개 버전은 v0.6.0입니다. `sb example`은 버려도 되는 실습 프로젝트를 만들고,
+`sb language`는 터미널 안내와 생성 브리프의 언어를 한국어 또는 영어로 각각 설정합니다.
+`sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대 10개까지 보여주며, `sb chat`은
+작업 요청, 승인한 맥락, 승인한 소스 조각을 하나의 자족적인 Markdown 파일로 묶습니다.
 
 Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트워크에 연결하지 않고 같은
 브리프가 반복 생성되는 것을 확인했습니다. 더 넓은 여섯 과제 lexical 회귀 검사에서는 목표

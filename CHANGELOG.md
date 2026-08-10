@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-10
+
 ### Added
 
 - Create a deterministic synthetic Python practice project with `sb example PATH`, including
