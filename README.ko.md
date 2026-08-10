@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="릴리스 v0.5.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="릴리스 v0.6.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -63,7 +63,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.5.0
+siloBrief 0.6.0
 ```
 
 ## 명령어
@@ -71,18 +71,34 @@ siloBrief 0.5.0
 | 명령어 | 설명 |
 |---|---|
 | `sb setup [PATH]` | 기존 프로젝트에 siloBrief 작업 공간을 만듭니다. |
+| `sb example PATH` | 유지보수 과제 3개가 담긴 합성 연습 프로젝트를 만듭니다. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | 읽지 않을 경로와 그 영역을 대신할 공개용 이름을 등록합니다. |
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
 | `sb search "PROMPT"` | 관련 코드 후보를 최대 10개까지 찾고 어떤 요청 단어가 일치했는지 보여줍니다. |
+| `sb language [--cli en|ko] [--brief en|ko]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
 | `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
-`setup`을 제외한 명령은 현재 위치에서 프로젝트 루트를 자동으로 찾습니다. `chat`은 대화형
-터미널에서만 실행할 수 있으며, 현재 설정으로 만든 색인과 새로운 `.md` 출력 경로가 필요합니다.
-프로젝트 안에 파일을 만들 때는 `.silobrief/exports/` 아래만 사용할 수 있고 기존 파일은
-덮어쓰지 않습니다.
+`setup`과 `example`을 제외한 명령은 현재 위치에서 프로젝트 루트를 자동으로 찾습니다. `chat`은
+대화형 터미널에서만 실행할 수 있으며, 현재 설정으로 만든 색인과 새로운 `.md` 출력 경로가
+필요합니다. 프로젝트 안에 파일을 만들 때는 `.silobrief/exports/` 아래만 사용할 수 있고 기존
+파일은 덮어쓰지 않습니다.
+
+두 언어의 기본값은 모두 영어입니다. 설정은 프로젝트별로 저장되며 함께 또는 따로 바꿀 수
+있습니다.
+
+```console
+sb language --cli ko
+sb language --brief en
+sb language
+```
+
+CLI 설정은 터미널의 고정 안내 문구를 바꿉니다. 브리프 설정은 siloBrief가 생성하는 제목과
+지시문을 바꿉니다. 사용자가 입력한 작업 요청과 메모, 소스 코드, 경로, 심볼과 식별자는 번역하지
+않고 원문을 유지합니다. 언어 설정은 색인, 후보 순위, ID, 정렬과 소스 digest에 영향을 주지
+않습니다.
 
 ## 생성되는 파일
 
@@ -99,6 +115,19 @@ retry-brief.md  작업 요청, 승인한 프로젝트 정보, 공개를 승인�
 [v0.2의 분리 출력 예시](validation/v0.2/packets/T01-MODIFY/t01-modify.md)도 남겨 두었습니다.
 
 ## 사용법
+
+### 연습 프로젝트 만들기
+
+실제 소스 코드를 사용하기 전에 버려도 되는 합성 프로젝트에서 전체 흐름을 연습할 수 있습니다.
+
+```console
+sb example ./silobrief-practice
+cd silobrief-practice
+```
+
+생성된 `README.md`에는 코드 수정, 함수 추가, 오래된 기능 삭제 과제가 하나씩 들어 있습니다.
+이 명령은 `setup`이나 색인을 자동으로 실행하지 않고, AI에도 접속하지 않으며, 내용이 있는 기존
+디렉터리를 덮어쓰지 않습니다.
 
 ### 빠르게 써 보기
 
@@ -194,9 +223,10 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.5.0입니다. `sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대
-10개까지 보여줍니다. `sb chat`은 작업 요청, 승인한 맥락, 승인한 소스 조각을
-하나의 자족적인 Markdown 파일로 묶습니다.
+현재 공개 버전은 v0.6.0입니다. `sb example`은 버려도 되는 실습 프로젝트를 만들고,
+`sb language`는 터미널 안내와 생성 브리프의 언어를 한국어 또는 영어로 각각 설정합니다.
+`sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대 10개까지 보여주며, `sb chat`은
+작업 요청, 승인한 맥락, 승인한 소스 조각을 하나의 자족적인 Markdown 파일로 묶습니다.
 
 Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트워크에 연결하지 않고 같은
 브리프가 반복 생성되는 것을 확인했습니다. 더 넓은 여섯 과제 lexical 회귀 검사에서는 목표

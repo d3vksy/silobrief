@@ -101,7 +101,7 @@ class BriefRendererTests(unittest.TestCase):
             source_excerpts=(first_excerpt, second_excerpt),
         )
 
-        rendered = render_brief(source)
+        rendered = render_brief(source, language="ko")
         reordered = render_brief(
             brief_input(
                 user_prompt=source.user_prompt,
@@ -111,7 +111,8 @@ class BriefRendererTests(unittest.TestCase):
                 human_notes=source.human_notes,
                 boundaries=tuple(reversed(source.boundaries)),
                 source_excerpts=tuple(reversed(source.source_excerpts)),
-            )
+            ),
+            language="ko",
         )
 
         headings: list[str] = []
@@ -170,7 +171,7 @@ class BriefRendererTests(unittest.TestCase):
         )
 
     def test_renders_main_only_when_no_source_is_approved(self) -> None:
-        rendered = render_brief(brief_input(source_excerpts=()))
+        rendered = render_brief(brief_input(source_excerpts=()), language="ko")
 
         self.assertNotIn("## 승인된 소스 코드", rendered.markdown)
         self.assertTrue(rendered.markdown.startswith("> 이 문서에 공개된 프로젝트 맥락만 사용하여"))
@@ -184,7 +185,8 @@ class BriefRendererTests(unittest.TestCase):
                 human_notes=(),
                 boundaries=(),
                 source_excerpts=(),
-            )
+            ),
+            language="ko",
         )
 
         for title in ("사용자 작성 메모", "등록된 경계", "승인된 소스 코드"):
@@ -235,6 +237,37 @@ class BriefRendererTests(unittest.TestCase):
             with self.subTest(message=message):
                 with self.assertRaisesRegex(RenderError, message):
                     render_brief(source)
+
+    def test_defaults_to_english_without_translating_approved_content(self) -> None:
+        source = brief_input()
+
+        english = render_brief(source)
+        korean = render_brief(source, language="ko")
+
+        self.assertIn("## Task request", english.markdown)
+        self.assertIn("## External AI response contract", english.markdown)
+        self.assertIn("## Patch", english.markdown)
+        self.assertNotIn("## 작업 요청", english.markdown)
+        for original in (
+            source.user_prompt,
+            source.human_notes[0],
+            source.boundaries[0].description,
+            source.source_excerpts[0].content,
+        ):
+            self.assertIn(original, english.markdown)
+            self.assertIn(original, korean.markdown)
+        self.assertEqual(english.disclosure, korean.disclosure)
+
+    def test_english_brief_adds_no_korean_text(self) -> None:
+        source = brief_input(
+            user_prompt="Update the retry policy",
+            human_notes=("Python 3.10 is required",),
+            boundaries=(ApprovedBoundary("private-api", "Internal transport"),),
+        )
+
+        rendered = render_brief(source)
+
+        self.assertNotRegex(rendered.markdown, "[가-힣]")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.5.0"><img src="https://img.shields.io/badge/release-v0.5.0-4f46e5" alt="Release v0.5.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="Release v0.6.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -61,7 +61,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 0.5.0
+siloBrief 0.6.0
 ```
 
 ## Commands
@@ -69,17 +69,33 @@ siloBrief 0.5.0
 | Command | What it does |
 |---|---|
 | `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
+| `sb example PATH` | Creates a synthetic project with three guided maintenance tasks. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists up to ten code candidates and the request terms that matched each one. |
+| `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
 | `sb chat "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb --version` | Prints the installed siloBrief version. |
 
-Commands other than `setup` find the project root from the current directory. `chat` requires an
-interactive terminal, a current index, and a new `.md` output path. Output inside the project must
-be below `.silobrief/exports/`. Existing files are never overwritten.
+Commands other than `setup` and `example` find the project root from the current directory. `chat`
+requires an interactive terminal, a current index, and a new `.md` output path. Output inside the
+project must be below `.silobrief/exports/`. Existing files are never overwritten.
+
+Both language settings default to English. They are stored per project and can be changed together
+or separately:
+
+```console
+sb language --cli ko
+sb language --brief en
+sb language
+```
+
+The CLI setting changes fixed terminal guidance. The brief setting changes the headings and
+instructions written by siloBrief. Task text, project notes, source code, paths, symbols, and
+identifiers remain exactly as entered or selected. Language settings do not change indexing,
+candidate ranking, IDs, ordering, or source digests.
 
 ## Generated file
 
@@ -96,6 +112,19 @@ The repository also keeps a [legacy v0.2 split-output example](validation/v0.2/p
 for validation history.
 
 ## Usage
+
+### Guided practice project
+
+Create a disposable project before using siloBrief with real source code:
+
+```console
+sb example ./silobrief-practice
+cd silobrief-practice
+```
+
+The generated `README.md` walks through one modification, one addition, and one removal task. The
+command does not run `setup`, index the project, call an AI service, or overwrite a non-empty
+directory.
 
 ### Basic example
 
@@ -187,9 +216,10 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.5.0. `sb search` shows up to ten candidates with concrete lexical match
-evidence, and `sb chat` packages the task, approved context, and approved source excerpts into one
-self-contained Markdown file.
+The current release is v0.6.0. `sb example` creates a disposable guided project, and `sb language`
+configures terminal guidance and generated briefs independently in English or Korean. `sb search`
+shows up to ten candidates with concrete lexical match evidence, and `sb chat` packages the task,
+approved context, and approved source excerpts into one self-contained Markdown file.
 
 The deterministic end-to-end flow passed on Django Ninja, pytest, and Jinja checkouts without
 changing Python source files or opening a network connection.

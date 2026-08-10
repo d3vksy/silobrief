@@ -7,6 +7,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-10
+
+### Added
+
+- Create a deterministic synthetic Python practice project with `sb example PATH`, including
+  guided modification, addition, and removal tasks.
+- Configure terminal guidance and generated Markdown independently in English or Korean with
+  `sb language`; both settings default to English.
+
 ## [0.5.0] - 2026-08-09
 
 ### Added

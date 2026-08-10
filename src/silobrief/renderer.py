@@ -5,13 +5,18 @@ from pathlib import PurePosixPath, PureWindowsPath
 from typing import Literal
 
 from silobrief.index import NodeKind
+from silobrief.language import Language
 from silobrief.source_excerpts import MAX_SOURCE_LINES, MAX_SOURCE_UTF8_BYTES
 from silobrief.source_review import ApprovedSourceExcerpt
 
 _KIND_ORDER = {"module": 0, "class": 1, "function": 2}
-_WARNING = (
+_WARNING_KO = (
     "승인된 source의 민감정보를 자동으로 탐지하거나 반출 안전성을 보장하지 않습니다. "
     "전달 전에 모든 출력 파일을 직접 확인하세요."
+)
+_WARNING_EN = (
+    "siloBrief does not automatically detect sensitive information in approved source or "
+    "guarantee that an export is safe to share. Review every output file before sharing it."
 )
 
 
@@ -68,20 +73,28 @@ class RenderedBrief:
     disclosure: DisclosureManifest
 
 
-def render_brief(source: BriefInput) -> RenderedBrief:
+def render_brief(source: BriefInput, *, language: Language = "en") -> RenderedBrief:
     approved = _prepare(source)
     disclosure = _disclosure(approved)
+    if language == "ko":
+        return _render_korean(approved, disclosure)
+    return _render_english(approved, disclosure)
+
+
+def _render_korean(source: BriefInput, disclosure: DisclosureManifest) -> RenderedBrief:
     sections = [
-        _execution_instruction(bool(approved.source_excerpts)),
-        _section("경고와 공개 범위", _WARNING),
-        _section("작업 요청", _quote(approved.user_prompt)),
-        _section("승인된 프로젝트 맥락", _project_context(approved)),
+        _execution_instruction(bool(source.source_excerpts), language="ko"),
+        _section("경고와 공개 범위", _WARNING_KO),
+        _section("작업 요청", _quote(source.user_prompt)),
+        _section("승인된 프로젝트 맥락", _project_context(source, language="ko")),
     ]
-    if approved.human_notes:
-        sections.append(_section("사용자 작성 메모", _quoted_list(approved.human_notes)))
-    if approved.boundaries:
-        sections.append(_section("등록된 경계", _boundary_list(approved.boundaries)))
-    source_markdown = _source_markdown(approved.source_excerpts)
+    if source.human_notes:
+        sections.append(
+            _section("사용자 작성 메모", _quoted_list(source.human_notes, language="ko"))
+        )
+    if source.boundaries:
+        sections.append(_section("등록된 경계", _boundary_list(source.boundaries, language="ko")))
+    source_markdown = _source_markdown(source.source_excerpts, language="ko")
     if source_markdown is not None:
         sections.append(_section("승인된 소스 코드", source_markdown))
     sections.extend(
@@ -94,6 +107,33 @@ def render_brief(source: BriefInput) -> RenderedBrief:
         markdown="\n\n".join(sections) + "\n",
         disclosure=disclosure,
     )
+
+
+def _render_english(source: BriefInput, disclosure: DisclosureManifest) -> RenderedBrief:
+    sections = [
+        _execution_instruction(bool(source.source_excerpts), language="en"),
+        _section("Warning and disclosure scope", _WARNING_EN),
+        _section("Task request", _quote(source.user_prompt)),
+        _section("Approved project context", _project_context(source, language="en")),
+    ]
+    if source.human_notes:
+        sections.append(
+            _section("User-authored notes", _quoted_list(source.human_notes, language="en"))
+        )
+    if source.boundaries:
+        sections.append(
+            _section("Registered boundaries", _boundary_list(source.boundaries, language="en"))
+        )
+    source_markdown = _source_markdown(source.source_excerpts, language="en")
+    if source_markdown is not None:
+        sections.append(_section("Approved source code", source_markdown))
+    sections.extend(
+        (
+            _section("External AI response contract", _response_contract_english()),
+            _section("Disclosure manifest", _manifest_yaml(disclosure)),
+        )
+    )
+    return RenderedBrief(markdown="\n\n".join(sections) + "\n", disclosure=disclosure)
 
 
 def _prepare(source: BriefInput) -> BriefInput:
@@ -280,7 +320,16 @@ def _section(title: str, body: str) -> str:
     return f"## {title}\n\n{body}"
 
 
-def _execution_instruction(has_source: bool) -> str:
+def _execution_instruction(has_source: bool, *, language: Language) -> str:
+    if language == "en":
+        scope = (
+            "the approved project context and source code in this document"
+            if has_source
+            else "the project context disclosed in this document"
+        )
+        return (
+            f"> Use only {scope} to complete the task below. Provide applicable changes and tests."
+        )
     scope = (
         "이 문서의 승인된 프로젝트 맥락과 소스 코드"
         if has_source
@@ -295,33 +344,49 @@ def _quote(value: str) -> str:
     return "\n".join(">" if not line else f"> {line}" for line in value.split("\n"))
 
 
-def _quoted_list(values: tuple[str, ...]) -> str:
+def _quoted_list(values: tuple[str, ...], *, language: Language) -> str:
     if not values:
-        return "- 없음"
+        return "- 없음" if language == "ko" else "- none"
     lines: list[str] = []
     for value in values:
-        lines.append("- 승인 항목:")
+        lines.append("- 승인 항목:" if language == "ko" else "- approved item:")
         lines.extend(f"  {line}" for line in _quote(value).splitlines())
     return "\n".join(lines)
 
 
-def _project_context(source: BriefInput) -> str:
+def _project_context(source: BriefInput, *, language: Language) -> str:
     symbols = tuple(f"{item.kind}: {item.name}" for item in source.symbols)
+    if language == "en":
+        return "\n\n".join(
+            (
+                f"### Relative paths\n\n{_quoted_list(source.relative_paths, language=language)}",
+                f"### Symbols\n\n{_quoted_list(symbols, language=language)}",
+                f"### Public imports\n\n{_quoted_list(source.public_imports, language=language)}",
+            )
+        )
     return "\n\n".join(
         (
-            f"### 상대 경로\n\n{_quoted_list(source.relative_paths)}",
-            f"### 심볼\n\n{_quoted_list(symbols)}",
-            f"### 공개 import\n\n{_quoted_list(source.public_imports)}",
+            f"### 상대 경로\n\n{_quoted_list(source.relative_paths, language=language)}",
+            f"### 심볼\n\n{_quoted_list(symbols, language=language)}",
+            f"### 공개 import\n\n{_quoted_list(source.public_imports, language=language)}",
         )
     )
 
 
-def _boundary_list(values: tuple[ApprovedBoundary, ...]) -> str:
+def _boundary_list(values: tuple[ApprovedBoundary, ...], *, language: Language) -> str:
     if not values:
-        return "- 없음"
+        return "- 없음" if language == "ko" else "- none"
     lines: list[str] = []
     for value in values:
-        lines.extend(("- 경계 alias:", f"  {_quote(value.alias)}", "  공개 설명:"))
+        labels = (
+            ("- 경계 alias:", "  공개 설명:")
+            if language == "ko"
+            else (
+                "- boundary alias:",
+                "  public description:",
+            )
+        )
+        lines.extend((labels[0], f"  {_quote(value.alias)}", labels[1]))
         lines.extend(f"  {line}" for line in _quote(value.description).splitlines())
     return "\n".join(lines)
 
@@ -347,6 +412,31 @@ def _response_contract() -> str:
             "- `확인 필요`는 최대 2개로 제한하고, 외부 API 주장은 가능한 경우 버전이 "
             "고정된 공식 문서 URL로 뒷받침하세요. 확인할 내용이 없으면 `없음`이라고 적으세요.",
             "- 별도 요구가 없으면 비어 있지 않은 줄 80개 이내로 답하세요.",
+        )
+    )
+
+
+def _response_contract_english() -> str:
+    return "\n".join(
+        (
+            "Use the following four headings in order. Do not add a separate introduction.",
+            "",
+            "```text",
+            "## Change to apply",
+            "## Patch",
+            "## Tests",
+            "## Needs confirmation",
+            "```",
+            "",
+            "- In `Change to apply`, state the target file and purpose first.",
+            "- In `Patch`, include a `diff` code block based only on disclosed code and context.",
+            "- Mark removed lines with `-` and added lines with `+`. File headers, hunk headers, "
+            "and exact line numbers are optional; do not claim the patch can be applied by Git.",
+            "- Do not replace the diff with a full-file code block or infer hidden implementation.",
+            "- Provide focused tests. If you did not run them, do not claim that they passed.",
+            "- Limit `Needs confirmation` to two items. Where possible, support external API "
+            "claims with versioned official documentation. Write `none` if nothing remains.",
+            "- Unless requested otherwise, keep the answer within 80 non-empty lines.",
         )
     )
 
@@ -377,13 +467,19 @@ def _manifest_yaml(value: DisclosureManifest) -> str:
     )
 
 
-def _source_markdown(values: tuple[ApprovedSourceExcerpt, ...]) -> str | None:
+def _source_markdown(
+    values: tuple[ApprovedSourceExcerpt, ...], *, language: Language
+) -> str | None:
     if not values:
         return None
-    parts = [
+    introduction = (
         "이 문서에는 사용자가 외부 공개를 승인한 원문 코드가 포함되어 있습니다. "
-        "주석, docstring, 문자열, 경로와 내부 식별자를 직접 확인하십시오.",
-    ]
+        "주석, docstring, 문자열, 경로와 내부 식별자를 직접 확인하십시오."
+        if language == "ko"
+        else "This document includes verbatim source approved for external disclosure. Review "
+        "comments, docstrings, strings, paths, and internal identifiers yourself."
+    )
+    parts = [introduction]
     for value in values:
         aliases = ", ".join(value.boundary_aliases) or "none"
         parts.extend(
