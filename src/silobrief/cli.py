@@ -14,6 +14,7 @@ from silobrief.candidate_search import (
 )
 from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.current_index import CurrentIndexError, load_current_index
+from silobrief.example_project import ExampleProjectError, create_example_project
 from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
 from silobrief.notes import add_note
 from silobrief.output import OutputBlockedError, approve_and_write
@@ -44,6 +45,8 @@ def _build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     setup = subcommands.add_parser("setup", help="Initialize local project state.")
     setup.add_argument("path", nargs="?", type=Path, default=Path.cwd())
+    example = subcommands.add_parser("example", help="Create a guided practice project.")
+    example.add_argument("path", type=Path)
     ignore = subcommands.add_parser("ignore", help="Register a project boundary.")
     ignore.add_argument("path")
     ignore.add_argument("--as", dest="description", required=True)
@@ -65,6 +68,17 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     arguments = parser.parse_args(argv)
+
+    if arguments.command == "example":
+        project = arguments.path
+        if not isinstance(project, Path):
+            parser.error("example path must be a filesystem path")
+        try:
+            file_count = create_example_project(project)
+        except ExampleProjectError as error:
+            parser.error(str(error))
+        print(f"created example project with {file_count} files at {project}")
+        print("next: enter that directory and run sb setup .")
 
     if arguments.command == "setup":
         project = arguments.path

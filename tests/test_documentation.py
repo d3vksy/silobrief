@@ -8,6 +8,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_README = "examples/parcel-sync-fixture/README.md"
 PUBLIC_COMMANDS = (
     "sb setup",
+    "sb example",
     "sb ignore",
     "sb unignore",
     "sb init",
