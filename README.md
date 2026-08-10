@@ -75,12 +75,27 @@ siloBrief 0.5.0
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists up to ten code candidates and the request terms that matched each one. |
+| `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
 | `sb chat "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb --version` | Prints the installed siloBrief version. |
 
 Commands other than `setup` and `example` find the project root from the current directory. `chat`
 requires an interactive terminal, a current index, and a new `.md` output path. Output inside the
 project must be below `.silobrief/exports/`. Existing files are never overwritten.
+
+Both language settings default to English. They are stored per project and can be changed together
+or separately:
+
+```console
+sb language --cli ko
+sb language --brief en
+sb language
+```
+
+The CLI setting changes fixed terminal guidance. The brief setting changes the headings and
+instructions written by siloBrief. Task text, project notes, source code, paths, symbols, and
+identifiers remain exactly as entered or selected. Language settings do not change indexing,
+candidate ranking, IDs, ordering, or source digests.
 
 ## Generated file
 

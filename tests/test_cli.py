@@ -18,7 +18,9 @@ class CommandLineTests(unittest.TestCase):
 
         self.assertEqual(caught.exception.code, 2)
         self.assertIn("usage: sb", stderr.getvalue())
-        self.assertIn("{setup,example,ignore,unignore,init,log,search,chat}", stderr.getvalue())
+        self.assertIn(
+            "{setup,example,ignore,unignore,init,log,search,language,chat}", stderr.getvalue()
+        )
 
     def test_help_lists_commands_and_succeeds(self) -> None:
         stdout = io.StringIO()
@@ -27,7 +29,9 @@ class CommandLineTests(unittest.TestCase):
             main(["--help"])
 
         self.assertEqual(caught.exception.code, 0)
-        self.assertIn("{setup,example,ignore,unignore,init,log,search,chat}", stdout.getvalue())
+        self.assertIn(
+            "{setup,example,ignore,unignore,init,log,search,language,chat}", stdout.getvalue()
+        )
 
 
 class VersionCommandTests(unittest.TestCase):

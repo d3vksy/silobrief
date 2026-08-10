@@ -6,6 +6,7 @@ from typing import TextIO
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
 from silobrief.index import IndexData
+from silobrief.language import Language, localized
 from silobrief.python_structure import DefinitionKind
 from silobrief.review import ReviewNode, ReviewSelection
 from silobrief.source_excerpts import (
@@ -49,9 +50,16 @@ def review_source_disclosure(
     *,
     input_stream: TextIO,
     output_stream: TextIO,
+    language: Language = "en",
 ) -> tuple[ApprovedSourceExcerpt, ...]:
     if not input_stream.isatty() or not output_stream.isatty():
-        raise SourceReviewError("source review requires an interactive terminal")
+        raise SourceReviewError(
+            localized(
+                language,
+                "source review requires an interactive terminal",
+                "소스 검토에는 대화형 터미널이 필요합니다",
+            )
+        )
 
     selected_nodes = {
         (node.path, node.kind, node.qualified_name): node
@@ -70,7 +78,11 @@ def review_source_disclosure(
         except SourceExcerptError as error:
             _write(
                 output_stream,
-                f"Source excerpt unavailable: {node.path} {node.qualified_name}: {error}\n",
+                localized(
+                    language,
+                    f"Source excerpt unavailable: {node.path} {node.qualified_name}: {error}\n",
+                    f"소스 발췌를 사용할 수 없음: {node.path} {node.qualified_name}: {error}\n",
+                ),
             )
 
     candidates = list(
@@ -83,9 +95,14 @@ def review_source_disclosure(
     if candidates:
         _write(
             output_stream,
-            "Source disclosure warning: approved excerpts are copied verbatim and may contain "
-            "identifiers, paths, URLs, strings, or secrets that are not classified "
-            "automatically.\n",
+            localized(
+                language,
+                "Source disclosure warning: approved excerpts are copied verbatim and may "
+                "contain identifiers, paths, URLs, strings, or secrets that are not classified "
+                "automatically.\n",
+                "소스 공개 경고: 승인한 발췌는 원문 그대로 복사되며, 자동 분류되지 않은 "
+                "식별자, 경로, URL, 문자열 또는 비밀정보가 포함될 수 있습니다.\n",
+            ),
         )
 
     aliases = {
@@ -97,27 +114,57 @@ def review_source_disclosure(
     }
     approved: tuple[SourceExcerpt, ...] = ()
     for candidate in candidates:
-        _show_candidate(candidate, aliases[_excerpt_key(candidate)], output_stream)
-        answer = _read_line("Include this source excerpt? [y/N]: ", input_stream, output_stream)
+        _show_candidate(candidate, aliases[_excerpt_key(candidate)], output_stream, language)
+        answer = _read_line(
+            localized(
+                language,
+                "Include this source excerpt? [y/N]: ",
+                "이 소스 발췌를 포함할까요? [y/N]: ",
+            ),
+            input_stream,
+            output_stream,
+        )
         if answer not in {"", "n", "y"}:
-            raise SourceReviewError("source answer must be y, n, or blank")
+            raise SourceReviewError(
+                localized(
+                    language,
+                    "source answer must be y, n, or blank",
+                    "소스 응답은 y, n 또는 빈 입력이어야 합니다",
+                )
+            )
         if answer != "y":
             continue
         try:
             approved = prepare_source_excerpts((*approved, candidate))
         except SourceExcerptLimitError as error:
-            _write(output_stream, f"Source excerpt skipped: {error}\n")
+            _write(
+                output_stream,
+                localized(
+                    language,
+                    f"Source excerpt skipped: {error}\n",
+                    f"소스 발췌를 건너뜀: {error}\n",
+                ),
+            )
 
     exposed = tuple(
         sorted({alias for excerpt in approved for alias in aliases[_excerpt_key(excerpt)]})
     )
     if exposed:
         _write(
-            output_stream, f"Boundary aliases exposed in approved source: {', '.join(exposed)}\n"
+            output_stream,
+            localized(
+                language,
+                f"Boundary aliases exposed in approved source: {', '.join(exposed)}\n",
+                f"승인한 소스에 노출되는 경계 alias: {', '.join(exposed)}\n",
+            ),
         )
         if (
             _read_line(
-                "Type exactly EXPOSE to include boundary identifiers: ",
+                localized(
+                    language,
+                    "Type exactly EXPOSE to include boundary identifiers: ",
+                    "경계 식별자를 포함하려면 EXPOSE를 정확히 입력하세요: ",
+                ),
                 input_stream,
                 output_stream,
             )
@@ -169,13 +216,21 @@ def _show_candidate(
     excerpt: SourceExcerpt,
     aliases: tuple[str, ...],
     output: TextIO,
+    language: Language,
 ) -> None:
     _write(
         output,
-        f"Source candidate: {excerpt.path} | {excerpt.kind} {excerpt.qualified_name} | "
-        f"lines {excerpt.start_line}-{excerpt.end_line}\n"
-        f"Boundary aliases: {', '.join(aliases) if aliases else 'none'}\n"
-        "```python\n",
+        localized(
+            language,
+            f"Source candidate: {excerpt.path} | {excerpt.kind} {excerpt.qualified_name} | "
+            f"lines {excerpt.start_line}-{excerpt.end_line}\n"
+            f"Boundary aliases: {', '.join(aliases) if aliases else 'none'}\n"
+            "```python\n",
+            f"소스 후보: {excerpt.path} | {excerpt.kind} {excerpt.qualified_name} | "
+            f"{excerpt.start_line}-{excerpt.end_line}행\n"
+            f"경계 alias: {', '.join(aliases) if aliases else '없음'}\n"
+            "```python\n",
+        ),
     )
     _write(output, excerpt.content)
     if not excerpt.content.endswith("\n"):

@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TextIO
 
+from silobrief.language import Language, localized
 from silobrief.renderer import RenderedBrief
 from silobrief.sources import SourceCollectionError, SourceSnapshot, snapshot_sources
 from silobrief.state import STATE_DIRECTORY, SetupError, load_config
-
-_APPROVAL_PROMPT = "Type exactly WRITE to create the Markdown file: "
 
 
 class OutputBlockedError(Exception):
@@ -37,9 +36,16 @@ def approve_and_write(
     input_stream: TextIO,
     output_stream: TextIO,
     source_snapshot: SourceSnapshot | None = None,
+    language: Language = "en",
 ) -> WrittenBrief:
     if not input_stream.isatty() or not output_stream.isatty():
-        raise OutputBlockedError("approval requires interactive input and output")
+        raise OutputBlockedError(
+            localized(
+                language,
+                "approval requires interactive input and output",
+                "승인에는 대화형 입력과 출력이 필요합니다",
+            )
+        )
     if type(rendered) is not RenderedBrief:
         raise OutputBlockedError("output requires a rendered brief")
 
@@ -48,17 +54,36 @@ def approve_and_write(
 
     try:
         output_stream.write(rendered.markdown)
-        output_stream.write(f"\n{_APPROVAL_PROMPT}")
+        output_stream.write(
+            "\n"
+            + localized(
+                language,
+                "Type exactly WRITE to create the Markdown file: ",
+                "Markdown 파일을 만들려면 WRITE를 정확히 입력하세요: ",
+            )
+        )
         output_stream.flush()
         approval = input_stream.readline()
     except OSError as error:
         raise OutputBlockedError(f"cannot complete interactive approval: {error}") from error
     if _without_line_ending(approval) != "WRITE":
-        raise OutputBlockedError("output was not approved with exact WRITE")
+        raise OutputBlockedError(
+            localized(
+                language,
+                "output was not approved with exact WRITE",
+                "WRITE가 정확히 입력되지 않아 출력을 승인하지 않았습니다",
+            )
+        )
 
     current = _snapshot(root)
     if current.digest != baseline.digest:
-        raise OutputBlockedError("project sources changed during review; run sb init")
+        raise OutputBlockedError(
+            localized(
+                language,
+                "project sources changed during review; run sb init",
+                "검토 중 프로젝트 소스가 변경되었습니다. sb init을 실행하세요",
+            )
+        )
 
     _write_new_file(destination, rendered.markdown)
     return WrittenBrief(destination)
