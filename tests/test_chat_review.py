@@ -155,7 +155,7 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         self.assertEqual(disclosure_counts(rendered), (0, 0, 0, 0, 0))
-        self.assertEqual(rendered.markdown.count("- 없음"), 3)
+        self.assertEqual(rendered.markdown.count("- none"), 3)
         for title in ("사용자 작성 메모", "등록된 경계", "소스 동반 파일"):
             self.assertNotIn(f"## {title}", rendered.markdown)
 

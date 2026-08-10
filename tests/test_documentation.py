@@ -14,6 +14,7 @@ PUBLIC_COMMANDS = (
     "sb init",
     "sb log",
     "sb search",
+    "sb language",
     "sb chat",
     "sb --version",
 )

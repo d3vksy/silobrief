@@ -154,6 +154,7 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
                         ]
                     ),
                     main(["init"]),
+                    main(["language", "--brief", "ko"]),
                     main(
                         [
                             "log",
@@ -163,7 +164,7 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
                         ]
                     ),
                 )
-        if results != (0, 0, 0):
+        if results != (0, 0, 0, 0):
             raise AssertionError(f"fixture preparation failed: {results}")
 
         before = source_manifest(project)

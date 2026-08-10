@@ -8,6 +8,12 @@ import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TypedDict
 
+from silobrief.language import (
+    LanguageSettings,
+    default_language_settings,
+    parse_language_settings,
+)
+
 STATE_DIRECTORY = ".silobrief"
 _BOUNDARY_ALIAS_PATTERN = re.compile(r"[a-z0-9-]{1,40}")
 _NOTE_ID_PATTERN = re.compile(r"note-[0-9a-f]{64}")
@@ -80,6 +86,7 @@ def setup_project(project: Path) -> bool:
             ),
         )
         _write_json(state / "notes.json", NotesData(notes=[], notes_version=1))
+        _write_json(state / "language.json", default_language_settings())
     except OSError as error:
         shutil.rmtree(state, ignore_errors=True)
         raise SetupError(f"cannot initialize {STATE_DIRECTORY}: {error}") from error
@@ -130,6 +137,24 @@ def save_notes(root: Path, notes: NotesData) -> None:
     _write_json_atomic(root / STATE_DIRECTORY / "notes.json", notes)
 
 
+def load_language_settings(root: Path) -> LanguageSettings:
+    path = root / STATE_DIRECTORY / "language.json"
+    if not path.exists() and not path.is_symlink():
+        return default_language_settings()
+    try:
+        return parse_language_settings(_read_object(path))
+    except ValueError as error:
+        raise SetupError(str(error)) from error
+
+
+def save_language_settings(root: Path, settings: LanguageSettings) -> None:
+    try:
+        validated = parse_language_settings(dict(settings))
+    except ValueError as error:
+        raise SetupError(str(error)) from error
+    _write_json_atomic(root / STATE_DIRECTORY / "language.json", validated)
+
+
 def save_index(root: Path, content: bytes) -> None:
     _write_bytes_atomic(root / STATE_DIRECTORY / "index.json", content)
 
@@ -149,14 +174,17 @@ def is_valid_boundary_alias(alias: str) -> bool:
     return _BOUNDARY_ALIAS_PATTERN.fullmatch(alias) is not None
 
 
-def _write_json(path: Path, value: ConfigData | NotesData | dict[str, object]) -> None:
+def _write_json(
+    path: Path,
+    value: ConfigData | NotesData | LanguageSettings | dict[str, object],
+) -> None:
     content = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def _write_json_atomic(
     path: Path,
-    value: ConfigData | NotesData | dict[str, object],
+    value: ConfigData | NotesData | LanguageSettings | dict[str, object],
 ) -> None:
     content = (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode(
         "utf-8"
@@ -194,6 +222,13 @@ def _validate_state(state: Path) -> ConfigData:
     config = _parse_config(_read_object(state / "config.json"))
 
     _parse_notes(_read_object(state / "notes.json"))
+
+    language = state / "language.json"
+    if language.exists() or language.is_symlink():
+        try:
+            parse_language_settings(_read_object(language))
+        except ValueError as error:
+            raise SetupError(str(error)) from error
 
     exports = state / "exports"
     if exports.is_symlink() or not exports.is_dir():

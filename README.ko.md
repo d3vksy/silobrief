@@ -77,6 +77,7 @@ siloBrief 0.5.0
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
 | `sb search "PROMPT"` | 관련 코드 후보를 최대 10개까지 찾고 어떤 요청 단어가 일치했는지 보여줍니다. |
+| `sb language [--cli en|ko] [--brief en|ko]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
 | `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
@@ -84,6 +85,20 @@ siloBrief 0.5.0
 대화형 터미널에서만 실행할 수 있으며, 현재 설정으로 만든 색인과 새로운 `.md` 출력 경로가
 필요합니다. 프로젝트 안에 파일을 만들 때는 `.silobrief/exports/` 아래만 사용할 수 있고 기존
 파일은 덮어쓰지 않습니다.
+
+두 언어의 기본값은 모두 영어입니다. 설정은 프로젝트별로 저장되며 함께 또는 따로 바꿀 수
+있습니다.
+
+```console
+sb language --cli ko
+sb language --brief en
+sb language
+```
+
+CLI 설정은 터미널의 고정 안내 문구를 바꿉니다. 브리프 설정은 siloBrief가 생성하는 제목과
+지시문을 바꿉니다. 사용자가 입력한 작업 요청과 메모, 소스 코드, 경로, 심볼과 식별자는 번역하지
+않고 원문을 유지합니다. 언어 설정은 색인, 후보 순위, ID, 정렬과 소스 digest에 영향을 주지
+않습니다.
 
 ## 생성되는 파일
 

@@ -63,8 +63,8 @@ class SetupCommandTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(
                 stdout.getvalue(),
-                "created .silobrief/config.json, .silobrief/notes.json, and .silobrief/exports/\n"
-                + SOURCE_DISCLOSURE_WARNING,
+                "created .silobrief/config.json, .silobrief/notes.json, "
+                ".silobrief/language.json, and .silobrief/exports/\n" + SOURCE_DISCLOSURE_WARNING,
             )
             self.assertEqual(
                 json.loads((state / "config.json").read_text(encoding="utf-8")),
@@ -77,6 +77,14 @@ class SetupCommandTests(unittest.TestCase):
             self.assertEqual(
                 json.loads((state / "notes.json").read_text(encoding="utf-8")),
                 {"notes": [], "notes_version": 1},
+            )
+            self.assertEqual(
+                json.loads((state / "language.json").read_text(encoding="utf-8")),
+                {
+                    "brief_language": "en",
+                    "cli_language": "en",
+                    "settings_version": 1,
+                },
             )
             self.assertTrue((state / "exports").is_dir())
             self.assertFalse((state / "index.json").exists())
@@ -111,7 +119,12 @@ class SetupCommandTests(unittest.TestCase):
             project = Path(directory)
             self.assertEqual(main(["setup", str(project)]), 0)
             state = project / ".silobrief"
-            tracked = [state / "config.json", state / "notes.json", state / "exports"]
+            tracked = [
+                state / "config.json",
+                state / "notes.json",
+                state / "language.json",
+                state / "exports",
+            ]
             fixed_time = 1_700_000_000_000_000_000
             for path in tracked:
                 os.utime(path, ns=(fixed_time, fixed_time))
