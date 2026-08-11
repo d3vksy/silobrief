@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-4f46e5" alt="릴리스 v1.0.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/release-v1.0.1-4f46e5" alt="릴리스 v1.0.1"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -57,7 +57,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 1.0.0
+siloBrief 1.0.1
 ```
 
 ## 명령어
@@ -224,7 +224,7 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-최신 공개 버전은 v1.0.0이며, 지원되는 1.x 호환성 계약을 정의합니다.
+최신 공개 버전은 v1.0.1이며, 지원되는 1.x 호환성 계약을 따릅니다.
 `sb search`는 고정된 12개 과제 중 11개에서 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다.
 `sb brief`는 관계가 표시된 맥락 후보를 기본 미선택 상태로 보여주며, 명시적으로 승인한 맥락과
 소스만 하나의 자족적인 Markdown 파일로 묶습니다.

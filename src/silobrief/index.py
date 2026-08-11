@@ -62,12 +62,20 @@ class IndexData:
 
 
 @dataclass(frozen=True, slots=True)
+class _ImportBinding:
+    context: str | None
+    visible: str
+    target: str
+
+
+@dataclass(frozen=True, slots=True)
 class _ModuleContext:
     module_id: str
     module_name: str
     structure: ModuleStructure
     definition_nodes: tuple[IndexNode, ...]
     context_ids: dict[str, str]
+    import_bindings: tuple[_ImportBinding, ...]
     path_tokens: tuple[str, ...]
     import_tokens: tuple[str, ...]
     comment_tokens: tuple[str, ...]
@@ -187,6 +195,7 @@ def _build_module_context(
         structure=structure,
         definition_nodes=tuple(definition_nodes),
         context_ids=context_ids,
+        import_bindings=_import_bindings(module_name, source.path, structure.imports),
         path_tokens=path_tokens,
         import_tokens=import_tokens,
         comment_tokens=text_tokens.module.comments,
@@ -235,8 +244,13 @@ def _add_import_edges(
             target: str | BoundaryPlaceholder = placeholder
             target_id = None
         else:
-            target = import_target(imported)
-            target_id = global_targets.get(target)
+            resolved_target = _resolved_import_target(
+                context.module_name, context.structure.path, imported
+            )
+            if resolved_target is None:
+                resolved_target = import_target(imported)
+            target = resolved_target
+            target_id = global_targets.get(resolved_target)
         edges.add(IndexEdge(source_id, "import", target, target_id))
 
 
@@ -281,6 +295,9 @@ def _resolve_target(
                 return context.context_ids[candidate]
     if target in context.context_ids:
         return context.context_ids[target]
+    imported_target = _resolve_import_binding(context, source_context, target)
+    if imported_target is not None:
+        return global_targets.get(imported_target)
     return global_targets.get(target)
 
 
@@ -296,12 +313,93 @@ def _context_id(context: _ModuleContext, qualified_name: str | None) -> str:
 def _module_name(path: str) -> str:
     _validate_relative_path(path)
     parts = list(PurePosixPath(path).parts)
+    if len(parts) > 1 and parts[0] == "src" and parts[1] != "__init__.py":
+        parts.pop(0)
     filename = parts[-1]
     if filename == "__init__.py" and len(parts) > 1:
         parts.pop()
     else:
         parts[-1] = filename.removesuffix(".py")
     return ".".join(parts)
+
+
+def _import_bindings(
+    module_name: str,
+    source_path: str,
+    imports: tuple[ImportEntry, ...],
+) -> tuple[_ImportBinding, ...]:
+    bindings: dict[str | None, dict[str, str]] = {}
+    for imported in imports:
+        target = _resolved_import_target(module_name, source_path, imported)
+        visible = _visible_import_binding(imported)
+        if target is None or visible is None:
+            continue
+        bindings.setdefault(imported.context, {})[visible] = target
+
+    result: list[_ImportBinding] = []
+    for context in sorted(bindings, key=lambda value: value or ""):
+        for visible, target in sorted(
+            bindings[context].items(),
+            key=lambda item: (-len(item[0].split(".")), item[0], item[1]),
+        ):
+            result.append(_ImportBinding(context, visible, target))
+    return tuple(result)
+
+
+def _resolved_import_target(
+    module_name: str,
+    source_path: str,
+    imported: ImportEntry,
+) -> str | None:
+    if imported.level == 0:
+        return import_target(imported)
+
+    package = module_name.split(".")
+    if PurePosixPath(source_path).name != "__init__.py":
+        package.pop()
+    upward = imported.level - 1
+    if upward > len(package):
+        return None
+    if upward:
+        package = package[:-upward]
+
+    parts = [*package]
+    if imported.module:
+        parts.extend(imported.module.split("."))
+    if imported.name and imported.name != "*":
+        parts.append(imported.name)
+    return ".".join(parts) or None
+
+
+def _visible_import_binding(imported: ImportEntry) -> str | None:
+    if imported.alias is not None:
+        return imported.alias
+    if imported.name is not None:
+        return None if imported.name == "*" else imported.name
+    if imported.module is None:
+        return None
+    return imported.module
+
+
+def _resolve_import_binding(
+    context: _ModuleContext,
+    source_context: str | None,
+    target: str,
+) -> str | None:
+    current = source_context
+    while True:
+        for binding in context.import_bindings:
+            if binding.context != current:
+                continue
+            if target == binding.visible:
+                return binding.target
+            if target.startswith(f"{binding.visible}."):
+                return f"{binding.target}{target[len(binding.visible) :]}"
+        if current is None:
+            return None
+        current, separator, _ = current.rpartition(".")
+        if not separator:
+            current = None
 
 
 def _import_search_values(

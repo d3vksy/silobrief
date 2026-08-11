@@ -147,6 +147,73 @@ class DeterministicIndexTests(unittest.TestCase):
                 self.assertNotIn("documentation", nodes[name].tokens.docstrings)
                 self.assertNotIn("comment", nodes[name].tokens.comments)
 
+    def test_resolves_absolute_imports_and_calls_across_src_layout_modules(self) -> None:
+        caller = source_file(
+            "src/pkg/a.py",
+            b"from pkg.b import helper\n\ndef run():\n    return helper()\n",
+        )
+        dependency = source_file("src/pkg/b.py", b"def helper():\n    return 42\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.kind, node.qualified_name): node for node in index.nodes}
+        caller_module = nodes[("src/pkg/a.py", "module", "pkg.a")]
+        dependency_function = nodes[("src/pkg/b.py", "function", "helper")]
+        run = nodes[("src/pkg/a.py", "function", "run")]
+
+        self.assertIn(
+            IndexEdge(caller_module.id, "import", "pkg.b.helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "helper", dependency_function.id),
+            index.edges,
+        )
+
+    def test_resolves_relative_and_aliased_import_calls(self) -> None:
+        caller = source_file(
+            "src/pkg/feature.py",
+            (
+                b"from .b import helper as local_helper\n"
+                b"import pkg.b as module_alias\n"
+                b"import pkg.b\n\n"
+                b"def run():\n"
+                b"    local_helper()\n"
+                b"    module_alias.helper()\n"
+                b"    pkg.b.helper()\n"
+            ),
+        )
+        dependency = source_file("src/pkg/b.py", b"def helper():\n    return 42\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.kind, node.qualified_name): node for node in index.nodes}
+        caller_module = nodes[("src/pkg/feature.py", "module", "pkg.feature")]
+        dependency_module = nodes[("src/pkg/b.py", "module", "pkg.b")]
+        dependency_function = nodes[("src/pkg/b.py", "function", "helper")]
+        run = nodes[("src/pkg/feature.py", "function", "run")]
+
+        self.assertIn(
+            IndexEdge(caller_module.id, "import", "pkg.b.helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(caller_module.id, "import", "pkg.b", dependency_module.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "local_helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "module_alias.helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "pkg.b.helper", dependency_function.id),
+            index.edges,
+        )
+
     def test_json_is_identical_for_equivalent_input_order(self) -> None:
         first_source = source_file(
             "a.py",
