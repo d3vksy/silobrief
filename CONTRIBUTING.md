@@ -63,6 +63,26 @@ Refs #12
 Feature, fix, documentation, and maintenance PRs are squash merged. Release PRs from `develop`
 to `main` use a merge commit so the branch ancestry remains intact.
 
+## Publishing to PyPI
+
+PyPI publication uses `.github/workflows/publish-pypi.yml` and Trusted Publishing. Before the first
+publication, complete these one-time settings:
+
+1. Create a GitHub environment named `pypi` and require manual approval for deployments.
+2. On PyPI, register a pending Trusted Publisher with project `silobrief`, owner `d3vksy`,
+   repository `silobrief`, workflow `publish-pypi.yml`, and environment `pypi`.
+3. Protect tags matching `v*` so only the maintainer can create or change release tags.
+
+No PyPI API token or GitHub secret is used. To publish, first make sure `pyproject.toml` contains the
+approved version and the matching `vVERSION` tag points to a commit reachable from `main`. In
+GitHub, open **Actions → Publish to PyPI → Run workflow**, leave the workflow branch on `main`, and
+enter `VERSION` without the `v` prefix, such as `1.0.0`. Approve the `pypi` environment deployment
+after reviewing the build job.
+
+The workflow fails closed when the input, tag, source metadata, or built artifact versions differ.
+PyPI does not permit replacing an already published version, so choose a new version for every
+retry after a successful upload.
+
 ## Code and tests
 
 - Support Python 3.10 and newer.

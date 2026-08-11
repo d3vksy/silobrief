@@ -109,7 +109,7 @@ class LexicalRankingTests(unittest.TestCase):
             (
                 RankedCandidate(
                     node=candidate,
-                    score=27,
+                    score=33,
                     evidence=RankEvidence(
                         path_matches=("retry",),
                         symbol_matches=("client", "retry"),
@@ -153,7 +153,7 @@ class LexicalRankingTests(unittest.TestCase):
         self.assertTrue(all(item.score == 4 for item in ranked))
         self.assertTrue(all(item.evidence.note_matches == ("retry",) for item in ranked))
 
-    def test_limits_results_and_uses_deterministic_tie_breakers(self) -> None:
+    def test_limits_implementation_results_and_uses_deterministic_tie_breakers(self) -> None:
         same_path = (
             node("module", "a.py", "module", "module", symbol_tokens=("match",)),
             node("class", "a.py", "class", "class", symbol_tokens=("match",)),
@@ -180,12 +180,62 @@ class LexicalRankingTests(unittest.TestCase):
         )
 
         self.assertEqual(ranked, reordered)
-        self.assertEqual(len(ranked), 10)
+        self.assertEqual(len(ranked), 7)
         self.assertEqual(
-            [item.node.id for item in ranked[:4]],
-            ["module", "class", "function-a", "function-b"],
+            [item.node.id for item in ranked[:3]],
+            ["class", "function-a", "function-b"],
         )
         self.assertTrue(all(item.score == 5 for item in ranked))
+
+    def test_reserves_test_candidates_only_when_the_request_mentions_tests(self) -> None:
+        implementation = tuple(
+            node(
+                f"implementation-{number}",
+                f"src/module_{number}.py",
+                "function",
+                f"match_{number}",
+                symbol_tokens=("match",),
+            )
+            for number in range(9)
+        )
+        tests = tuple(
+            node(
+                f"test-{number}",
+                f"tests/test_module_{number}.py",
+                "function",
+                f"test_match_{number}",
+                symbol_tokens=("match", "test"),
+            )
+            for number in range(5)
+        )
+        source_index = index(*implementation, *tests)
+
+        without_tests = rank_candidates("match behavior", source_index, notes())
+        with_tests = rank_candidates("match behavior tests", source_index, notes())
+
+        self.assertEqual(len(without_tests), 7)
+        self.assertTrue(all(not item.node.path.startswith("tests/") for item in without_tests))
+        self.assertEqual(len(with_tests), 10)
+        self.assertTrue(all(not item.node.path.startswith("tests/") for item in with_tests[:7]))
+        self.assertTrue(all(item.node.path.startswith("tests/") for item in with_tests[7:]))
+
+    def test_ignores_module_and_import_only_matches(self) -> None:
+        module = node(
+            "module",
+            "package/service.py",
+            "module",
+            "package.service",
+            symbol_tokens=("service",),
+        )
+        imported = node(
+            "import-only",
+            "package/service.py",
+            "function",
+            "run",
+            import_tokens=("urllib3",),
+        )
+
+        self.assertEqual(rank_candidates("urllib3", index(module, imported), notes()), ())
 
     def test_requires_literal_token_overlap_without_translation(self) -> None:
         retry = node(
@@ -198,7 +248,7 @@ class LexicalRankingTests(unittest.TestCase):
 
         self.assertEqual(rank_candidates("재시도", index(retry), notes()), ())
         self.assertEqual(rank_candidates("---", index(retry), notes()), ())
-        self.assertEqual(rank_candidates("RetryRequest", index(retry), notes())[0].score, 10)
+        self.assertEqual(rank_candidates("RetryRequest", index(retry), notes())[0].score, 18)
 
 
 if __name__ == "__main__":

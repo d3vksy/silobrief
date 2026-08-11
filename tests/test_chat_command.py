@@ -118,6 +118,7 @@ def run_chat(
     input_text: str,
     *,
     tty: bool = True,
+    command: str = "brief",
 ) -> tuple[int, ScriptedInput, str, str]:
     input_stream = ScriptedInput(input_text, project / output, tty=tty)
     stdout = TtyBuffer()
@@ -128,11 +129,27 @@ def run_chat(
         contextlib.redirect_stdout(stdout),
         contextlib.redirect_stderr(stderr),
     ):
-        result = main(["chat", "run official docs", "--out", output])
+        result = main([command, "run official docs", "--out", output])
     return result, input_stream, stdout.getvalue(), stderr.getvalue()
 
 
 class ChatCommandTests(unittest.TestCase):
+    def test_chat_remains_a_deprecated_brief_alias(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+
+            result, _, _, stderr = run_chat(
+                project,
+                ".silobrief/exports/legacy.md",
+                NO_SOURCE_REVIEW_INPUT + "WRITE\n",
+                command="chat",
+            )
+
+            self.assertEqual(result, 0)
+            self.assertIn("sb chat is deprecated; use sb brief instead", stderr)
+            self.assertTrue((project / ".silobrief/exports/legacy.md").is_file())
+
     def test_runs_the_full_cli_flow_and_writes_only_after_approval(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

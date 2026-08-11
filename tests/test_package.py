@@ -56,17 +56,24 @@ class SourceDistributionTests(unittest.TestCase):
 
         root = f"silobrief-{distribution('silobrief').version}"
         required = {
+            f"{root}/.github/workflows/publish-pypi.yml",
             f"{root}/CHANGELOG.md",
             f"{root}/CODE_OF_CONDUCT.md",
             f"{root}/CONTRIBUTING.md",
             f"{root}/README.ko.md",
             f"{root}/SECURITY.md",
+            f"{root}/tests/__init__.py",
             f"{root}/docs/V0_1_CONTRACT.md",
             f"{root}/docs/V0_2_CONTRACT.md",
+            f"{root}/docs/V1_CONTRACT.md",
             f"{root}/docs/assets/silobrief-wordmark.svg",
             f"{root}/examples/parcel-sync-fixture/README.md",
             f"{root}/examples/parcel-sync-fixture/private_adapter/client.py",
             f"{root}/examples/parcel-sync-fixture/src/parcel_sync/service.py",
+            f"{root}/validation/v0.7/RETRIEVAL_RESULT.md",
+            f"{root}/validation/v0.8/RELATED_CONTEXT_RESULT.md",
+            f"{root}/validation/v0.9/FIELD_TRIAL.md",
+            f"{root}/validation/v1.0/RELEASE_CANDIDATE.md",
         }
         forbidden = {
             f"{root}/docs/DEVELOPMENT_PLAN.md",

@@ -61,7 +61,7 @@ TASKS = (
         "Update the retry policy in src/parcel_lab/retry.py so status-code retries apply to "
         "HTTP 503 and not HTTP 500. Keep total=2 and preserve the delivery boundary call order. "
         "Return a minimal patch and focused unittest. Do not claim you ran tests.",
-        "y\n2\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n",
+        "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n",
     ),
     Task(
         "T02-ADD",
@@ -98,9 +98,9 @@ LEGACY_PACKET_SHA256 = {
 }
 
 COMBINED_PACKET_SHA256 = {
-    "T01-MODIFY": "d43382535342ce442f4c88e8fb27c33578f72db486f9c2081e2d5c863f225115",
-    "T02-ADD": "3d1c61aa0c274ee3a5d149a11def4458f11381fc714606775204e015666bd8b5",
-    "T03-REMOVE": "1aa3dc9ff544ddca94787a8f8d5e8d0cab559935c77b5e6bf0e56b820a57531d",
+    "T01-MODIFY": "d321129c443100194479059655ae477c4e2767fc3807a84470324bb403d9a3f6",
+    "T02-ADD": "f9b5fc4dd07f079306fa8584eced43c2e617af6931ce91f1a18417ed723f25a2",
+    "T03-REMOVE": "bba267013a5c213d8ec40f93dea6469072b1685e837c8e4af7dc64b04c8700a6",
 }
 
 CLAUDE_RESPONSE_SHA256 = {
@@ -190,7 +190,7 @@ def generate_packets(destination_root: Path) -> tuple[GeneratedPacket, ...]:
                     side_effect=AssertionError("network access is forbidden"),
                 ),
             ):
-                result = main(["chat", task.prompt, "--out", str(main_path)])
+                result = main(["brief", task.prompt, "--out", str(main_path)])
             if result != 0 or stderr.getvalue():
                 raise AssertionError(f"{task.id} generation failed: {stderr.getvalue()}")
             generated.append(

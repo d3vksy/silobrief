@@ -2,12 +2,46 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from typing import Literal, TypeAlias
 
-from silobrief.index import IndexData, IndexNode, NodeKind
+from silobrief.index import EdgeKind, IndexData, IndexNode, NodeKind
 from silobrief.ranking import RankedCandidate, RankEvidence
 
 _MAX_OPTIONS = 10
+_MAX_RELATED_OPTIONS = 10
 _KIND_ORDER = {"module": 0, "class": 1, "function": 2}
+ContextRelation: TypeAlias = Literal[
+    "calls",
+    "called-by",
+    "imports",
+    "imported-by",
+    "references",
+    "referenced-by",
+    "contains",
+    "contained-by",
+]
+_RELATION_ORDER: dict[ContextRelation, int] = {
+    "calls": 0,
+    "called-by": 1,
+    "imports": 2,
+    "imported-by": 3,
+    "references": 4,
+    "referenced-by": 5,
+    "contains": 6,
+    "contained-by": 7,
+}
+_OUTGOING_RELATION: dict[EdgeKind, ContextRelation] = {
+    "call": "calls",
+    "import": "imports",
+    "reference": "references",
+    "contains": "contains",
+}
+_INCOMING_RELATION: dict[EdgeKind, ContextRelation] = {
+    "call": "called-by",
+    "import": "imported-by",
+    "reference": "referenced-by",
+    "contains": "contained-by",
+}
 
 
 class ReviewError(ValueError):
@@ -21,6 +55,7 @@ class ReviewNode:
     kind: NodeKind
     name: str
     qualified_name: str
+    relations: tuple[ContextRelation, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,12 +147,12 @@ def review_selection(
     if not selected_ids:
         raise ReviewError("start selection is empty")
 
-    expanded_ids = _expanded_ids(index, selected_ids, set(nodes))
-    expanded_ids.difference_update(selected_ids)
-    expanded_ids.difference_update(excluded_ids)
+    related = _related_nodes(index, selected_ids, set(nodes))
+    for node_id in selected_ids | excluded_ids:
+        related.pop(node_id, None)
     return ReviewSelection(
         selected=_ordered_review_nodes(selected_ids, nodes),
-        expanded=_ordered_review_nodes(expanded_ids, nodes),
+        expanded=_ordered_related_nodes(related, nodes),
         fields=fields,
     )
 
@@ -174,12 +209,12 @@ def _resolve_selector(
     raise ReviewError(f"unknown node ID or path selector: {selector}")
 
 
-def _expanded_ids(
+def _related_nodes(
     index: IndexData,
     selected_ids: set[str],
     node_ids: set[str],
-) -> set[str]:
-    expanded: set[str] = set()
+) -> dict[str, set[ContextRelation]]:
+    related: dict[str, set[ContextRelation]] = {}
     for edge in index.edges:
         target_id = edge.target_id
         if (
@@ -189,10 +224,33 @@ def _expanded_ids(
         ):
             continue
         if edge.source_id in selected_ids:
-            expanded.add(target_id)
+            related.setdefault(target_id, set()).add(_OUTGOING_RELATION[edge.kind])
         if target_id in selected_ids:
-            expanded.add(edge.source_id)
-    return expanded
+            related.setdefault(edge.source_id, set()).add(_INCOMING_RELATION[edge.kind])
+    return related
+
+
+def _expanded_ids(
+    index: IndexData,
+    selected_ids: set[str],
+    node_ids: set[str],
+) -> set[str]:
+    """Preserve the frozen v0.6 benchmark target while review uses labeled relations."""
+    return set(_related_nodes(index, selected_ids, node_ids))
+
+
+def _ordered_related_nodes(
+    relations: dict[str, set[ContextRelation]],
+    nodes: dict[str, IndexNode],
+) -> tuple[ReviewNode, ...]:
+    ordered = sorted(relations, key=lambda node_id: _index_node_key(nodes[node_id]))
+    return tuple(
+        _review_node(
+            nodes[node_id],
+            tuple(sorted(relations[node_id], key=_RELATION_ORDER.__getitem__)),
+        )
+        for node_id in ordered[:_MAX_RELATED_OPTIONS]
+    )
 
 
 def _ordered_review_nodes(
@@ -203,13 +261,17 @@ def _ordered_review_nodes(
     return tuple(sorted(selected, key=_review_node_key))
 
 
-def _review_node(node: IndexNode) -> ReviewNode:
+def _review_node(
+    node: IndexNode,
+    relations: tuple[ContextRelation, ...] = (),
+) -> ReviewNode:
     return ReviewNode(
         id=node.id,
         path=node.path,
         kind=node.kind,
         name=node.name,
         qualified_name=node.qualified_name,
+        relations=relations,
     )
 
 

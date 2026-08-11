@@ -89,7 +89,7 @@ def source_notes() -> NotesData:
     )
 
 
-APPROVED_INPUT = "y\n1\nsrc/direct.py\n\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
+APPROVED_INPUT = "y\n1\nr1\nsrc/direct.py\n\n\nsrc/direct.py\n\ny\ny\ny\ny\ny\n"
 
 
 def disclosure_counts(rendered: RenderedBrief) -> tuple[int, int, int, int, int]:
@@ -144,6 +144,27 @@ class ChatReviewTests(unittest.TestCase):
         for hidden in hidden_values.split("|"):
             self.assertNotIn(hidden, visible + rendered.markdown)
         self.assertNotIn("src/direct.py", rendered.markdown)
+
+    def test_related_context_requires_explicit_approval(self) -> None:
+        output = TtyBuffer()
+
+        rendered = review_brief(
+            "retry",
+            source_index(),
+            source_notes(),
+            input_stream=TtyBuffer("y\n1\n\n\ny\ny\ny\ny\ny\n"),
+            output_stream=output,
+        )
+
+        visible = output.getvalue()
+        self.assertIn("Related context (not selected):", visible)
+        self.assertIn("r1. src/helper.py", visible)
+        self.assertIn("calls, imports", visible)
+        self.assertIn("src/service.py", rendered.markdown)
+        self.assertNotIn("src/helper.py", rendered.markdown)
+        self.assertNotIn("helper.run", rendered.markdown)
+        self.assertNotIn("json", rendered.markdown)
+        self.assertEqual(disclosure_counts(rendered), (1, 1, 1, 2, 1))
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
         rendered = review_brief(
@@ -212,7 +233,7 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("function: Service.run", rendered.markdown)
         self.assertNotIn("function: helper", rendered.markdown)
         self.assertNotIn("src/external.py", rendered.markdown)
-        self.assertEqual(rendered.disclosure.symbol_names, 3)
+        self.assertEqual(rendered.disclosure.symbol_names, 2)
 
     def test_keeps_module_when_file_outline_has_no_symbol_selection(self) -> None:
         module = node("module", "src/guided.py", "module", "guided")
@@ -239,9 +260,39 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         self.assertIn("module: guided", rendered.markdown)
+        self.assertNotIn("class: Service", rendered.markdown)
+        self.assertNotIn("function: helper", rendered.markdown)
+        self.assertEqual(rendered.disclosure.symbol_names, 1)
+
+    def test_exact_path_selection_can_approve_a_related_symbol(self) -> None:
+        module = node("module", "src/guided.py", "module", "guided")
+        service = node("service", "src/guided.py", "class", "Service")
+        helper = node("helper", "src/guided.py", "function", "helper")
+        index = IndexData(
+            config_digest="a" * 64,
+            edges=(
+                IndexEdge("module", "contains", "Service", "service"),
+                IndexEdge("module", "contains", "helper", "helper"),
+            ),
+            index_version=1,
+            nodes=(helper, module, service),
+            source_digest="b" * 64,
+            stale=False,
+        )
+        output = TtyBuffer()
+
+        rendered = review_brief(
+            "no matching terms",
+            index,
+            NotesData(notes=[], notes_version=1),
+            input_stream=TtyBuffer("y\n\nsrc/guided.py\n\nr1\n\n\ny\ny\nn\nn\nn\n"),
+            output_stream=output,
+        )
+
+        self.assertIn("r1. src/guided.py | class Service | contains", output.getvalue())
+        self.assertIn("module: guided", rendered.markdown)
         self.assertIn("class: Service", rendered.markdown)
-        self.assertIn("function: helper", rendered.markdown)
-        self.assertEqual(rendered.disclosure.symbol_names, 3)
+        self.assertNotIn("function: helper", rendered.markdown)
 
     def test_rejects_unknown_file_and_invalid_outline_number(self) -> None:
         module = node("module", "src/guided.py", "module", "guided")
@@ -277,6 +328,7 @@ class ChatReviewTests(unittest.TestCase):
             (" ", "", "request"),
             ("absent", "y\n", "start selection"),
             ("retry", "y\n2\n\n\n", "candidate number"),
+            ("retry", "y\n1\nr2\n", "related candidate"),
             ("retry", "y\n1\n\n\nY\n", "y or n"),
         )
         for prompt, input_text, message in cases:

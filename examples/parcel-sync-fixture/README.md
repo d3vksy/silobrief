@@ -15,7 +15,7 @@ sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
 sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
-sb chat "retry request" --out .silobrief/exports/retry-brief.md
+sb brief "retry request" --out .silobrief/exports/retry-brief.md
 ```
 
 For the bundled fixture, confirm request completeness with `y`, select candidate `1`, and
