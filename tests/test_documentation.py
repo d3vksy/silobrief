@@ -113,8 +113,6 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertIn("Candidate search remains lexical and advisory", readme)
         self.assertIn("exact indexed Python file path", readme)
         self.assertIn("11 of 12 frozen tasks", readme)
-        self.assertIn("docs/V1_CONTRACT.md", readme)
-        self.assertIn("docs/V0_2_CONTRACT.md", readme)
         readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
         self.assertIn("최신 공개 버전은 v1.0.0", readme_ko)
         self.assertIn("지원되는 1.x 호환성 계약", readme_ko)
@@ -123,8 +121,6 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertIn("하나의 자족적인 Markdown 파일", readme_ko)
         self.assertIn("색인에 있는 Python 파일의 정확한 상대 경로", readme_ko)
         self.assertIn("고정된 12개 과제 중 11개", readme_ko)
-        self.assertIn("docs/V1_CONTRACT.md", readme_ko)
-        self.assertIn("docs/V0_2_CONTRACT.md", readme_ko)
 
         security = (REPOSITORY_ROOT / "SECURITY.md").read_text(encoding="utf-8")
         self.assertIn("| 1.0.x | :white_check_mark: |", security)
@@ -135,18 +131,6 @@ class ReleaseDocumentationTests(unittest.TestCase):
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertEqual(pyproject.count('version = "1.0.0"'), 1)
         self.assertEqual(version("silobrief"), "1.0.0")
-
-        contract = (REPOSITORY_ROOT / "docs/V1_CONTRACT.md").read_text(encoding="utf-8")
-        for fragment in (
-            "sb brief PROMPT --out FILE",
-            "deprecated compatibility alias",
-            "Exit codes",
-            "config.json",
-            "index.json",
-            "schema_version: 3",
-            "Semantic Versioning",
-        ):
-            self.assertIn(fragment, contract)
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

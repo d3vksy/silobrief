@@ -1,10 +1,4 @@
 <p align="center">
-  <img src="docs/assets/silobrief-wordmark.svg" alt="siloBrief" width="840">
-</p>
-
----
-
-<p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
   <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-4f46e5" alt="릴리스 v1.0.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
@@ -259,11 +253,9 @@ Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트
 | `3` | 색인 생성이나 Python 구문 분석에 실패함 |
 | `4` | 제외 영역 검증, 사용자 승인 또는 파일 출력 단계에서 차단됨 |
 
-## 문서
+## 보안
 
-- [1.0 공개 계약](docs/V1_CONTRACT.md)
-- [v0.2 출력 및 보호 범위 계약(과거 문서)](docs/V0_2_CONTRACT.md)
-- [보안 문제 신고 안내](SECURITY.md)
+취약점 신고 방법은 [보안 정책](SECURITY.md)을 확인하세요.
 
 ## 기여하기
 

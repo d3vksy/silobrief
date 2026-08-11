@@ -63,10 +63,6 @@ class SourceDistributionTests(unittest.TestCase):
             f"{root}/README.ko.md",
             f"{root}/SECURITY.md",
             f"{root}/tests/__init__.py",
-            f"{root}/docs/V0_1_CONTRACT.md",
-            f"{root}/docs/V0_2_CONTRACT.md",
-            f"{root}/docs/V1_CONTRACT.md",
-            f"{root}/docs/assets/silobrief-wordmark.svg",
             f"{root}/examples/parcel-sync-fixture/README.md",
             f"{root}/examples/parcel-sync-fixture/private_adapter/client.py",
             f"{root}/examples/parcel-sync-fixture/src/parcel_sync/service.py",
@@ -76,11 +72,13 @@ class SourceDistributionTests(unittest.TestCase):
             f"{root}/validation/v1.0/RELEASE_CANDIDATE.md",
         }
         forbidden = {
-            f"{root}/docs/DEVELOPMENT_PLAN.md",
-            f"{root}/docs/V0_3_CONTRACT.md",
             f"{root}/validation/graph-retrieval/BASELINE.md",
             f"{root}/validation/graph-retrieval/COMPARISON.md",
             f"{root}/validation/graph_retrieval_comparison.py",
         }
         self.assertFalse(required - members, required - members)
         self.assertFalse(forbidden & members, forbidden & members)
+        self.assertFalse(
+            any(member.startswith(f"{root}/docs/") for member in members),
+            "sdist must not contain the removed docs tree",
+        )
