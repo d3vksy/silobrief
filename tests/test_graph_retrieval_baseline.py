@@ -73,7 +73,7 @@ TASKS: tuple[BenchmarkTask, ...] = (
         "Update the retry policy so status-code retries apply to HTTP 503 and not HTTP 500. "
         "Keep total=2 and preserve the delivery boundary call order.",
         targets("src/parcel_lab/retry.py", "retry_request"),
-        targets("src/parcel_lab/retry.py", "src.parcel_lab.retry"),
+        targets("src/parcel_lab/retry.py", "parcel_lab.retry"),
         "validation:v0.2/T01-MODIFY",
     ),
     BenchmarkTask(
@@ -84,7 +84,7 @@ TASKS: tuple[BenchmarkTask, ...] = (
         "keep current output. Insert it between prefix and reference and preserve uppercase "
         "behavior.",
         targets("src/parcel_lab/labels.py", "LabelOptions", "format_label"),
-        targets("src/parcel_lab/labels.py", "src.parcel_lab.labels"),
+        targets("src/parcel_lab/labels.py", "parcel_lab.labels"),
         "validation:v0.2/T02-ADD",
     ),
     BenchmarkTask(
@@ -94,7 +94,7 @@ TASKS: tuple[BenchmarkTask, ...] = (
         "Remove the legacy fallback from choose_reference. Accept only primary, return the "
         "stripped value, and raise ValueError when it is blank.",
         targets("src/parcel_lab/cleanup.py", "choose_reference"),
-        targets("src/parcel_lab/cleanup.py", "src.parcel_lab.cleanup"),
+        targets("src/parcel_lab/cleanup.py", "parcel_lab.cleanup"),
         "validation:v0.2/T03-REMOVE",
     ),
     BenchmarkTask(

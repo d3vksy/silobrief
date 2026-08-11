@@ -7,6 +7,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-12
+
+### Fixed
+
+- Normalize modules below a conventional `src/` source root and resolve absolute, relative, and
+  aliased imports when connecting cross-file import and call graph edges. Existing projects should
+  run `sb init` after upgrading to rebuild the derived index with the corrected graph (#145).
+
 ## [1.0.0] - 2026-08-11
 
 ### Added
