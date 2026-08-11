@@ -194,10 +194,50 @@ class ReviewSelectionTests(unittest.TestCase):
         self.assertEqual(result, reordered)
         self.assertEqual([item.id for item in result.selected], ["root", "added-module"])
         self.assertEqual(
-            result.expanded, (ReviewNode("neighbor", "src/b.py", "class", "neighbor", "neighbor"),)
+            result.expanded,
+            (
+                ReviewNode(
+                    "neighbor",
+                    "src/b.py",
+                    "class",
+                    "neighbor",
+                    "neighbor",
+                    ("calls",),
+                ),
+            ),
         )
         self.assertEqual(result.fields, FIELDS)
         self.assertNotIn("raw-canary", repr(asdict(result)))
+
+    def test_labels_both_relation_directions_and_caps_related_options(self) -> None:
+        root = node("root", "src/root.py", "function", "root")
+        neighbors = tuple(
+            node(f"neighbor-{number:02}", f"src/n{number:02}.py", "function", f"n{number:02}")
+            for number in range(12)
+        )
+        edges = (
+            IndexEdge("root", "call", "n00", "neighbor-00"),
+            IndexEdge("neighbor-00", "import", "root", "root"),
+            *(IndexEdge("root", "reference", item.name, item.id) for item in neighbors[1:]),
+        )
+        source_index = index(root, *reversed(neighbors), edges=tuple(reversed(edges)))
+
+        result = review_selection(
+            source_index,
+            candidate_options((ranked(root, 5),)),
+            selected_numbers=(1,),
+            added=(),
+            excluded=(),
+            fields=FIELDS,
+        )
+
+        self.assertEqual(len(result.expanded), 10)
+        self.assertEqual(
+            [item.id for item in result.expanded],
+            [f"neighbor-{n:02}" for n in range(10)],
+        )
+        self.assertEqual(result.expanded[0].relations, ("calls", "imported-by"))
+        self.assertEqual(result.expanded[1].relations, ("references",))
 
     def test_direct_node_addition_is_an_explicit_start_selection(self) -> None:
         suggested = node("suggested", "suggested.py", "module", "suggested")
@@ -214,6 +254,27 @@ class ReviewSelectionTests(unittest.TestCase):
         )
 
         self.assertEqual([item.id for item in result.selected], ["direct"])
+
+    def test_exclusion_wins_over_selected_and_related_context(self) -> None:
+        root = node("root", "root.py", "function", "root")
+        neighbor = node("neighbor", "neighbor.py", "function", "neighbor")
+        source_index = index(
+            root,
+            neighbor,
+            edges=(IndexEdge("root", "call", "neighbor", "neighbor"),),
+        )
+
+        result = review_selection(
+            source_index,
+            candidate_options((ranked(root, 5),)),
+            selected_numbers=(1,),
+            added=("neighbor",),
+            excluded=("neighbor",),
+            fields=FIELDS,
+        )
+
+        self.assertEqual([item.id for item in result.selected], ["root"])
+        self.assertEqual(result.expanded, ())
 
     def test_allows_direct_selection_when_ranked_candidates_are_empty(self) -> None:
         module = node("module", "src/work.py", "module", "work")

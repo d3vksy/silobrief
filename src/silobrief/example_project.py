@@ -8,23 +8,23 @@ class ExampleProjectError(Exception):
 
 
 _TASK_1_LOG = 'sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."'
-_TASK_1_CHAT = (
-    'sb chat "Append an optional separator to format_label. Preserve positional callers and apply '
+_TASK_1_BRIEF = (
+    'sb brief "Append an optional separator to format_label. Preserve positional callers and apply '
     'uppercase last. Return a readable diff and focused unittests." '
     "--out .silobrief/exports/task-01-modify.md"
 )
 _TASK_2_LOG = (
     'sb log parcel_practice/pricing.py --comment "Weight is a positive whole number in kg."'
 )
-_TASK_2_CHAT = (
-    'sb chat "Add delivery_surcharge with the documented weight rules. Return a readable diff and '
+_TASK_2_BRIEF = (
+    'sb brief "Add delivery_surcharge with the documented weight rules. Return a readable diff and '
     'focused unittests." --out .silobrief/exports/task-02-add.md'
 )
 _TASK_3_LOG = (
     'sb log parcel_practice/references.py --comment "New callers provide the primary reference."'
 )
-_TASK_3_CHAT = (
-    'sb chat "Remove the legacy fallback and all references to it. Preserve stripped primary '
+_TASK_3_BRIEF = (
+    'sb brief "Remove the legacy fallback and all references to it. Preserve stripped primary '
     'values and ValueError behavior. Return a readable diff and focused unittests." '
     "--out .silobrief/exports/task-03-remove.md"
 )
@@ -51,7 +51,7 @@ For each task:
 
 1. Read the task and record its approved fact with `sb log`.
 2. Use `sb search` to inspect candidates.
-3. Use `sb chat` to review source and create a Markdown brief.
+3. Use `sb brief` to review source and create a Markdown brief.
 4. Send only the generated brief to an external AI assistant.
 5. Review and apply the proposed code and tests yourself.
 6. Run `python -m unittest discover -s tests`.
@@ -68,7 +68,7 @@ For each task:
 
 ```console
 {_TASK_1_LOG}
-{_TASK_1_CHAT}
+{_TASK_1_BRIEF}
 ```
 
 ## Task 2: Add a pricing function
@@ -80,7 +80,7 @@ For each task:
 
 ```console
 {_TASK_2_LOG}
-{_TASK_2_CHAT}
+{_TASK_2_BRIEF}
 ```
 
 ## Task 3: Remove the legacy fallback
@@ -92,7 +92,7 @@ For each task:
 
 ```console
 {_TASK_3_LOG}
-{_TASK_3_CHAT}
+{_TASK_3_BRIEF}
 ```
 
 Review every generated Markdown file before sharing it. This project is an exercise, not a security

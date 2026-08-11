@@ -4,14 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "silobrief"
-version = "0.6.0"
+version = "1.0.0"
 description = "Create reviewed research briefs from Python project context"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 authors = [{ name = "d3vksy" }]
+keywords = ["ai", "cli", "code-context", "offline"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
@@ -36,8 +37,10 @@ dev = [
 sb = "silobrief.cli:main"
 
 [project.urls]
+Homepage = "https://github.com/d3vksy/silobrief"
 Repository = "https://github.com/d3vksy/silobrief"
 Issues = "https://github.com/d3vksy/silobrief/issues"
+Changelog = "https://github.com/d3vksy/silobrief/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["src"]

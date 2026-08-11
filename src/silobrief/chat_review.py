@@ -22,6 +22,7 @@ from silobrief.review import (
     CandidateOption,
     DisclosureChoices,
     ReviewError,
+    ReviewNode,
     ReviewSelection,
     SymbolOption,
     review_selection,
@@ -83,7 +84,17 @@ def review_brief(
         raise ChatReviewError(str(error)) from error
     _show_candidates(options, output_stream, cli_language)
     selected_numbers = _read_numbers(input_stream, output_stream, cli_language)
-    added = _read_additions(index, input_stream, output_stream, cli_language)
+    related = _related_candidates(index, options, selected_numbers)
+    _show_related_candidates(related, output_stream, cli_language)
+    added = _read_additions(
+        index,
+        options,
+        selected_numbers,
+        related,
+        input_stream,
+        output_stream,
+        cli_language,
+    )
     excluded = _read_selectors(
         localized(cli_language, "Exclude path or node ID", "제외할 경로 또는 노드 ID"),
         input_stream,
@@ -101,7 +112,7 @@ def review_brief(
         )
     except ReviewError as error:
         raise ChatReviewError(str(error)) from error
-    _show_selection(selection, output_stream, cli_language)
+    _show_selected_context(selection, output_stream, cli_language)
     reviewed = ReviewSelection(
         selection.selected,
         selection.expanded,
@@ -212,43 +223,83 @@ def _read_selectors(
 
 def _read_additions(
     index: IndexData,
+    candidates: tuple[CandidateOption, ...],
+    selected_numbers: tuple[int, ...],
+    related: tuple[ReviewNode, ...],
     input_stream: TextIO,
     output_stream: TextIO,
     language: Language,
 ) -> tuple[str, ...]:
     selectors: list[str] = []
+    direct_selectors: list[str] = []
+    current_related = related
     while selector := _read_line(
         localized(
             language,
-            "Add path or node ID (blank to finish): ",
-            "추가할 경로 또는 노드 ID (끝내려면 Enter): ",
+            "Add related number (rN), path, or node ID (blank to finish): ",
+            "추가할 연관 번호(rN), 경로 또는 노드 ID (끝내려면 Enter): ",
         ),
         input_stream,
         output_stream,
     ):
+        related_id = _related_selector(selector, current_related, language)
+        if related_id is not None:
+            selectors.append(related_id)
+            continue
         try:
-            options = selector_symbol_options(index, selector)
+            symbol_options = selector_symbol_options(index, selector)
         except ReviewError as error:
             raise ChatReviewError(str(error)) from error
-        if options is None:
+        if symbol_options is None:
             selectors.append(selector)
-            continue
-        _show_symbol_options(selector, options, output_stream, language)
-        numbers = _read_symbol_numbers(input_stream, output_stream, language)
-        if not numbers:
-            selectors.append(selector)
-            continue
-        for number in numbers:
-            if number > len(options):
-                raise ChatReviewError(
-                    localized(
-                        language,
-                        f"unknown symbol number: {number}",
-                        f"알 수 없는 심볼 번호: {number}",
+            direct_selectors.append(selector)
+        else:
+            _show_symbol_options(selector, symbol_options, output_stream, language)
+            numbers = _read_symbol_numbers(input_stream, output_stream, language)
+            if not numbers:
+                selectors.append(selector)
+                direct_selectors.append(selector)
+            for number in numbers:
+                if number > len(symbol_options):
+                    raise ChatReviewError(
+                        localized(
+                            language,
+                            f"unknown symbol number: {number}",
+                            f"알 수 없는 심볼 번호: {number}",
+                        )
                     )
-                )
-            selectors.append(options[number - 1].node.id)
+                node_id = symbol_options[number - 1].node.id
+                selectors.append(node_id)
+                direct_selectors.append(node_id)
+        updated_related = _related_candidates(
+            index,
+            candidates,
+            selected_numbers,
+            tuple(direct_selectors),
+        )
+        if updated_related != current_related:
+            current_related = updated_related
+            _show_related_candidates(current_related, output_stream, language)
     return tuple(selectors)
+
+
+def _related_selector(
+    selector: str,
+    related: tuple[ReviewNode, ...],
+    language: Language,
+) -> str | None:
+    if not (selector.startswith("r") and selector[1:].isdigit()):
+        return None
+    number = int(selector[1:])
+    if number < 1 or number > len(related):
+        raise ChatReviewError(
+            localized(
+                language,
+                f"unknown related candidate: {selector}",
+                f"알 수 없는 연관 후보: {selector}",
+            )
+        )
+    return related[number - 1].id
 
 
 def _show_symbol_options(
@@ -302,16 +353,48 @@ def _read_symbol_numbers(
     return numbers
 
 
-def _show_selection(selection: ReviewSelection, output: TextIO, language: Language) -> None:
-    for label, nodes in (
-        (localized(language, "Selected context", "선택한 맥락"), selection.selected),
-        (localized(language, "Expanded context", "확장된 맥락"), selection.expanded),
-    ):
-        _write(output, f"{label}:\n")
-        if not nodes:
-            _write(output, localized(language, "- none\n", "- 없음\n"))
-        for node in nodes:
-            _write(output, f"- {node.path} | {node.kind} {node.qualified_name}\n")
+def _related_candidates(
+    index: IndexData,
+    options: tuple[CandidateOption, ...],
+    selected_numbers: tuple[int, ...],
+    added: tuple[str, ...] = (),
+) -> tuple[ReviewNode, ...]:
+    if not selected_numbers and not added:
+        return ()
+    try:
+        return review_selection(
+            index,
+            options,
+            selected_numbers=selected_numbers,
+            added=added,
+            excluded=(),
+            fields=_NO_FIELDS,
+        ).expanded
+    except ReviewError as error:
+        raise ChatReviewError(str(error)) from error
+
+
+def _show_related_candidates(
+    related: tuple[ReviewNode, ...], output: TextIO, language: Language
+) -> None:
+    _write(
+        output,
+        localized(language, "Related context (not selected):\n", "연관 맥락 (미선택):\n"),
+    )
+    if not related:
+        _write(output, localized(language, "- none\n", "- 없음\n"))
+    for number, node in enumerate(related, start=1):
+        relations = ", ".join(node.relations)
+        _write(
+            output,
+            f"r{number}. {node.path} | {node.kind} {node.qualified_name} | {relations}\n",
+        )
+
+
+def _show_selected_context(selection: ReviewSelection, output: TextIO, language: Language) -> None:
+    _write(output, localized(language, "Selected context:\n", "선택한 맥락:\n"))
+    for node in selection.selected:
+        _write(output, f"- {node.path} | {node.kind} {node.qualified_name}\n")
 
 
 def _read_fields(
@@ -390,7 +473,7 @@ def _brief_input(
     *,
     source_excerpts: tuple[ApprovedSourceExcerpt, ...] = (),
 ) -> BriefInput:
-    nodes = (*selection.selected, *selection.expanded)
+    nodes = selection.selected
     node_ids = {node.id for node in nodes}
     paths = {node.path for node in nodes}
     choices = selection.fields

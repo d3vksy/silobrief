@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import unittest
 from importlib.metadata import version
 from pathlib import Path
@@ -15,6 +16,7 @@ PUBLIC_COMMANDS = (
     "sb log",
     "sb search",
     "sb language",
+    "sb brief",
     "sb chat",
     "sb --version",
 )
@@ -83,9 +85,10 @@ class ReleaseDocumentationTests(unittest.TestCase):
                 for fragment in fragments:
                     self.assertIn(fragment, text)
 
-    def test_v0_6_release_metadata_is_current(self) -> None:
+    def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.0.0] - 2026-08-11", changelog)
         self.assertIn(f"## [0.6.0] - {V0_6_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.5.0] - {V0_5_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.4.0] - {V0_4_RELEASE_DATE}", changelog)
@@ -102,34 +105,88 @@ class ReleaseDocumentationTests(unittest.TestCase):
             self.assertIn(fragment, changelog)
 
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("The current release is v0.6.0.", readme)
-        self.assertIn("`sb example` creates a disposable guided project", readme)
-        self.assertIn("`sb language`", readme)
+        self.assertIn("latest public release is v1.0.0", readme)
+        self.assertIn("supported 1.x compatibility contract", readme)
+        self.assertIn("Create a disposable project", readme)
+        self.assertIn("`sb language [", readme)
         self.assertIn("one self-contained Markdown file", readme)
         self.assertIn("Candidate search remains lexical and advisory", readme)
         self.assertIn("exact indexed Python file path", readme)
-        self.assertIn("six-task lexical regression", readme)
+        self.assertIn("11 of 12 frozen tasks", readme)
+        self.assertIn("docs/V1_CONTRACT.md", readme)
         self.assertIn("docs/V0_2_CONTRACT.md", readme)
         readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
-        self.assertIn("현재 공개 버전은 v0.6.0입니다.", readme_ko)
-        self.assertIn("`sb example`은 버려도 되는 실습 프로젝트", readme_ko)
-        self.assertIn("`sb language`", readme_ko)
+        self.assertIn("최신 공개 버전은 v1.0.0", readme_ko)
+        self.assertIn("지원되는 1.x 호환성 계약", readme_ko)
+        self.assertIn("버려도 되는 합성 프로젝트", readme_ko)
+        self.assertIn("`sb language [", readme_ko)
         self.assertIn("하나의 자족적인 Markdown 파일", readme_ko)
         self.assertIn("색인에 있는 Python 파일의 정확한 상대 경로", readme_ko)
-        self.assertIn("여섯 과제 lexical 회귀 검사", readme_ko)
+        self.assertIn("고정된 12개 과제 중 11개", readme_ko)
+        self.assertIn("docs/V1_CONTRACT.md", readme_ko)
         self.assertIn("docs/V0_2_CONTRACT.md", readme_ko)
 
         security = (REPOSITORY_ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("| 0.6.x | :white_check_mark: |", security)
+        self.assertIn("| 1.0.x | :white_check_mark: |", security)
+        self.assertIn("| 0.6.x | :x: |", security)
         self.assertIn("| 0.5.x | :x: |", security)
         self.assertNotIn("has not released a supported version yet", security)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "0.6.0"'), 1)
-        self.assertEqual(version("silobrief"), "0.6.0")
+        self.assertEqual(pyproject.count('version = "1.0.0"'), 1)
+        self.assertEqual(version("silobrief"), "1.0.0")
+
+        contract = (REPOSITORY_ROOT / "docs/V1_CONTRACT.md").read_text(encoding="utf-8")
+        for fragment in (
+            "sb brief PROMPT --out FILE",
+            "deprecated compatibility alias",
+            "Exit codes",
+            "config.json",
+            "index.json",
+            "schema_version: 3",
+            "Semantic Versioning",
+        ):
+            self.assertIn(fragment, contract)
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())
+
+    def test_pypi_workflow_is_manual_version_checked_and_tokenless(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github" / "workflows" / "publish-pypi.yml").read_text(
+            encoding="utf-8"
+        )
+        for fragment in (
+            "workflow_dispatch:",
+            "version:",
+            "refs/heads/main",
+            "refs/tags/v${{ inputs.version }}",
+            'project["version"] != version',
+            "environment:",
+            "name: pypi",
+            "id-token: write",
+            "pypa/gh-action-pypi-publish@",
+            "packages-dir: dist/",
+        ):
+            self.assertIn(fragment, workflow)
+        self.assertNotIn("PYPI_TOKEN", workflow)
+        self.assertNotIn("password:", workflow)
+        action_references = re.findall(
+            r"^\s+uses: ([^\s]+)(?:\s+#.*)?$", workflow, flags=re.MULTILINE
+        )
+        self.assertTrue(action_references)
+        for reference in action_references:
+            with self.subTest(reference=reference):
+                self.assertRegex(reference, r"^[^@]+@[0-9a-f]{40}$")
+
+        contributing = (REPOSITORY_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        for fragment in (
+            "Trusted Publisher",
+            "publish-pypi.yml",
+            "owner `d3vksy`",
+            "environment named `pypi`",
+            "without the `v` prefix",
+        ):
+            self.assertIn(fragment, contributing)
 
 
 if __name__ == "__main__":

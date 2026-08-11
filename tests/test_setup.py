@@ -148,6 +148,55 @@ class SetupCommandTests(unittest.TestCase):
             )
             self.assertEqual(after, before)
 
+    def test_v0_6_state_loads_without_migration_or_rewrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "service.py").write_text(
+                "def run():\n    return 1\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            state = project / ".silobrief"
+            state.mkdir()
+            (state / "exports").mkdir()
+            files = {
+                "config.json": {
+                    "boundaries": [],
+                    "default_excludes": DEFAULT_EXCLUDES,
+                    "schema_version": 1,
+                },
+                "notes.json": {
+                    "notes": [
+                        {
+                            "comment": "v0.6 note",
+                            "id": "note-" + "0" * 64,
+                            "path": "service.py",
+                        }
+                    ],
+                    "notes_version": 1,
+                },
+                "language.json": {
+                    "brief_language": "ko",
+                    "cli_language": "en",
+                    "settings_version": 1,
+                },
+            }
+            for name, value in files.items():
+                (state / name).write_text(
+                    json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                    newline="\n",
+                )
+            before = {name: (state / name).read_bytes() for name in files}
+
+            self.assertEqual(main(["setup", str(project)]), 0)
+            with working_directory(project):
+                self.assertEqual(main(["init"]), 0)
+                self.assertEqual(main(["search", "run"]), 0)
+
+            self.assertEqual({name: (state / name).read_bytes() for name in files}, before)
+            self.assertTrue((state / "index.json").is_file())
+
     def test_setup_rejects_missing_path_and_regular_file(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

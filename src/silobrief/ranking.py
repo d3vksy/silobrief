@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 
 from silobrief.index import IndexData, IndexNode
 from silobrief.search_tokens import normalize_search_tokens
@@ -8,12 +10,18 @@ from silobrief.state import HumanNoteData, NotesData
 
 _SYMBOL_WEIGHT = 5
 _PATH_WEIGHT = 4
-_IMPORT_WEIGHT = 3
 _DOCSTRING_WEIGHT = 2
 _COMMENT_WEIGHT = 1
 _NOTE_WEIGHT = 4
+_IMPORT_TIE_BREAK_CAP = 2
 _MAX_CONNECTIVITY_SCORE = 3
 _MAX_CANDIDATES = 10
+_MAX_IMPLEMENTATION_CANDIDATES = 7
+_MAX_TEST_CANDIDATES = _MAX_CANDIDATES - _MAX_IMPLEMENTATION_CANDIDATES
+_LEADING_ACTION_BONUS = 8
+_EXACT_MODULE_BONUS = 4
+_TEST_QUERY_TOKENS = frozenset({"test", "tests", "pytest", "unittest"})
+_WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,28 +51,49 @@ def rank_candidates(
     index: IndexData,
     notes: NotesData,
 ) -> tuple[RankedCandidate, ...]:
-    query = frozenset(normalize_search_tokens(prompt))
+    query = _query_tokens(prompt)
     if not query:
         return ()
+    first_word = _first_query_word(prompt)
 
     adjacency = _adjacency(index)
     note_tokens = tuple(
         (note, frozenset(normalize_search_tokens(note["comment"]))) for note in notes["notes"]
     )
     candidates: list[RankedCandidate] = []
+    module_fallbacks: list[RankedCandidate] = []
     for candidate in index.nodes:
         evidence = _evidence(candidate, query, adjacency, note_tokens)
-        if not _has_text_match(evidence):
+        if not _has_direct_match(evidence):
             continue
-        candidates.append(
-            RankedCandidate(
-                node=candidate,
-                score=_score(evidence),
-                evidence=evidence,
-            )
+        ranked = RankedCandidate(
+            node=candidate,
+            score=_score(candidate, evidence, query=query, first_word=first_word),
+            evidence=evidence,
         )
+        (module_fallbacks if candidate.kind == "module" else candidates).append(ranked)
     candidates.sort(key=_candidate_key)
-    return tuple(candidates[:_MAX_CANDIDATES])
+    module_fallbacks.sort(key=_candidate_key)
+    if not candidates:
+        candidates = module_fallbacks
+    return _bounded_candidates(candidates, include_tests=bool(query & _TEST_QUERY_TOKENS))
+
+
+def _query_tokens(prompt: str) -> frozenset[str]:
+    tokens = set(normalize_search_tokens(prompt))
+    for token in tuple(tokens):
+        if len(token) > 4 and token.endswith("ies"):
+            tokens.add(f"{token[:-3]}y")
+        elif len(token) > 4 and token.endswith("s") and not token.endswith(("ss", "us", "is")):
+            tokens.add(token[:-1])
+        if len(token) > 5 and token.endswith("ing"):
+            tokens.add(token[:-3])
+    return frozenset(tokens)
+
+
+def _first_query_word(prompt: str) -> str:
+    match = _WORD_PATTERN.search(prompt)
+    return match.group(0).casefold() if match is not None else ""
 
 
 def _evidence(
@@ -117,26 +146,74 @@ def _matches(query: frozenset[str], tokens: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(sorted(query.intersection(tokens)))
 
 
-def _has_text_match(evidence: RankEvidence) -> bool:
+def _has_direct_match(evidence: RankEvidence) -> bool:
     return bool(
         evidence.path_matches
         or evidence.symbol_matches
-        or evidence.import_matches
         or evidence.docstring_matches
         or evidence.comment_matches
         or evidence.note_match
     )
 
 
-def _score(evidence: RankEvidence) -> int:
-    return (
+def _score(
+    node: IndexNode,
+    evidence: RankEvidence,
+    *,
+    query: frozenset[str],
+    first_word: str,
+) -> int:
+    score = (
         len(evidence.symbol_matches) * _SYMBOL_WEIGHT
         + len(evidence.path_matches) * _PATH_WEIGHT
-        + len(evidence.import_matches) * _IMPORT_WEIGHT
+        + min(len(evidence.import_matches), _IMPORT_TIE_BREAK_CAP)
         + len(evidence.docstring_matches) * _DOCSTRING_WEIGHT
         + len(evidence.comment_matches) * _COMMENT_WEIGHT
         + (_NOTE_WEIGHT if evidence.note_match else 0)
         + min(evidence.connected_nodes, _MAX_CONNECTIVITY_SCORE)
+    )
+    if node.kind == "function" and first_word and node.name.casefold().startswith(first_word):
+        score += _LEADING_ACTION_BONUS
+    if PurePosixPath(node.path).stem.casefold() in query:
+        score += _EXACT_MODULE_BONUS
+    return score
+
+
+def _bounded_candidates(
+    candidates: list[RankedCandidate], *, include_tests: bool
+) -> tuple[RankedCandidate, ...]:
+    implementation = [
+        candidate for candidate in candidates if not _is_test_path(candidate.node.path)
+    ]
+    if not include_tests:
+        return tuple(implementation[:_MAX_IMPLEMENTATION_CANDIDATES])
+
+    tests = [candidate for candidate in candidates if _is_test_path(candidate.node.path)]
+    selected = [
+        *implementation[:_MAX_IMPLEMENTATION_CANDIDATES],
+        *tests[:_MAX_TEST_CANDIDATES],
+    ]
+    if len(implementation) < _MAX_IMPLEMENTATION_CANDIDATES:
+        selected = [
+            *implementation,
+            *tests[: _MAX_CANDIDATES - len(implementation)],
+        ]
+    elif len(tests) < _MAX_TEST_CANDIDATES:
+        selected = [
+            *implementation[: _MAX_CANDIDATES - len(tests)],
+            *tests,
+        ]
+    return tuple(selected)
+
+
+def _is_test_path(path: str) -> bool:
+    parts = PurePosixPath(path).parts
+    filename = parts[-1]
+    return (
+        "test" in parts
+        or "tests" in parts
+        or filename.startswith("test_")
+        or filename.endswith("_test.py")
     )
 
 

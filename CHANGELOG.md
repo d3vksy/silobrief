@@ -7,6 +7,43 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-11
+
+### Added
+
+- Make `sb brief` the primary command for reviewing context and writing one self-contained brief.
+- Record a frozen 12-task retrieval benchmark with Recall@10 and mean reciprocal rank gates.
+- Show up to ten one-hop related context proposals with deterministic direction labels and explicit
+  `rN` approval.
+- Address GitHub issue #42 with a dependency-free, five-stage `sb init` progress bar on interactive
+  standard error while keeping redirected and CI output unchanged.
+- Add a manually dispatched, version-checked GitHub Actions workflow for tokenless PyPI Trusted
+  Publishing.
+- Document the 1.0 command, exit-code, local-state, disclosure-manifest, and compatibility contract.
+- Add a solo field-trial procedure and v0.7/v0.8 verification records.
+
+### Changed
+
+- Improve lexical ranking from 4/12 to 11/12 task hits and from 22.0% to 72.2% mean reciprocal
+  rank on the frozen benchmark.
+- Keep test-file candidates behind explicit test intent and prevent import-only nodes from entering
+  the candidate list.
+- Treat graph neighbors as unselected proposals; only explicitly selected nodes may enter project
+  context or source review.
+- Finalize package metadata and the documented compatibility surface for the first stable release.
+
+### Deprecated
+
+- Keep `sb chat` as a warning-emitting compatibility alias for `sb brief`; it will not be removed
+  before a future major release.
+
+### Known limitations
+
+- The retrieval benchmark is small and still misses one of 12 tasks.
+- Related-context tests establish disclosure isolation, not improved external-model answers.
+- No recruited-user demand evidence exists; the included field trial is a one-developer procedure.
+- siloBrief remains neither a secret scanner nor an export-approval system.
+
 ## [0.6.0] - 2026-08-10
 
 ### Added

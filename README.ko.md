@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="릴리스 v0.6.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-4f46e5" alt="릴리스 v1.0.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -52,18 +52,18 @@ siloBrief가 만드는 것은 AI에 전달할 입력 자료입니다. 코드 수
 
 ## 설치
 
-Python 3.10 이상이 필요합니다. 현재 저장소를 설치한 뒤 명령이 정상적으로 등록됐는지
+Python 3.10 이상이 필요합니다. PyPI에서 안정 버전을 설치한 뒤 명령이 정상적으로 등록됐는지
 확인합니다.
 
 ```console
-python -m pip install .
+python -m pip install silobrief
 sb --version
 ```
 
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 0.6.0
+siloBrief 1.0.0
 ```
 
 ## 명령어
@@ -76,15 +76,20 @@ siloBrief 0.6.0
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
-| `sb search "PROMPT"` | 관련 코드 후보를 최대 10개까지 찾고 어떤 요청 단어가 일치했는지 보여줍니다. |
+| `sb search "PROMPT"` | 제한된 수의 관련 코드 후보와 어떤 요청 단어가 일치했는지 보여줍니다. |
 | `sb language [--cli en|ko] [--brief en|ko]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
-| `sb chat "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
+| `sb brief "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
+| `sb chat "PROMPT" --out FILE` | `sb brief`의 사용 중단 예정 호환 별칭입니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
-`setup`과 `example`을 제외한 명령은 현재 위치에서 프로젝트 루트를 자동으로 찾습니다. `chat`은
+`setup`과 `example`을 제외한 명령은 현재 위치에서 프로젝트 루트를 자동으로 찾습니다. `brief`는
 대화형 터미널에서만 실행할 수 있으며, 현재 설정으로 만든 색인과 새로운 `.md` 출력 경로가
 필요합니다. 프로젝트 안에 파일을 만들 때는 `.silobrief/exports/` 아래만 사용할 수 있고 기존
 파일은 덮어쓰지 않습니다.
+
+표준 오류가 대화형 터미널이면 `sb init`은 소스 수집, 분석, 색인 생성, 소스 변경 확인, 저장의
+5단계 진행 막대를 한 줄로 표시합니다. 출력을 리디렉션한 실행과 CI에서는 진행 표시를 출력하지
+않으며, 기존 완료 메시지는 그대로 표준 출력에 기록합니다.
 
 두 언어의 기본값은 모두 영어입니다. 설정은 프로젝트별로 저장되며 함께 또는 따로 바꿀 수
 있습니다.
@@ -140,12 +145,12 @@ sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
 sb search "Update retry_request to retry HTTP 503 but not 500."
-sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
+sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
 이 과정에서 `setup`은 작업 공간을 만들고, `ignore`는 읽으면 안 되는 경로를 등록합니다. `init`은
 나머지 Python 파일을 분석해 색인을 만듭니다. `search`는 공개 검토를 시작하지 않고 관련 코드
-후보와 선정 근거를 확인할 때 사용합니다. `chat`은 같은 후보를 보여 준 뒤 실제로 포함할 내용을
+후보와 선정 근거를 확인할 때 사용합니다. `brief`는 같은 후보를 보여 준 뒤 실제로 포함할 내용을
 직접 선택하게 합니다.
 
 ### 등록한 제외 경로 해제하기
@@ -159,7 +164,7 @@ sb init
 ```
 
 `unignore`는 설정만 바꾸며 해제할 경로의 파일을 열지 않습니다. 기존 색인은 즉시 오래된 상태로
-표시되므로 `sb init`이 끝나기 전까지 `sb chat`을 실행할 수 없습니다. 색인을 다시 만들면 해당
+표시되므로 `sb init`이 끝나기 전까지 `sb brief`를 실행할 수 없습니다. 색인을 다시 만들면 해당
 경로의 파일이 검토 대상이나 소스 코드 후보로 나타날 수 있습니다.
 
 ### 프로젝트 정보 더하기
@@ -169,18 +174,20 @@ sb init
 
 ```console
 sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
-sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
+sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
 ```
 
-`chat`을 실행하면 다음 순서로 진행됩니다.
+`brief`를 실행하면 다음 순서로 진행됩니다.
 
 1. 요청한 작업이 맞는지 확인하고 관련 함수나 클래스를 고릅니다. 추천 후보에 원하는 코드가
    없다면 색인에 있는 Python 파일의 정확한 상대 경로를 입력한 뒤 함수나 클래스를 고릅니다.
-2. AI 요청 문서에 넣을 프로젝트 정보를 하나씩 검토합니다.
-3. 화면에 표시된 소스 코드를 첨부할지 선택합니다. 기본값은 `아니요`입니다.
-4. 제외 영역의 실제 식별자가 노출될 때는 내용을 확인한 뒤 `EXPOSE`를 입력해야 합니다.
-5. 생성할 Markdown 파일의 전체 내용을 미리 확인합니다.
-6. 문제가 없으면 정확히 `WRITE`를 입력해 파일을 만듭니다.
+2. 한 단계 연관 맥락을 검토하고 추가할 항목에만 `rN` 값을 입력합니다. 빈 입력은 아무것도
+   승인하지 않습니다.
+3. AI 요청 문서에 넣을 프로젝트 정보를 하나씩 검토합니다.
+4. 화면에 표시된 소스 코드를 첨부할지 선택합니다. 기본값은 `아니요`입니다.
+5. 제외 영역의 실제 식별자가 노출될 때는 내용을 확인한 뒤 `EXPOSE`를 입력해야 합니다.
+6. 생성할 Markdown 파일의 전체 내용을 미리 확인합니다.
+7. 문제가 없으면 정확히 `WRITE`를 입력해 파일을 만듭니다.
 
 다른 환경으로 옮기기 전에는 생성된 파일을 직접 열어 마지막으로 확인하세요.
 
@@ -201,7 +208,7 @@ sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified di
 | 제외 경로 | `sb ignore`로 등록한 파일이나 디렉터리입니다. siloBrief는 제외한 디렉터리 아래를 분석하지 않습니다. |
 | 제외 영역의 공개용 이름 | 제외 경로의 실제 이름 대신 AI 요청 문서에 표시할 별칭과 설명입니다. 기술 문서에서는 boundary alias라고 부릅니다. |
 | 로컬 색인 | 허용된 Python 파일과 그 안의 함수·클래스를 기록한 `.silobrief/index.json` 파일입니다. |
-| 프로젝트 메모 | `sb log`로 저장한 정보입니다. `chat`에서 AI 요청 문서에 넣을 후보로 제시됩니다. |
+| 프로젝트 메모 | `sb log`로 저장한 정보입니다. `brief`에서 AI 요청 문서에 넣을 후보로 제시됩니다. |
 
 ## 보호 범위와 한계
 
@@ -223,21 +230,24 @@ siloBrief는 보안 검사기나 폐쇄 환경의 반출 승인 시스템이 아
 
 ## 검증 현황
 
-현재 공개 버전은 v0.6.0입니다. `sb example`은 버려도 되는 실습 프로젝트를 만들고,
-`sb language`는 터미널 안내와 생성 브리프의 언어를 한국어 또는 영어로 각각 설정합니다.
-`sb search`는 요청과 일치한 단어를 근거로 코드 후보를 최대 10개까지 보여주며, `sb chat`은
-작업 요청, 승인한 맥락, 승인한 소스 조각을 하나의 자족적인 Markdown 파일로 묶습니다.
+최신 공개 버전은 v1.0.0이며, 지원되는 1.x 호환성 계약을 정의합니다.
+`sb search`는 고정된 12개 과제 중 11개에서 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다.
+`sb brief`는 관계가 표시된 맥락 후보를 기본 미선택 상태로 보여주며, 명시적으로 승인한 맥락과
+소스만 하나의 자족적인 Markdown 파일로 묶습니다.
 
 Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트워크에 연결하지 않고 같은
-브리프가 반복 생성되는 것을 확인했습니다. 더 넓은 여섯 과제 lexical 회귀 검사에서는 목표
-심볼이 세 과제에서만 Top 10에 들었습니다. 후보 검색은 어디까지나 단어 기반 제안이므로, 놓친
-경우에는 정확한 파일 경로를 직접 고르는 과정이 필요합니다. 이 결과가 자동 맥락 완성, 비밀정보
+브리프가 반복 생성되는 것을 확인했습니다. 후보 검색은 어디까지나 단어 기반 제안이며, 작은
+벤치마크의 한 과제는 아직 놓칩니다. 놓친 경우에는 정확한 파일 경로를 직접 고르는 과정이
+필요합니다. 이 결과가 자동 맥락 완성, 비밀정보
 탐지, 반출 승인, 시장 수요, 여러 외부 AI 모델과 실제 비공개 프로젝트에서의 효과를 입증하지는
 않습니다.
 
 - [설치 wheel 검증](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [수동 모델 평가 절차](validation/v0.2/MANUAL_MODEL_GATE.md)
 - [Claude 평가 결과](validation/v0.2/results/CLAUDE_GATE_RESULT.md)
+- [v0.7 검색 결과](validation/v0.7/RETRIEVAL_RESULT.md)
+- [v0.8 연관 맥락 결과](validation/v0.8/RELATED_CONTEXT_RESULT.md)
+- [1인 현장 시험 절차](validation/v0.9/FIELD_TRIAL.md)
 
 ## 종료 코드
 
@@ -251,6 +261,7 @@ Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트
 
 ## 문서
 
+- [1.0 공개 계약](docs/V1_CONTRACT.md)
 - [v0.2 출력 및 보호 범위 계약(과거 문서)](docs/V0_2_CONTRACT.md)
 - [보안 문제 신고 안내](SECURITY.md)
 
