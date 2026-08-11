@@ -88,6 +88,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.0.1] - 2026-08-12", changelog)
         self.assertIn("## [1.0.0] - 2026-08-11", changelog)
         self.assertIn(f"## [0.6.0] - {V0_6_RELEASE_DATE}", changelog)
         self.assertIn(f"## [0.5.0] - {V0_5_RELEASE_DATE}", changelog)
@@ -105,7 +106,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
             self.assertIn(fragment, changelog)
 
         readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("latest public release is v1.0.0", readme)
+        self.assertIn("latest public release is v1.0.1", readme)
         self.assertIn("supported 1.x compatibility contract", readme)
         self.assertIn("Create a disposable project", readme)
         self.assertIn("`sb language [", readme)
@@ -114,7 +115,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertIn("exact indexed Python file path", readme)
         self.assertIn("11 of 12 frozen tasks", readme)
         readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
-        self.assertIn("최신 공개 버전은 v1.0.0", readme_ko)
+        self.assertIn("최신 공개 버전은 v1.0.1", readme_ko)
         self.assertIn("지원되는 1.x 호환성 계약", readme_ko)
         self.assertIn("버려도 되는 합성 프로젝트", readme_ko)
         self.assertIn("`sb language [", readme_ko)
@@ -129,8 +130,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertNotIn("has not released a supported version yet", security)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "1.0.0"'), 1)
-        self.assertEqual(version("silobrief"), "1.0.0")
+        self.assertEqual(pyproject.count('version = "1.0.1"'), 1)
+        self.assertEqual(version("silobrief"), "1.0.1")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

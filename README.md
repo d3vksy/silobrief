@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-4f46e5" alt="Release v1.0.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/release-v1.0.1-4f46e5" alt="Release v1.0.1"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -55,7 +55,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 1.0.0
+siloBrief 1.0.1
 ```
 
 ## Commands
@@ -218,7 +218,7 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The latest public release is v1.0.0 and defines the supported 1.x compatibility contract.
+The latest public release is v1.0.1 and follows the supported 1.x compatibility contract.
 `sb search` now reaches an expected symbol for 11 of 12 frozen tasks, with mean reciprocal rank
 72.2%. `sb brief` shows relation-labeled context proposals, defaults every proposal to unselected,
 and packages only explicitly approved context and source into one self-contained Markdown file.
