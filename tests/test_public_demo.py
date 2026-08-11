@@ -22,7 +22,7 @@ FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-f
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n"
 INDEX_SHA256 = "e47e1d49d1f3d5ec828e10594922c0586eb5f0eb98bbcf333c7672122e0c901c"
-BRIEF_SHA256 = "5ecd0039b62f2346a5cc0752e83b55a3c54bd6302cc662e4a292f038c8f771d4"
+BRIEF_SHA256 = "065e297861d5839a20a06607bf282a5bb19224c6ced007b75893fe47d7a32533"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
     "PUBLIC_COMMENT_CANARY",
@@ -138,8 +138,8 @@ def run_demo(project: Path) -> DemoResult:
             stdout.truncate(0)
             stderr.seek(0)
             stderr.truncate(0)
-            chat_result = main(["chat", "retry request", "--out", OUTPUT_PATH])
-            results = (ignore_result, init_result, log_result, chat_result)
+            brief_result = main(["brief", "retry request", "--out", OUTPUT_PATH])
+            results = (ignore_result, init_result, log_result, brief_result)
 
     if (setup_result, *results) != (0, 0, 0, 0, 0):
         raise AssertionError(f"public demo failed: {(setup_result, *results)}\n{stderr.getvalue()}")

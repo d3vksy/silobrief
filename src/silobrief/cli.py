@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
+from typing import TextIO
 
 from silobrief import __version__
 from silobrief.boundaries import register_boundary, unregister_boundary
@@ -15,7 +17,12 @@ from silobrief.candidate_search import (
 from silobrief.chat_review import ChatReviewError, review_brief
 from silobrief.current_index import CurrentIndexError, load_current_index
 from silobrief.example_project import ExampleProjectError, create_example_project
-from silobrief.initialization import IndexingError, SourceChangedError, initialize_index
+from silobrief.initialization import (
+    IndexingError,
+    InitProgress,
+    SourceChangedError,
+    initialize_index,
+)
 from silobrief.language import Language, LanguageSettings, localized, parse_language
 from silobrief.notes import add_note
 from silobrief.output import OutputBlockedError, approve_and_write
@@ -43,6 +50,74 @@ _SOURCE_DISCLOSURE_WARNING_KO = (
     "있습니다. siloBrief는 비밀정보를 탐지하거나 보안 승인을 제공하지 않습니다. 모든 "
     "출력을 직접 검토하세요."
 )
+
+_INIT_PROGRESS_WIDTH = 20
+
+
+class _InitProgressBar:
+    def __init__(self, stream: TextIO, language: Language) -> None:
+        self._stream = stream
+        self._language = language
+        self._last_width = 0
+        self._active = False
+
+    def update(self, progress: InitProgress) -> None:
+        filled = _INIT_PROGRESS_WIDTH * progress.completed // progress.total
+        bar = "#" * filled + "-" * (_INIT_PROGRESS_WIDTH - filled)
+        percent = 100 * progress.completed // progress.total
+        line = f"sb init [{bar}] {percent:3d}% {_init_progress_label(progress, self._language)}"
+        line_width = _terminal_width(line)
+        padding = " " * max(0, self._last_width - line_width)
+        self._stream.write(f"\r{line}{padding}")
+        self._stream.flush()
+        self._last_width = line_width
+        self._active = progress.phase != "complete"
+        if not self._active:
+            self._stream.write("\n")
+            self._stream.flush()
+
+    def finish(self) -> None:
+        if self._active:
+            self._stream.write("\n")
+            self._stream.flush()
+            self._active = False
+
+
+def _terminal_width(value: str) -> int:
+    width = 0
+    for character in value:
+        if unicodedata.combining(character):
+            continue
+        width += 2 if unicodedata.east_asian_width(character) in {"F", "W"} else 1
+    return width
+
+
+def _init_progress_label(progress: InitProgress, language: Language) -> str:
+    source_files = progress.source_files if progress.source_files is not None else 0
+    file_label = "file" if source_files == 1 else "files"
+    if progress.phase == "collecting":
+        return localized(language, "Collecting allowed Python files", "허용된 Python 파일 수집 중")
+    if progress.phase == "analyzing":
+        return localized(
+            language,
+            f"Analyzing {source_files} Python {file_label}",
+            f"Python 파일 {source_files}개 분석 중",
+        )
+    if progress.phase == "building":
+        return localized(language, "Building local index", "로컬 색인 생성 중")
+    if progress.phase == "verifying":
+        return localized(language, "Checking for source changes", "소스 변경 여부 확인 중")
+    if progress.phase == "writing":
+        return localized(
+            language,
+            "Writing .silobrief/index.json",
+            ".silobrief/index.json 저장 중",
+        )
+    return localized(
+        language,
+        f"Indexed {source_files} Python {file_label}",
+        f"Python 파일 {source_files}개 색인 완료",
+    )
 
 
 def _build_parser(language: Language = "en") -> argparse.ArgumentParser:
@@ -113,10 +188,20 @@ def _build_parser(language: Language = "en") -> argparse.ArgumentParser:
     )
     language_parser.add_argument("--cli", dest="cli_language", choices=("en", "ko"))
     language_parser.add_argument("--brief", dest="brief_language", choices=("en", "ko"))
+    brief = subcommands.add_parser(
+        "brief",
+        help=localized(
+            language, "Create a reviewed research brief.", "검토 후 작업 브리프를 만듭니다."
+        ),
+    )
+    brief.add_argument("prompt")
+    brief.add_argument("--out", dest="output", required=True)
     chat = subcommands.add_parser(
         "chat",
         help=localized(
-            language, "Create a reviewed research brief.", "검토 후 작업 브리프를 만듭니다."
+            language,
+            "Deprecated alias for 'brief'.",
+            "'brief' 명령의 사용 중단 예정 별칭입니다.",
         ),
     )
     chat.add_argument("prompt")
@@ -262,21 +347,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             localized(
                 cli_language,
                 f"removed boundary {boundary['alias']} for {boundary['path']}; "
-                "run sb init before sb chat",
+                "run sb init before sb brief",
                 f"{boundary['path']}의 경계 {boundary['alias']}를 제거했습니다. "
-                "sb chat 전에 sb init을 실행하세요",
+                "sb brief 전에 sb init을 실행하세요",
             )
         )
 
     if arguments.command == "init":
+        progress_bar = _InitProgressBar(sys.stderr, cli_language) if sys.stderr.isatty() else None
         try:
-            warnings = initialize_index(Path.cwd())
+            warnings = initialize_index(
+                Path.cwd(),
+                progress=progress_bar.update if progress_bar is not None else None,
+            )
         except SetupError as error:
+            if progress_bar is not None:
+                progress_bar.finish()
             parser.error(str(error))
         except IndexingError as error:
+            if progress_bar is not None:
+                progress_bar.finish()
             print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
             return 3
         except SourceChangedError as error:
+            if progress_bar is not None:
+                progress_bar.finish()
             print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
             return 4
         for warning in warnings:
@@ -398,7 +493,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         print(search_output, end="")
 
-    if arguments.command == "chat":
+    if arguments.command in {"brief", "chat"}:
+        if arguments.command == "chat":
+            print(
+                localized(
+                    cli_language,
+                    "sb chat is deprecated; use sb brief instead",
+                    "sb chat은 사용 중단 예정입니다. 대신 sb brief를 사용하세요",
+                ),
+                file=sys.stderr,
+            )
         prompt = arguments.prompt
         output_text = arguments.output
         if not isinstance(prompt, str) or not prompt.strip():

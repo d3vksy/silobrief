@@ -7,4 +7,4 @@ testing begins.
 
 `private_adapter/` is an ignored boundary. Its source and canary must never appear in an index
 or generated packet. Allowed modules may be analyzed locally, but only excerpts explicitly
-approved during `sb chat` may be copied into a source companion.
+approved during `sb brief` may be copied into the generated brief.

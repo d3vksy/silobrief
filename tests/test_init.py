@@ -16,6 +16,11 @@ from silobrief.cli import main
 from silobrief.sources import SourceFile, SourceSnapshot
 
 
+class TtyBuffer(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
 @contextlib.contextmanager
 def working_directory(path: Path) -> Iterator[None]:
     previous = Path.cwd()
@@ -41,6 +46,82 @@ def index_object(project: Path) -> dict[str, object]:
 
 
 class InitCommandTests(unittest.TestCase):
+    def test_init_shows_tty_progress_without_changing_index_or_redirected_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            source = project / "service.py"
+            source.write_text(
+                "def run(value: int) -> int:\n    return value + 1\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            self.assertEqual(main(["setup", str(project)]), 0)
+
+            tty_stderr = TtyBuffer()
+            with (
+                working_directory(project),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(tty_stderr),
+            ):
+                tty_result = main(["init"])
+            tty_index = (project / ".silobrief" / "index.json").read_bytes()
+
+            redirected_stderr = io.StringIO()
+            with (
+                working_directory(project),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(redirected_stderr),
+            ):
+                redirected_result = main(["init"])
+
+            progress = tty_stderr.getvalue()
+            self.assertEqual(tty_result, 0)
+            self.assertEqual(redirected_result, 0)
+            self.assertIn("\rsb init [--------------------]   0%", progress)
+            self.assertIn("Analyzing 1 Python file", progress)
+            self.assertIn("sb init [####################] 100%", progress)
+            self.assertTrue(progress.rstrip().endswith("Indexed 1 Python file"), progress)
+            self.assertEqual(redirected_stderr.getvalue(), "")
+            self.assertEqual(
+                (project / ".silobrief" / "index.json").read_bytes(),
+                tty_index,
+            )
+
+    def test_init_finishes_tty_progress_line_before_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "broken.py").write_text("def broken(:\n", encoding="utf-8", newline="\n")
+            self.assertEqual(main(["setup", str(project)]), 0)
+            stderr = TtyBuffer()
+
+            with working_directory(project), contextlib.redirect_stderr(stderr):
+                result = main(["init"])
+
+            output = stderr.getvalue()
+            self.assertEqual(result, 3)
+            self.assertIn("Analyzing 1 Python file", output)
+            self.assertIn("\nsb: error: cannot parse broken.py", output)
+
+    def test_init_localizes_tty_progress(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            (project / "service.py").write_text("VALUE = 1\n", encoding="utf-8", newline="\n")
+            self.assertEqual(main(["setup", str(project)]), 0)
+            stderr = TtyBuffer()
+
+            with (
+                working_directory(project),
+                contextlib.redirect_stdout(io.StringIO()),
+                contextlib.redirect_stderr(stderr),
+            ):
+                self.assertEqual(main(["language", "--cli", "ko"]), 0)
+                result = main(["init"])
+
+            output = stderr.getvalue()
+            self.assertEqual(result, 0)
+            self.assertIn("허용된 Python 파일 수집 중", output)
+            self.assertIn("Python 파일 1개 색인 완료", output)
+
     def test_init_builds_a_deterministic_index_from_a_subdirectory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)

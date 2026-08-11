@@ -3,10 +3,17 @@ include CODE_OF_CONDUCT.md
 include CONTRIBUTING.md
 include README.ko.md
 include SECURITY.md
+include .github/workflows/publish-pypi.yml
+include tests/__init__.py
 exclude docs/*.md
 include docs/V0_1_CONTRACT.md
 include docs/V0_2_CONTRACT.md
+include docs/V1_CONTRACT.md
 include docs/assets/silobrief-wordmark.svg
 recursive-include examples/parcel-sync-fixture *.md *.py
 recursive-include examples/model-validation-fixture *.md *.py
 recursive-include validation/v0.2 *.md
+recursive-include validation/v0.7 *.md
+recursive-include validation/v0.8 *.md
+recursive-include validation/v0.9 *.md
+recursive-include validation/v1.0 *.md

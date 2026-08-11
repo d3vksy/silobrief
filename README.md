@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v0.6.0"><img src="https://img.shields.io/badge/release-v0.6.0-4f46e5" alt="Release v0.6.0"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/release-v1.0.0-4f46e5" alt="Release v1.0.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -51,17 +51,17 @@ change itself.
 
 ## Installation
 
-Install the current checkout and verify the command:
+Install the stable package from PyPI and verify the command:
 
 ```console
-python -m pip install .
+python -m pip install silobrief
 sb --version
 ```
 
 Expected output:
 
 ```text
-siloBrief 0.6.0
+siloBrief 1.0.0
 ```
 
 ## Commands
@@ -74,14 +74,20 @@ siloBrief 0.6.0
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
-| `sb search "PROMPT"` | Lists up to ten code candidates and the request terms that matched each one. |
+| `sb search "PROMPT"` | Lists a bounded set of code candidates and the request terms that matched each one. |
 | `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
-| `sb chat "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
+| `sb brief "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
+| `sb chat "PROMPT" --out FILE` | Deprecated compatibility alias for `sb brief`. |
 | `sb --version` | Prints the installed siloBrief version. |
 
-Commands other than `setup` and `example` find the project root from the current directory. `chat`
+Commands other than `setup` and `example` find the project root from the current directory. `brief`
 requires an interactive terminal, a current index, and a new `.md` output path. Output inside the
 project must be below `.silobrief/exports/`. Existing files are never overwritten.
+
+When standard error is an interactive terminal, `sb init` shows a single-line, five-stage progress
+bar for source collection, analysis, index construction, source-change verification, and writing.
+Redirected output and CI runs emit no progress display; the normal success message remains on
+standard output.
 
 Both language settings default to English. They are stored per project and can be changed together
 or separately:
@@ -136,12 +142,12 @@ sb setup .
 sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
 sb search "Update retry_request to retry HTTP 503 but not 500."
-sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
+sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
 ```
 
 `setup` prepares local state, `ignore` registers a path that must not be read, and `init` builds a
 local search list from the remaining Python files. `search` lets you inspect ranked candidates
-without starting disclosure review. `chat` uses the same candidates and then asks you to choose
+without starting disclosure review. `brief` uses the same candidates and then asks you to choose
 what may be included.
 
 ### Remove a registered boundary
@@ -155,7 +161,7 @@ sb init
 ```
 
 `unignore` changes only local configuration and does not open the removed path. It marks an existing
-index as stale, so `sb chat` remains blocked until `sb init` finishes. After rebuilding, files below
+index as stale, so `sb brief` remains blocked until `sb init` finishes. After rebuilding, files below
 that path may be offered for review and source disclosure.
 
 ### Complete review
@@ -164,18 +170,20 @@ Add an approved project fact when code structure alone does not explain the task
 
 ```console
 sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
-sb chat "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
+sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
 ```
 
-During `chat`:
+During `brief`:
 
 1. Confirm the task and choose the relevant function or class. If the suggested candidates miss
    the target, enter an exact indexed Python file path and select its functions or classes.
-2. Review each proposed project field.
-3. Choose whether to include the displayed source code. The default answer is no.
-4. If the source reveals an excluded boundary identifier, type `EXPOSE` only after reviewing it.
-5. Review the complete self-contained brief.
-6. Type `WRITE` to create the file.
+2. Review one-hop related context and type an `rN` value only for an item you want to add. Blank
+   input approves none.
+3. Review each proposed project field.
+4. Choose whether to include the displayed source code. The default answer is no.
+5. If the source reveals an excluded boundary identifier, type `EXPOSE` only after reviewing it.
+6. Review the complete self-contained brief.
+7. Type `WRITE` to create the file.
 
 Open the generated file before moving it to a different environment.
 
@@ -216,21 +224,24 @@ disclosure. Review every generated file under your organization's disclosure rul
 
 ## Validation status
 
-The current release is v0.6.0. `sb example` creates a disposable guided project, and `sb language`
-configures terminal guidance and generated briefs independently in English or Korean. `sb search`
-shows up to ten candidates with concrete lexical match evidence, and `sb chat` packages the task,
-approved context, and approved source excerpts into one self-contained Markdown file.
+The latest public release is v1.0.0 and defines the supported 1.x compatibility contract.
+`sb search` now reaches an expected symbol for 11 of 12 frozen tasks, with mean reciprocal rank
+72.2%. `sb brief` shows relation-labeled context proposals, defaults every proposal to unselected,
+and packages only explicitly approved context and source into one self-contained Markdown file.
 
 The deterministic end-to-end flow passed on Django Ninja, pytest, and Jinja checkouts without
 changing Python source files or opening a network connection.
-The six-task lexical regression put the intended symbol in the Top 10 for three prompts.
 Candidate search remains lexical and advisory; guided exact-path selection is still required when
-it misses. These results do not establish automatic context completeness, secret detection,
+it misses. The benchmark is small and one task still misses. These results do not establish
+automatic context completeness, secret detection,
 export approval, market demand, or effectiveness across external AI models and private projects.
 
 - [Installed wheel verification](validation/v0.2/INSTALLED_WHEEL_VERIFICATION.md)
 - [Manual model gate](validation/v0.2/MANUAL_MODEL_GATE.md)
 - [Claude gate result](validation/v0.2/results/CLAUDE_GATE_RESULT.md)
+- [v0.7 retrieval result](validation/v0.7/RETRIEVAL_RESULT.md)
+- [v0.8 related-context result](validation/v0.8/RELATED_CONTEXT_RESULT.md)
+- [solo field-trial procedure](validation/v0.9/FIELD_TRIAL.md)
 
 ## Exit codes
 
@@ -244,6 +255,7 @@ export approval, market demand, or effectiveness across external AI models and p
 
 ## Documentation
 
+- [1.0 public contract](docs/V1_CONTRACT.md)
 - [Historical v0.2 output and safety contract](docs/V0_2_CONTRACT.md)
 - [Security policy](SECURITY.md)
 

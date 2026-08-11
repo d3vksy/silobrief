@@ -86,7 +86,7 @@ class ExampleCommandTests(unittest.TestCase):
                 "sb setup .",
                 "sb init",
                 "sb log",
-                "sb chat",
+                "sb brief",
                 "Task 1: Modify",
                 "Task 2: Add",
                 "Task 3: Remove",
@@ -158,7 +158,7 @@ class ExampleCommandTests(unittest.TestCase):
                 ):
                     result = main(
                         [
-                            "chat",
+                            "brief",
                             prompt,
                             "--out",
                             ".silobrief/exports/task-01-modify.md",
