@@ -1,4 +1,10 @@
 <p align="center">
+  <img src=".github/assets/silobrief-wordmark.svg" alt="siloBrief" width="840">
+</p>
+
+---
+
+<p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/release-v1.0.1-4f46e5" alt="Release v1.0.1"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
