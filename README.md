@@ -11,7 +11,7 @@
   <a href="#commands">Commands</a> •
   <a href="#usage">Usage</a> •
   <a href="#safety-and-limitations">Safety</a> •
-  <a href="#documentation">Documentation</a> •
+  <a href="#security">Security</a> •
   <a href="README.ko.md">한국어</a>
 </p>
 
@@ -236,6 +236,7 @@ export approval, market demand, or effectiveness across external AI models and p
 - [v0.7 retrieval result](validation/v0.7/RETRIEVAL_RESULT.md)
 - [v0.8 related-context result](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [solo field-trial procedure](validation/v0.9/FIELD_TRIAL.md)
+- [v1.0.1 release verification](validation/v1.0.1/RELEASE_VERIFICATION.md)
 
 ## Exit codes
 

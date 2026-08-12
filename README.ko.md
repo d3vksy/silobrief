@@ -11,7 +11,7 @@
   <a href="#명령어">명령어</a> •
   <a href="#사용법">사용법</a> •
   <a href="#보호-범위와-한계">보호 범위</a> •
-  <a href="#문서">문서</a> •
+  <a href="#보안">보안</a> •
   <a href="README.md">English</a>
 </p>
 
@@ -242,6 +242,7 @@ Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸거나 네트
 - [v0.7 검색 결과](validation/v0.7/RETRIEVAL_RESULT.md)
 - [v0.8 연관 맥락 결과](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [1인 현장 시험 절차](validation/v0.9/FIELD_TRIAL.md)
+- [v1.0.1 릴리스 검증](validation/v1.0.1/RELEASE_VERIFICATION.md)
 
 ## 종료 코드
 

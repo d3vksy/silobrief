@@ -64,6 +64,15 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
 
 
 class ReleaseDocumentationTests(unittest.TestCase):
+    def test_readme_navigation_links_target_current_sections(self) -> None:
+        readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn('<a href="#security">Security</a>', readme)
+        self.assertNotIn('href="#documentation"', readme)
+
+        readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
+        self.assertIn('<a href="#보안">보안</a>', readme_ko)
+        self.assertNotIn('href="#문서"', readme_ko)
+
     def test_readmes_cover_the_public_flow_and_limits(self) -> None:
         for relative_path, specific_fragments in README_EXPECTATIONS.items():
             with self.subTest(path=relative_path):
