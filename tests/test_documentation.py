@@ -67,6 +67,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_readmes_show_the_repository_wordmark(self) -> None:
         wordmark = ".github/assets/silobrief-wordmark.svg"
         self.assertTrue((REPOSITORY_ROOT / wordmark).is_file())
+        wordmark_text = (REPOSITORY_ROOT / wordmark).read_text(encoding="utf-8")
+        self.assertIn('viewBox="-100 0 1600 480"', wordmark_text)
         for readme_name in ("README.md", "README.ko.md"):
             with self.subTest(path=readme_name):
                 text = (REPOSITORY_ROOT / readme_name).read_text(encoding="utf-8")
