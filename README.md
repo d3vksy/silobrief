@@ -69,7 +69,7 @@ siloBrief 1.0.1
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists a bounded set of code candidates and the request terms that matched each one. |
-| `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
+| `sb language [--cli {en,ko}] [--brief {en,ko}]` | Sets terminal and generated-brief languages independently. |
 | `sb brief "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb chat "PROMPT" --out FILE` | Deprecated compatibility alias for `sb brief`. |
 | `sb --version` | Prints the installed siloBrief version. |

@@ -71,7 +71,7 @@ siloBrief 1.0.1
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
 | `sb search "PROMPT"` | 제한된 수의 관련 코드 후보와 어떤 요청 단어가 일치했는지 보여줍니다. |
-| `sb language [--cli en|ko] [--brief en|ko]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
+| `sb language [--cli {en,ko}] [--brief {en,ko}]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
 | `sb brief "PROMPT" --out FILE` | 전달할 내용을 검토하고 자족적인 Markdown 파일 하나를 만듭니다. |
 | `sb chat "PROMPT" --out FILE` | `sb brief`의 사용 중단 예정 호환 별칭입니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
