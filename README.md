@@ -11,7 +11,7 @@
   <a href="#commands">Commands</a> •
   <a href="#usage">Usage</a> •
   <a href="#safety-and-limitations">Safety</a> •
-  <a href="#documentation">Documentation</a> •
+  <a href="#security">Security</a> •
   <a href="README.ko.md">한국어</a>
 </p>
 
@@ -69,7 +69,7 @@ siloBrief 1.0.1
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists a bounded set of code candidates and the request terms that matched each one. |
-| `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
+| `sb language [--cli {en,ko}] [--brief {en,ko}]` | Sets terminal and generated-brief languages independently. |
 | `sb brief "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb chat "PROMPT" --out FILE` | Deprecated compatibility alias for `sb brief`. |
 | `sb --version` | Prints the installed siloBrief version. |
@@ -236,6 +236,7 @@ export approval, market demand, or effectiveness across external AI models and p
 - [v0.7 retrieval result](validation/v0.7/RETRIEVAL_RESULT.md)
 - [v0.8 related-context result](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [solo field-trial procedure](validation/v0.9/FIELD_TRIAL.md)
+- [v1.0.1 release verification](validation/v1.0.1/RELEASE_VERIFICATION.md)
 
 ## Exit codes
 
