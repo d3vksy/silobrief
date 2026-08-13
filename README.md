@@ -1,4 +1,10 @@
 <p align="center">
+  <img src=".github/assets/silobrief-wordmark.svg" alt="siloBrief" width="840">
+</p>
+
+---
+
+<p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
   <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.1"><img src="https://img.shields.io/badge/release-v1.0.1-4f46e5" alt="Release v1.0.1"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
@@ -11,7 +17,7 @@
   <a href="#commands">Commands</a> •
   <a href="#usage">Usage</a> •
   <a href="#safety-and-limitations">Safety</a> •
-  <a href="#documentation">Documentation</a> •
+  <a href="#security">Security</a> •
   <a href="README.ko.md">한국어</a>
 </p>
 
@@ -69,7 +75,7 @@ siloBrief 1.0.1
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists a bounded set of code candidates and the request terms that matched each one. |
-| `sb language [--cli en|ko] [--brief en|ko]` | Sets terminal and generated-brief languages independently. |
+| `sb language [--cli {en,ko}] [--brief {en,ko}]` | Sets terminal and generated-brief languages independently. |
 | `sb brief "PROMPT" --out FILE` | Reviews context and writes one self-contained brief. |
 | `sb chat "PROMPT" --out FILE` | Deprecated compatibility alias for `sb brief`. |
 | `sb --version` | Prints the installed siloBrief version. |
@@ -236,6 +242,7 @@ export approval, market demand, or effectiveness across external AI models and p
 - [v0.7 retrieval result](validation/v0.7/RETRIEVAL_RESULT.md)
 - [v0.8 related-context result](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [solo field-trial procedure](validation/v0.9/FIELD_TRIAL.md)
+- [v1.0.1 release verification](validation/v1.0.1/RELEASE_VERIFICATION.md)
 
 ## Exit codes
 

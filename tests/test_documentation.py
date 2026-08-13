@@ -64,6 +64,25 @@ BRIEF_GUIDANCE_EXPECTATIONS = {
 
 
 class ReleaseDocumentationTests(unittest.TestCase):
+    def test_readmes_show_the_repository_wordmark(self) -> None:
+        wordmark = ".github/assets/silobrief-wordmark.svg"
+        self.assertTrue((REPOSITORY_ROOT / wordmark).is_file())
+        wordmark_text = (REPOSITORY_ROOT / wordmark).read_text(encoding="utf-8")
+        self.assertIn('viewBox="-100 0 1600 480"', wordmark_text)
+        for readme_name in ("README.md", "README.ko.md"):
+            with self.subTest(path=readme_name):
+                text = (REPOSITORY_ROOT / readme_name).read_text(encoding="utf-8")
+                self.assertIn(f'<img src="{wordmark}" alt="siloBrief"', text)
+
+    def test_readme_navigation_links_target_current_sections(self) -> None:
+        readme = (REPOSITORY_ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn('<a href="#security">Security</a>', readme)
+        self.assertNotIn('href="#documentation"', readme)
+
+        readme_ko = (REPOSITORY_ROOT / "README.ko.md").read_text(encoding="utf-8")
+        self.assertIn('<a href="#보안">보안</a>', readme_ko)
+        self.assertNotIn('href="#문서"', readme_ko)
+
     def test_readmes_cover_the_public_flow_and_limits(self) -> None:
         for relative_path, specific_fragments in README_EXPECTATIONS.items():
             with self.subTest(path=relative_path):

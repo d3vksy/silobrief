@@ -1,0 +1,68 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="-100 0 1600 480"
+  role="img"
+  aria-labelledby="title description"
+>
+  <title id="title">siloBrief</title>
+  <desc id="description">
+    The siloBrief wordmark beside a document moving through an open project boundary.
+  </desc>
+
+  <style>
+    .silo-fill { fill: #4f46e5; }
+    .silo-stroke { stroke: #4f46e5; }
+    .brief-fill { fill: #0f766e; }
+    .brief-detail { stroke: #ecfdf5; }
+
+    @media (prefers-color-scheme: dark) {
+      .silo-fill { fill: #818cf8; }
+      .silo-stroke { stroke: #818cf8; }
+      .brief-fill { fill: #2dd4bf; }
+      .brief-detail { stroke: #042f2e; }
+    }
+  </style>
+
+  <g transform="translate(92 70)">
+    <path
+      class="silo-stroke"
+      d="M190 30H86C51 30 30 55 30 90V270C30 305 51 330 86 330H190"
+      fill="none"
+      stroke-width="26"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <path
+      class="brief-fill"
+      d="M142 84H250L296 130V310H142Z"
+      stroke-linejoin="round"
+    />
+    <path
+      d="M250 84V130H296"
+      fill="none"
+      stroke="#ffffff"
+      stroke-opacity="0.72"
+      stroke-width="13"
+      stroke-linejoin="round"
+    />
+    <path
+      class="brief-detail"
+      d="M180 175H258M180 216H258M180 257H231"
+      fill="none"
+      stroke-width="14"
+      stroke-linecap="round"
+    />
+  </g>
+
+  <text
+    x="430"
+    y="316"
+    font-family="Inter, 'Segoe UI', Arial, sans-serif"
+    font-size="242"
+    font-weight="750"
+    letter-spacing="-10"
+  >
+    <tspan class="silo-fill">silo</tspan><tspan class="brief-fill">Brief</tspan>
+  </text>
+</svg>
