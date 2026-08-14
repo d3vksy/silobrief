@@ -63,22 +63,19 @@ cd silobrief-practice
 생성된 `README.md`를 따라 코드 수정, 함수 추가, 오래된 기능 삭제 과제를 하나씩 진행할 수
 있습니다.
 
-### 기존 프로젝트에서 사용하기
-
-합성 예제 프로젝트인 [`parcel-sync-fixture`](examples/parcel-sync-fixture/README.md)를 작업용
-디렉터리에 복사하고, 복사한 프로젝트의 루트에서 다음 명령을 실행합니다.
+같은 디렉터리에서 첫 번째 과제를 시작합니다.
 
 ```console
 sb setup .
-sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
-sb search "Update retry_request to retry HTTP 503 but not 500."
-sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
+sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
+sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
+sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
 ```
 
-`setup`은 작업 공간을 준비합니다. `ignore`는 색인에서 제외할 경로를 등록하고, `init`은 나머지
-Python 파일을 분석합니다. `search`는 관련 코드 후보를 보여 줍니다. `brief`는 같은 후보를
-바탕으로 검토를 시작하고 Markdown 파일을 만듭니다.
+`setup`은 작업 공간을 준비하고, `init`은 Python 파일을 분석합니다. `log`는 공개를 승인한
+프로젝트 정보를 기록합니다. `search`는 관련 코드 후보를 보여 주고, `brief`는 검토를 시작해
+Markdown 파일을 만듭니다.
 
 ## 작동 방식
 
