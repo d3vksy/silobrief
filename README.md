@@ -62,22 +62,19 @@ cd silobrief-practice
 
 The generated `README.md` guides you through one modification, one addition, and one removal task.
 
-### Use an existing project
-
-Copy the synthetic [`parcel-sync-fixture`](examples/parcel-sync-fixture/README.md) to a working
-directory, then run these commands from the copied project root:
+Start the first task from the same directory:
 
 ```console
 sb setup .
-sb ignore private_adapter --as "External delivery adapter" --alias delivery-boundary
 sb init
-sb search "Update retry_request to retry HTTP 503 but not 500."
-sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-brief.md
+sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
+sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
+sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
 ```
 
-`setup` prepares local state. `ignore` registers a path that must stay outside the index, and `init`
-indexes the remaining Python files. `search` shows ranked candidates. `brief` uses the same
-candidates and starts the review that produces the Markdown file.
+`setup` prepares local state, and `init` indexes the Python files. `log` records approved project
+context. `search` shows ranked candidates, and `brief` starts the review that produces the Markdown
+file.
 
 ## How it works
 
