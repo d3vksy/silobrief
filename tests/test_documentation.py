@@ -85,6 +85,12 @@ VALIDATION_LINKS = (
     "validation/v0.9/FIELD_TRIAL.md",
     "validation/v1.0.1/RELEASE_VERIFICATION.md",
 )
+PRACTICE_FLOW_EXPECTATIONS = (
+    "sb example ./silobrief-practice",
+    "sb log parcel_practice/labels.py",
+    "Append an optional separator to format_label.",
+    ".silobrief/exports/task-01-modify.md",
+)
 
 
 class ReleaseDocumentationTests(unittest.TestCase):
@@ -115,7 +121,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
         for relative_path, sections in README_SECTION_EXPECTATIONS.items():
             with self.subTest(path=relative_path):
                 text = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
-                for fragment in (*PUBLIC_COMMANDS, FIXTURE_README, *sections):
+                for fragment in (*PUBLIC_COMMANDS, *sections):
                     self.assertIn(fragment, text)
                 for exit_code in (0, 2, 3, 4):
                     self.assertIn(f"| `{exit_code}` |", text)
@@ -131,6 +137,14 @@ class ReleaseDocumentationTests(unittest.TestCase):
                 text = (REPOSITORY_ROOT / relative_path).read_text(encoding="utf-8")
                 for fragment in fragments:
                     self.assertIn(fragment, text)
+
+    def test_readmes_continue_with_the_generated_practice_project(self) -> None:
+        for readme_name in README_SECTION_EXPECTATIONS:
+            with self.subTest(path=readme_name):
+                text = (REPOSITORY_ROOT / readme_name).read_text(encoding="utf-8")
+                for fragment in PRACTICE_FLOW_EXPECTATIONS:
+                    self.assertIn(fragment, text)
+                self.assertNotIn(FIXTURE_README, text)
 
     def test_readmes_keep_safety_and_validation_facts(self) -> None:
         for relative_path, safety_fragments in SAFETY_EXPECTATIONS.items():
