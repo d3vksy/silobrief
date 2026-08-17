@@ -377,8 +377,10 @@ def _read_symbol_numbers(
     value = _read_line(
         localized(
             language,
-            "Select function or class numbers (Enter to include the whole file only): ",
-            "함수나 클래스 번호를 선택하세요 (파일 전체만 고르려면 Enter): ",
+            "Select function or class numbers to include their source code "
+            "(press Enter to include file details only, without source code): ",
+            "소스코드를 포함할 함수나 클래스 번호를 선택하세요 "
+            "(소스코드 없이 파일 정보만 포함하려면 Enter): ",
         ),
         input_stream,
         output_stream,
