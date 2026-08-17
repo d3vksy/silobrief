@@ -70,7 +70,7 @@ TASKS = (
         "must keep current output. When both prefix and separator are non-empty, place the "
         "separator between prefix and reference. Preserve uppercase behavior. Return a minimal "
         "patch and focused unittests.",
-        "y\n1 2\n\n\ny\ny\ny\ny\ny\ny\ny\nWRITE\n",
+        "y\n1\nsrc/parcel_lab/labels.py\n1 2\n\n\ny\ny\ny\ny\ny\ny\ny\nWRITE\n",
     ),
     Task(
         "T03-REMOVE",
