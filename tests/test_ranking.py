@@ -212,12 +212,15 @@ class LexicalRankingTests(unittest.TestCase):
 
         without_tests = rank_candidates("match behavior", source_index, notes())
         with_tests = rank_candidates("match behavior tests", source_index, notes())
+        with_korean_tests = rank_candidates("match behavior 테스트", source_index, notes())
 
         self.assertEqual(len(without_tests), 7)
         self.assertTrue(all(not item.node.path.startswith("tests/") for item in without_tests))
         self.assertEqual(len(with_tests), 10)
         self.assertTrue(all(not item.node.path.startswith("tests/") for item in with_tests[:7]))
         self.assertTrue(all(item.node.path.startswith("tests/") for item in with_tests[7:]))
+        self.assertEqual(len(with_korean_tests), 10)
+        self.assertTrue(all(item.node.path.startswith("tests/") for item in with_korean_tests[7:]))
 
     def test_ignores_module_and_import_only_matches(self) -> None:
         module = node(
