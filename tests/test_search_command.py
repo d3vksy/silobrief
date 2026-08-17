@@ -53,9 +53,11 @@ class SearchCommandTests(unittest.TestCase):
 
             output = first_stdout.getvalue()
             self.assertIn("Candidates:\n", output)
-            self.assertIn("package/service.py | function run", output)
-            self.assertIn("symbol=run", output)
-            self.assertIn("import=delivery,urllib3", output)
+            self.assertIn("[1] function run", output)
+            self.assertIn("File: package/service.py", output)
+            self.assertIn('name contains "run"', output)
+            self.assertIn('import contains "delivery, urllib3"', output)
+            self.assertIn("Relevance:", output)
             self.assertNotIn("private-boundary-canary", output)
 
     def test_rejects_empty_prompt(self) -> None:

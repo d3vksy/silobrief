@@ -133,10 +133,12 @@ class ChatReviewTests(unittest.TestCase):
             self.assertIn(approved, rendered.markdown)
 
         visible = output.getvalue()
+        self.assertIn("[Notice] Your prompt works best when it includes:", visible)
+        self.assertIn("- how you will decide it is complete", visible)
         self.assertIn("src/service.py", visible)
         self.assertIn("src/helper.py", visible)
-        self.assertIn("path=retry", visible)
-        self.assertIn("connections: 1", visible)
+        self.assertIn('file path and user note contain "retry"', visible)
+        self.assertIn("Directly connected items: 1", visible)
         hidden_values = (
             "source-body-canary|internal-real-name|.models.SyncResult|src/second.py|"
             "second-hop-canary|unselected-note-canary|root-id"
@@ -157,14 +159,41 @@ class ChatReviewTests(unittest.TestCase):
         )
 
         visible = output.getvalue()
-        self.assertIn("Related context (not selected):", visible)
-        self.assertIn("r1. src/helper.py", visible)
-        self.assertIn("calls, imports", visible)
+        self.assertIn("Other code connected to your selection (optional):", visible)
+        self.assertIn("[r1] function helper.run", visible)
+        self.assertIn("File: src/helper.py", visible)
+        self.assertIn("the selected code calls this function", visible)
+        self.assertIn("the selected code imports this function", visible)
         self.assertIn("src/service.py", rendered.markdown)
         self.assertNotIn("src/helper.py", rendered.markdown)
         self.assertNotIn("helper.run", rendered.markdown)
         self.assertNotIn("json", rendered.markdown)
         self.assertEqual(disclosure_counts(rendered), (1, 1, 1, 2, 1))
+
+    def test_korean_review_explains_candidates_and_connected_code(self) -> None:
+        output = TtyBuffer()
+
+        review_brief(
+            "retry",
+            source_index(),
+            source_notes(),
+            input_stream=TtyBuffer("y\n1\n\n\nn\nn\nn\nn\nn\n"),
+            output_stream=output,
+            cli_language="ko",
+        )
+
+        visible = output.getvalue()
+        self.assertIn("[주의] 프롬프트에는 다음 내용이 들어가면 좋습니다:", visible)
+        self.assertIn("이 프롬프트로 계속할까요? [y/N]:", visible)
+        self.assertIn("코드 후보:", visible)
+        self.assertIn("[1] 파일(모듈) service", visible)
+        self.assertIn('파일 경로, 사용자 메모에서 "retry" 일치', visible)
+        self.assertIn("관련도: 9점", visible)
+        self.assertIn("함께 확인할 코드 (선택 사항):", visible)
+        self.assertIn("[r1] 함수 helper.run", visible)
+        self.assertIn("선택한 코드가 이 함수를 호출함", visible)
+        self.assertIn("선택한 코드가 이 함수를 불러옴(import)", visible)
+        self.assertNotIn("연관 맥락", visible)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
         rendered = review_brief(
@@ -219,15 +248,16 @@ class ChatReviewTests(unittest.TestCase):
 
         visible = output.getvalue()
         self.assertEqual(rendered, selected_by_id)
-        self.assertIn("Candidates:\n- none", visible)
-        self.assertIn("Symbols in `src/guided.py`:", visible)
+        self.assertIn("Candidates:\n", visible)
+        self.assertIn("No matching code was found.", visible)
+        self.assertIn("Functions and classes in `src/guided.py`:", visible)
         self.assertIn("1. class Service", visible)
         self.assertIn("2. function Service.run", visible)
-        outline = visible.split("Symbols in `src/guided.py`:\n", 1)[1].split(
-            "Select symbol numbers", 1
+        outline = visible.split("Functions and classes in `src/guided.py`:\n", 1)[1].split(
+            "Select function or class numbers", 1
         )[0]
         self.assertNotIn("module guided", outline)
-        self.assertNotIn("Symbols in", node_id_output.getvalue())
+        self.assertNotIn("Functions and classes in", node_id_output.getvalue())
         self.assertIn("class Service", visible)
         self.assertIn("src/guided.py", rendered.markdown)
         self.assertIn("function: Service.run", rendered.markdown)
@@ -289,7 +319,8 @@ class ChatReviewTests(unittest.TestCase):
             output_stream=output,
         )
 
-        self.assertIn("r1. src/guided.py | class Service | contains", output.getvalue())
+        self.assertIn("[r1] class Service", output.getvalue())
+        self.assertIn("the selected code contains this class", output.getvalue())
         self.assertIn("module: guided", rendered.markdown)
         self.assertIn("class: Service", rendered.markdown)
         self.assertNotIn("function: helper", rendered.markdown)

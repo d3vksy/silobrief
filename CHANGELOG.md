@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Explain prompt requirements, candidate matches, and optional connected code in plain language,
+  with color cues in interactive terminals and uncolored redirected output.
+
 ## [1.0.1] - 2026-08-12
 
 ### Fixed
