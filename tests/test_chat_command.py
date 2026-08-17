@@ -275,7 +275,7 @@ class ChatCommandTests(unittest.TestCase):
             destination = project / output
             self.assertEqual(result, 0)
             self.assertEqual(stderr, "")
-            self.assertIn("Symbols in `package/service.py`:", stdout)
+            self.assertIn("Functions and classes in `package/service.py`:", stdout)
             self.assertIn("1. function run", stdout)
             generated = destination.read_text(encoding="utf-8")
             self.assertIn("def run():", generated)
