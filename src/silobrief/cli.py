@@ -37,6 +37,7 @@ from silobrief.state import (
     setup_project,
 )
 from silobrief.stored_index import StoredIndexError
+from silobrief.terminal import supports_color
 
 _SOURCE_DISCLOSURE_WARNING_EN = (
     "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
@@ -472,7 +473,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             settings = load_language_settings(root)
             cli_language = settings["cli_language"]
             search_output = render_candidate_results(
-                search_candidates(prompt, index, notes), language=cli_language
+                search_candidates(prompt, index, notes),
+                language=cli_language,
+                color=supports_color(sys.stdout),
             )
         except IndexStateError as error:
             print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)

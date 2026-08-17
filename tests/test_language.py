@@ -112,7 +112,7 @@ class LanguageCommandTests(unittest.TestCase):
                 stdout = io.StringIO()
                 with contextlib.redirect_stdout(stdout):
                     self.assertEqual(main(["search", "retry request"]), 0)
-                self.assertTrue(stdout.getvalue().startswith("후보:\n"))
+                self.assertTrue(stdout.getvalue().startswith("코드 후보:\n"))
 
                 stdout = io.StringIO()
                 with contextlib.redirect_stdout(stdout), self.assertRaises(SystemExit) as caught:

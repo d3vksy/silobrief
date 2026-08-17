@@ -35,6 +35,7 @@ from silobrief.source_review import (
 )
 from silobrief.sources import SourceSnapshot
 from silobrief.state import NotesData
+from silobrief.terminal import styled, supports_color
 
 
 class ChatReviewError(ValueError):
@@ -85,7 +86,8 @@ def review_brief(
     _show_candidates(options, output_stream, cli_language)
     selected_numbers = _read_numbers(input_stream, output_stream, cli_language)
     related = _related_candidates(index, options, selected_numbers)
-    _show_related_candidates(related, output_stream, cli_language)
+    if selected_numbers:
+        _show_related_candidates(related, output_stream, cli_language)
     added = _read_additions(
         index,
         options,
@@ -96,7 +98,11 @@ def review_brief(
         cli_language,
     )
     excluded = _read_selectors(
-        localized(cli_language, "Exclude path or node ID", "제외할 경로 또는 노드 ID"),
+        localized(
+            cli_language,
+            "File path or unique ID to leave out of the brief",
+            "문서에서 뺄 파일 경로나 고유 ID",
+        ),
         input_stream,
         output_stream,
         cli_language,
@@ -150,27 +156,44 @@ def review_brief(
 def _show_candidates(
     options: tuple[CandidateOption, ...], output: TextIO, language: Language
 ) -> None:
-    _write(output, render_candidate_results(options, language=language))
+    _write(
+        output,
+        render_candidate_results(
+            options,
+            language=language,
+            color=supports_color(output),
+            interactive=True,
+        ),
+    )
 
 
 def _confirm_request(input_stream: TextIO, output_stream: TextIO, language: Language) -> None:
+    notice = styled(
+        localized(language, "[Notice]", "[주의]"),
+        "1;33",
+        enabled=supports_color(output_stream),
+    )
     _write(
         output_stream,
-        localized(
+        f"{notice} "
+        + localized(
             language,
-            "Request completeness:\n"
-            "- work goal\n"
-            "- required deliverables\n"
-            "- completion or acceptance criteria\n",
-            "요청 내용 확인:\n- 작업 목표\n- 필요한 결과물\n- 완료 또는 승인 기준\n",
+            "Your prompt works best when it includes:\n"
+            "- the goal of the task\n"
+            "- the output you need\n"
+            "- how you will decide it is complete\n\n",
+            "프롬프트에는 다음 내용이 들어가면 좋습니다:\n"
+            "- 작업 목표\n"
+            "- 필요한 결과물\n"
+            "- 완료 또는 승인 기준\n\n",
         ),
     )
     if (
         _read_line(
             localized(
                 language,
-                "Continue with this complete request? [y/N]: ",
-                "이 요청으로 계속할까요? [y/N]: ",
+                "Continue with this prompt? [y/N]: ",
+                "이 프롬프트로 계속할까요? [y/N]: ",
             ),
             input_stream,
             output_stream,
@@ -190,7 +213,11 @@ def _read_numbers(
     input_stream: TextIO, output_stream: TextIO, language: Language
 ) -> tuple[int, ...]:
     value = _read_line(
-        localized(language, "Select candidate numbers: ", "후보 번호를 선택하세요: "),
+        localized(
+            language,
+            "Candidate numbers to include (example: 1 3, Enter to search by path): ",
+            "포함할 후보 번호 (예: 1 3, 파일 경로로 찾으려면 Enter): ",
+        ),
         input_stream,
         output_stream,
     )
@@ -233,14 +260,18 @@ def _read_additions(
     selectors: list[str] = []
     direct_selectors: list[str] = []
     current_related = related
+    if current_related:
+        _write(
+            output_stream,
+            localized(
+                language,
+                "Enter one r-number at a time. You can also enter a file path or unique ID.\n",
+                "r번호를 하나씩 입력하세요. 목록에 없으면 파일 경로나 고유 ID를 "
+                "입력할 수 있습니다.\n",
+            ),
+        )
     while selector := _read_line(
-        localized(
-            language,
-            "Add related number (rN), path, or node ID (blank to finish): ",
-            "추가할 연관 번호(rN), 경로 또는 노드 ID (끝내려면 Enter): ",
-        ),
-        input_stream,
-        output_stream,
+        _addition_prompt(current_related, language), input_stream, output_stream
     ):
         related_id = _related_selector(selector, current_related, language)
         if related_id is not None:
@@ -265,7 +296,7 @@ def _read_additions(
                         localized(
                             language,
                             f"unknown symbol number: {number}",
-                            f"알 수 없는 심볼 번호: {number}",
+                            f"알 수 없는 함수 또는 클래스 번호: {number}",
                         )
                     )
                 node_id = symbol_options[number - 1].node.id
@@ -296,10 +327,24 @@ def _related_selector(
             localized(
                 language,
                 f"unknown related candidate: {selector}",
-                f"알 수 없는 연관 후보: {selector}",
+                f"알 수 없는 추가 코드 번호: {selector}",
             )
         )
     return related[number - 1].id
+
+
+def _addition_prompt(related: tuple[ReviewNode, ...], language: Language) -> str:
+    if related:
+        return localized(
+            language,
+            "Code to add (example: r1, Enter to finish): ",
+            "추가할 코드 (예: r1, 끝내려면 Enter): ",
+        )
+    return localized(
+        language,
+        "File path or unique ID to add (Enter to finish): ",
+        "추가할 파일 경로나 고유 ID (끝내려면 Enter): ",
+    )
 
 
 def _show_symbol_options(
@@ -310,12 +355,20 @@ def _show_symbol_options(
 ) -> None:
     _write(
         output,
-        localized(language, f"Symbols in `{path}`:\n", f"`{path}`의 심볼:\n"),
+        localized(
+            language,
+            f"Functions and classes in `{path}`:\n",
+            f"`{path}`에서 선택할 함수와 클래스:\n",
+        ),
     )
     if not options:
         _write(output, localized(language, "- none\n", "- 없음\n"))
     for option in options:
-        _write(output, f"{option.number}. {option.node.kind} {option.node.qualified_name}\n")
+        _write(
+            output,
+            f"{option.number}. {_kind_label(option.node.kind, language)} "
+            f"{option.node.qualified_name}\n",
+        )
 
 
 def _read_symbol_numbers(
@@ -324,8 +377,8 @@ def _read_symbol_numbers(
     value = _read_line(
         localized(
             language,
-            "Select symbol numbers from this file (blank for module only): ",
-            "이 파일에서 심볼 번호를 선택하세요 (모듈만 고르려면 Enter): ",
+            "Select function or class numbers (Enter to include the whole file only): ",
+            "함수나 클래스 번호를 선택하세요 (파일 전체만 고르려면 Enter): ",
         ),
         input_stream,
         output_stream,
@@ -339,7 +392,7 @@ def _read_symbol_numbers(
             localized(
                 language,
                 "symbol numbers must be space-separated positive integers",
-                "심볼 번호는 공백으로 구분한 양의 정수여야 합니다",
+                "함수 또는 클래스 번호는 공백으로 구분한 양의 정수여야 합니다",
             )
         ) from error
     if any(number < 1 for number in numbers):
@@ -347,7 +400,7 @@ def _read_symbol_numbers(
             localized(
                 language,
                 "symbol numbers must be space-separated positive integers",
-                "심볼 번호는 공백으로 구분한 양의 정수여야 합니다",
+                "함수 또는 클래스 번호는 공백으로 구분한 양의 정수여야 합니다",
             )
         )
     return numbers
@@ -377,24 +430,59 @@ def _related_candidates(
 def _show_related_candidates(
     related: tuple[ReviewNode, ...], output: TextIO, language: Language
 ) -> None:
+    color = supports_color(output)
     _write(
         output,
-        localized(language, "Related context (not selected):\n", "연관 맥락 (미선택):\n"),
+        styled(
+            localized(
+                language,
+                "Other code connected to your selection (optional):\n",
+                "함께 확인할 코드 (선택 사항):\n",
+            ),
+            "1;36",
+            enabled=color,
+        ),
     )
     if not related:
-        _write(output, localized(language, "- none\n", "- 없음\n"))
-    for number, node in enumerate(related, start=1):
-        relations = ", ".join(node.relations)
         _write(
             output,
-            f"r{number}. {node.path} | {node.kind} {node.qualified_name} | {relations}\n",
+            localized(
+                language,
+                "No directly connected code was found.\n",
+                "직접 연결된 다른 코드를 찾지 못했습니다.\n",
+            ),
+        )
+        return
+    _write(
+        output,
+        localized(
+            language,
+            "These items are directly connected to your selection through function calls, "
+            "references, imports, or class and file membership. They are not in the brief yet. "
+            "Add only what you need.\n\n",
+            "방금 고른 코드와 호출, 참조, import 또는 포함 관계로 직접 연결된 항목입니다. "
+            "아직 문서에는 들어가지 않았습니다. 필요한 코드만 추가하세요.\n\n",
+        ),
+    )
+    for number, node in enumerate(related, start=1):
+        _write(
+            output,
+            f"{styled(f'[r{number}]', '1;32', enabled=color)} "
+            f"{_kind_label(node.kind, language)} "
+            f"{styled(node.qualified_name, '1', enabled=color)}\n"
+            f"     {localized(language, 'File', '파일')}: {node.path}\n"
+            f"     {localized(language, 'Relationship', '선택한 코드와의 관계')}: "
+            f"{_relation_labels(node.relations, node.kind, language)}\n\n",
         )
 
 
 def _show_selected_context(selection: ReviewSelection, output: TextIO, language: Language) -> None:
-    _write(output, localized(language, "Selected context:\n", "선택한 맥락:\n"))
+    _write(output, localized(language, "Code selected for the brief:\n", "문서에 넣을 코드:\n"))
     for node in selection.selected:
-        _write(output, f"- {node.path} | {node.kind} {node.qualified_name}\n")
+        _write(
+            output,
+            f"- {_kind_label(node.kind, language)} {node.qualified_name} ({node.path})\n",
+        )
 
 
 def _read_fields(
@@ -402,31 +490,51 @@ def _read_fields(
 ) -> DisclosureChoices:
     return DisclosureChoices(
         paths=_read_choice(
-            localized(language, "Include relative paths?", "상대 경로를 포함할까요?"),
+            localized(
+                language,
+                "Include selected file paths?",
+                "선택한 코드의 파일 경로를 문서에 포함할까요?",
+            ),
             input_stream,
             output_stream,
             language,
         ),
         symbols=_read_choice(
-            localized(language, "Include symbols?", "심볼을 포함할까요?"),
+            localized(
+                language,
+                "Include selected function and class names?",
+                "선택한 함수와 클래스 이름을 문서에 포함할까요?",
+            ),
             input_stream,
             output_stream,
             language,
         ),
         public_libraries=_read_choice(
-            localized(language, "Include public libraries?", "공개 라이브러리를 포함할까요?"),
+            localized(
+                language,
+                "Include public library names?",
+                "사용한 공개 라이브러리 이름을 문서에 포함할까요?",
+            ),
             input_stream,
             output_stream,
             language,
         ),
         human_notes=_read_choice(
-            localized(language, "Include human notes?", "사용자 메모를 포함할까요?"),
+            localized(
+                language,
+                "Include notes saved with sb log?",
+                "sb log로 저장한 메모를 문서에 포함할까요?",
+            ),
             input_stream,
             output_stream,
             language,
         ),
         boundary_placeholders=_read_choice(
-            localized(language, "Include boundary placeholders?", "경계 정보를 포함할까요?"),
+            localized(
+                language,
+                "Include public boundary descriptions saved with sb ignore?",
+                "sb ignore로 저장한 공개용 경계 설명을 문서에 포함할까요?",
+            ),
             input_stream,
             output_stream,
             language,
@@ -463,6 +571,76 @@ def _write(output: TextIO, value: str) -> None:
         output.write(value)
     except OSError as error:
         raise ChatReviewError("interactive terminal output failed") from error
+
+
+def _kind_label(kind: str, language: Language) -> str:
+    labels = {
+        "module": localized(language, "module", "파일(모듈)"),
+        "class": localized(language, "class", "클래스"),
+        "function": localized(language, "function", "함수"),
+    }
+    return labels[kind]
+
+
+def _relation_labels(relations: tuple[str, ...], kind: str, language: Language) -> str:
+    english_noun = {
+        "module": "this module",
+        "class": "this class",
+        "function": "this function",
+    }[kind]
+    korean_object = {
+        "module": "이 파일(모듈)을",
+        "class": "이 클래스를",
+        "function": "이 함수를",
+    }[kind]
+    korean_subject = {
+        "module": "이 파일(모듈)이",
+        "class": "이 클래스가",
+        "function": "이 함수가",
+    }[kind]
+    labels = {
+        "calls": localized(
+            language,
+            f"the selected code calls {english_noun}",
+            f"선택한 코드가 {korean_object} 호출함",
+        ),
+        "called-by": localized(
+            language,
+            f"{english_noun} calls the selected code",
+            f"{korean_subject} 선택한 코드를 호출함",
+        ),
+        "imports": localized(
+            language,
+            f"the selected code imports {english_noun}",
+            f"선택한 코드가 {korean_object} 불러옴(import)",
+        ),
+        "imported-by": localized(
+            language,
+            f"{english_noun} imports the selected code",
+            f"{korean_subject} 선택한 코드를 불러옴(import)",
+        ),
+        "references": localized(
+            language,
+            f"the selected code refers to {english_noun}",
+            f"선택한 코드가 {korean_object} 참조함",
+        ),
+        "referenced-by": localized(
+            language,
+            f"{english_noun} refers to the selected code",
+            f"{korean_subject} 선택한 코드를 참조함",
+        ),
+        "contains": localized(
+            language,
+            f"the selected code contains {english_noun}",
+            f"선택한 코드가 {korean_object} 포함함",
+        ),
+        "contained-by": localized(
+            language,
+            f"{english_noun} contains the selected code",
+            f"{korean_subject} 선택한 코드를 포함함",
+        ),
+    }
+    return "; ".join(labels[relation] for relation in relations)
 
 
 def _brief_input(
