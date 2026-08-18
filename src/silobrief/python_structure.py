@@ -202,11 +202,26 @@ class _StructureVisitor(ast.NodeVisitor):
                 end_line,
             )
         )
+        self._visit_definition_header(node)
         self._contexts.append(qualified_name)
         try:
-            self.generic_visit(node)
+            for statement in node.body:
+                self.visit(statement)
         finally:
             self._contexts.pop()
+
+    def _visit_definition_header(
+        self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
+    ) -> None:
+        for field, value in ast.iter_fields(node):
+            if field == "body":
+                continue
+            if isinstance(value, ast.AST):
+                self.visit(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, ast.AST):
+                        self.visit(item)
 
     @property
     def _context(self) -> str | None:

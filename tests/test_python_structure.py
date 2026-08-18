@@ -118,6 +118,45 @@ class PythonStructureTests(unittest.TestCase):
             ),
         )
 
+    def test_attributes_definition_header_calls_to_the_enclosing_context(self) -> None:
+        source = source_file(
+            "definitions.py",
+            (
+                b"def outer():\n"
+                b"    @decorate(factory())\n"
+                b"    def inner(value: Value = default()) -> result_type():\n"
+                b"        return body()\n"
+                b"    @class_decorator(class_factory())\n"
+                b"    class Child(base_factory(), metaclass=meta_factory()):\n"
+                b"        class_body()\n"
+                b"    async def async_inner(value=async_default()):\n"
+                b"        return async_body()\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+
+        contexts = {call.target: call.context for call in module.calls}
+        self.assertEqual(
+            contexts,
+            {
+                "decorate": "outer",
+                "factory": "outer",
+                "default": "outer",
+                "result_type": "outer",
+                "body": "outer.inner",
+                "class_decorator": "outer",
+                "class_factory": "outer",
+                "base_factory": "outer",
+                "meta_factory": "outer",
+                "class_body": "outer.Child",
+                "async_default": "outer",
+                "async_body": "outer.async_inner",
+            },
+        )
+        self.assertEqual(len(module.calls), len(contexts))
+        self.assertIn(SymbolUse("outer", "Value", 3, 22), module.references)
+
     def test_omits_source_text_comments_docstrings_and_string_literals(self) -> None:
         source = source_file(
             "canaries.py",
