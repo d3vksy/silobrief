@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 import unittest
 from unittest import mock
 
 from silobrief.python_structure import (
     Definition,
+    ImportBindingScope,
     ImportEntry,
     PythonParseError,
     ScopeDeclaration,
@@ -82,6 +84,32 @@ class PythonStructureTests(unittest.TestCase):
         self.assertEqual(module.imports, ())
         self.assertEqual(module.calls, ())
         self.assertEqual(module.references, ())
+
+    @unittest.skipIf(sys.version_info < (3, 12), "PEP 695 requires Python 3.12")
+    def test_follows_type_parameter_symbol_tables_to_generic_definitions(self) -> None:
+        source = source_file(
+            "generics.py",
+            (
+                b"class Box[T]:\n"
+                b"    import package\n"
+                b"    def transform[U](self, value: U) -> T:\n"
+                b"        import helper\n"
+                b"        return value\n"
+                b"def identity[T](value: T) -> T:\n"
+                b"    return value\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+
+        self.assertEqual(
+            tuple(item.qualified_name for item in module.definitions),
+            ("Box", "Box.transform", "identity"),
+        )
+        self.assertEqual(
+            tuple(item.context for item in module.imports),
+            ("Box", "Box.transform"),
+        )
 
     def test_extracts_import_variants_in_source_order(self) -> None:
         source = source_file(
@@ -163,6 +191,140 @@ class PythonStructureTests(unittest.TestCase):
                 ScopeDeclaration("nonlocal", "value", "outer.use_nonlocal", 5, 9),
                 ScopeDeclaration("global", "value", "outer.use_global", 8, 9),
             ),
+        )
+
+    def test_projects_class_imports_to_declared_binding_scopes(self) -> None:
+        source = source_file(
+            "class_bindings.py",
+            (
+                b"class ModuleBindings:\n"
+                b"    global client, service, package\n"
+                b"    import package.client as client\n"
+                b"    from package import service\n"
+                b"    import package.client\n"
+                b"    import package.local as local\n"
+                b"def outer():\n"
+                b"    selected = None\n"
+                b"    class ClosureBindings:\n"
+                b"        nonlocal selected\n"
+                b"        from package import selected\n"
+                b"    return ClosureBindings\n"
+                b"def delayed():\n"
+                b"    class ModuleBinding:\n"
+                b"        global delayed_client\n"
+                b"        import package.client as delayed_client\n"
+                b"    return ModuleBinding\n"
+                b"def function_binding():\n"
+                b"    global function_client\n"
+                b"    import package.client as function_client\n"
+                b"def owner():\n"
+                b"    owned = None\n"
+                b"    def middle():\n"
+                b"        class ClosureBinding:\n"
+                b"            nonlocal owned\n"
+                b"            import package.client as owned\n"
+                b"    return middle\n"
+                b"def function_owner():\n"
+                b"    function_owned = None\n"
+                b"    def configure():\n"
+                b"        nonlocal function_owned\n"
+                b"        import package.client as function_owned\n"
+                b"    return configure\n"
+                b"class Mismatch:\n"
+                b"    global another_name\n"
+                b"    import package.client as mismatch\n"
+                b"def chain_owner():\n"
+                b"    chained = None\n"
+                b"    def middle():\n"
+                b"        nonlocal chained\n"
+                b"        class ClosureBinding:\n"
+                b"            nonlocal chained\n"
+                b"            import package.client as chained\n"
+                b"    return middle\n"
+                b"def late_owner():\n"
+                b"    class ClosureBinding:\n"
+                b"        nonlocal late\n"
+                b"        import package.client as late\n"
+                b"    late = None\n"
+                b"    return ClosureBinding\n"
+            ),
+        )
+
+        compile(source.content, source.path, "exec")
+        (module,) = extract_structures(source_snapshot(source))
+        imports = {item.alias or item.name or item.module: item for item in module.imports}
+
+        for name in ("client", "service"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    imports[name].projected_binding_scopes,
+                    (ImportBindingScope(None),),
+                )
+        dotted = next(
+            item for item in module.imports if item.module == "package.client" and not item.alias
+        )
+        self.assertEqual(dotted.projected_binding_scopes, (ImportBindingScope(None),))
+        self.assertEqual(
+            imports["selected"].projected_binding_scopes,
+            (ImportBindingScope("outer"),),
+        )
+        self.assertEqual(
+            imports["delayed_client"].projected_binding_scopes,
+            (ImportBindingScope(None, conditional=True, deferred=True),),
+        )
+        self.assertEqual(
+            imports["function_client"].projected_binding_scopes,
+            (ImportBindingScope(None, conditional=True, deferred=True),),
+        )
+        self.assertEqual(
+            imports["owned"].projected_binding_scopes,
+            (ImportBindingScope("owner", conditional=True, deferred=True),),
+        )
+        self.assertEqual(
+            imports["function_owned"].projected_binding_scopes,
+            (ImportBindingScope("function_owner", conditional=True, deferred=True),),
+        )
+        self.assertEqual(
+            imports["chained"].projected_binding_scopes,
+            (ImportBindingScope("chain_owner", conditional=True, deferred=True),),
+        )
+        self.assertEqual(
+            imports["late"].projected_binding_scopes,
+            (ImportBindingScope("late_owner"),),
+        )
+        for name in ("local", "mismatch"):
+            with self.subTest(name=name):
+                self.assertEqual(imports[name].projected_binding_scopes, ())
+
+    def test_preserves_conditions_on_nested_class_import_projections(self) -> None:
+        source = source_file(
+            "conditional_bindings.py",
+            (
+                b"if ENABLED:\n"
+                b"    class ModuleBindings:\n"
+                b"        global client\n"
+                b"        import package.client as client\n"
+                b"def outer():\n"
+                b"    selected = None\n"
+                b"    class Container:\n"
+                b"        if ENABLED:\n"
+                b"            class ClosureBindings:\n"
+                b"                nonlocal selected\n"
+                b"                from package import selected\n"
+                b"    return Container\n"
+            ),
+        )
+
+        compile(source.content, source.path, "exec")
+        (module,) = extract_structures(source_snapshot(source))
+
+        self.assertEqual(
+            module.imports[0].projected_binding_scopes,
+            (ImportBindingScope(None, conditional=True),),
+        )
+        self.assertEqual(
+            module.imports[1].projected_binding_scopes,
+            (ImportBindingScope("outer", conditional=True),),
         )
 
     def test_marks_conditional_bindings_without_leaking_into_definition_bodies(self) -> None:
