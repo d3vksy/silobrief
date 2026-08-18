@@ -159,10 +159,9 @@ class PythonStructureTests(unittest.TestCase):
         self.assertIn(SymbolUse(None, "main", 11, 7), module.calls)
 
     def test_top_level_async_fallback_keeps_invalid_scopes_rejected(self) -> None:
-        sources = (
-            b"class Invalid:\n    await run()\n",
-            b"def inner():\n    nonlocal missing\n",
-        )
+        sources = [b"def inner():\n    nonlocal missing\n"]
+        if sys.version_info >= (3, 14):
+            sources.append(b"class Invalid:\n    await run()\n")
 
         for content in sources:
             with self.subTest(content=content), self.assertRaises(PythonParseError):
