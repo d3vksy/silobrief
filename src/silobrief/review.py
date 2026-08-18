@@ -142,7 +142,11 @@ def review_selection(
     option_by_number = _option_map(options, nodes)
     selected_ids = {_selected_id(number, option_by_number) for number in selected_numbers}
     selected_ids.update(_resolve_selector(selector, nodes, modules) for selector in added)
-    excluded_ids = {_resolve_selector(selector, nodes, modules) for selector in excluded}
+    excluded_ids = {
+        node_id
+        for selector in excluded
+        for node_id in _resolve_excluded_selector(selector, nodes, modules)
+    }
     selected_ids.difference_update(excluded_ids)
     if not selected_ids:
         raise ReviewError("start selection is empty")
@@ -206,6 +210,18 @@ def _resolve_selector(
         return selector
     if selector in modules:
         return modules[selector]
+    raise ReviewError(f"unknown node ID or path selector: {selector}")
+
+
+def _resolve_excluded_selector(
+    selector: str,
+    nodes: dict[str, IndexNode],
+    modules: dict[str, str],
+) -> set[str]:
+    if selector in nodes:
+        return {selector}
+    if selector in modules:
+        return {node.id for node in nodes.values() if node.path == selector}
     raise ReviewError(f"unknown node ID or path selector: {selector}")
 
 

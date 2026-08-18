@@ -276,6 +276,31 @@ class ReviewSelectionTests(unittest.TestCase):
         self.assertEqual([item.id for item in result.selected], ["root"])
         self.assertEqual(result.expanded, ())
 
+    def test_file_path_exclusion_removes_every_node_from_that_file(self) -> None:
+        root = node("root", "src/root.py", "function", "root")
+        blocked_module = node("blocked-module", "src/blocked.py", "module", "blocked")
+        blocked_class = node("blocked-class", "src/blocked.py", "class", "Blocked")
+        blocked_function = node("blocked-function", "src/blocked.py", "function", "run")
+        source_index = index(
+            root,
+            blocked_module,
+            blocked_class,
+            blocked_function,
+            edges=(IndexEdge("root", "call", "run", "blocked-function"),),
+        )
+
+        result = review_selection(
+            source_index,
+            candidate_options((ranked(root, 5), ranked(blocked_class, 4))),
+            selected_numbers=(1, 2),
+            added=("src/blocked.py", "blocked-function"),
+            excluded=("src/blocked.py",),
+            fields=FIELDS,
+        )
+
+        self.assertEqual([item.id for item in result.selected], ["root"])
+        self.assertEqual(result.expanded, ())
+
     def test_allows_direct_selection_when_ranked_candidates_are_empty(self) -> None:
         module = node("module", "src/work.py", "module", "work")
         function = node("function", "src/work.py", "function", "run")
