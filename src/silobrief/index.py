@@ -11,7 +11,7 @@ from silobrief.boundary_placeholders import (
     BoundaryPlaceholder,
     import_target,
 )
-from silobrief.python_structure import ImportEntry, ModuleStructure, SymbolUse
+from silobrief.python_structure import Definition, ImportEntry, ModuleStructure, SymbolUse
 from silobrief.search_tokens import extract_scoped_source_text_tokens, normalize_search_tokens
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import BoundaryData, ConfigData
@@ -66,6 +66,18 @@ class _ImportBinding:
     context: str | None
     visible: str
     target: str
+    line: int
+    column: int
+    conditional: bool
+    deferred: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _ScopeBinding:
+    target_id: str | None = None
+    imported_target: str | None = None
+    falls_through: bool = False
+    unknown: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -263,42 +275,283 @@ def _add_use_edges(
 ) -> None:
     for use in uses:
         source_id = _context_id(context, use.context)
-        placeholder = context.boundary_matcher.match_use(use.target, use.context)
-        target: str | BoundaryPlaceholder = placeholder or use.target
-        target_id = (
-            None
-            if placeholder is not None
-            else _resolve_target(context, use.context, use.target, global_targets)
+        target, target_id = _resolve_use_target(
+            context,
+            use.context,
+            use.target,
+            use.line,
+            use.column,
+            use.skip_class_scope,
+            use.synthetic_local,
+            use.lookup_limit,
+            global_targets,
         )
         edges.add(IndexEdge(source_id, kind, target, target_id))
 
 
-def _resolve_target(
+def _resolve_use_target(
     context: _ModuleContext,
     source_context: str | None,
     target: str,
+    line: int,
+    column: int,
+    skip_class_scope: bool,
+    synthetic_local: bool,
+    lookup_limit: tuple[int, int] | None,
     global_targets: dict[str, str],
-) -> str | None:
-    if source_context is not None and target.startswith("self."):
-        owner, separator, _ = source_context.rpartition(".")
-        if separator:
-            candidate = f"{owner}.{target.removeprefix('self.')}"
-            if candidate in context.context_ids:
-                return context.context_ids[candidate]
+) -> tuple[str | BoundaryPlaceholder, str | None]:
+    if synthetic_local:
+        return target, None
+    use_position = (*lookup_limit, -1) if lookup_limit is not None else (line, column, 2)
+    possible: list[_ScopeBinding] = []
+    saw_binding = False
+    for scope in _lexical_scopes(context, source_context, target, line, skip_class_scope):
+        bindings = _resolve_scope_bindings(
+            context,
+            scope,
+            source_context,
+            target,
+            line,
+            use_position,
+        )
+        if bindings is None:
+            continue
+        saw_binding = True
+        for binding in bindings:
+            if binding.imported_target is None:
+                continue
+            placeholder = context.boundary_matcher.match_resolved(binding.imported_target)
+            if placeholder is not None:
+                return placeholder, None
+        possible.extend(binding for binding in bindings if not binding.falls_through)
+        if not any(binding.falls_through for binding in bindings):
+            return _binding_result(target, possible, global_targets)
+    direct_placeholder = context.boundary_matcher.match_resolved(target)
+    if direct_placeholder is not None:
+        return direct_placeholder, None
+    if saw_binding:
+        possible.append(_ScopeBinding())
+        return _binding_result(target, possible, global_targets)
+    return target, None
 
-    if source_context is not None:
-        parts = source_context.split(".")
-        for length in range(len(parts) - 1, -1, -1):
-            prefix = ".".join(parts[:length])
-            candidate = f"{prefix}.{target}" if prefix else target
-            if candidate in context.context_ids:
-                return context.context_ids[candidate]
-    if target in context.context_ids:
-        return context.context_ids[target]
-    imported_target = _resolve_import_binding(context, source_context, target)
-    if imported_target is not None:
-        return global_targets.get(imported_target)
-    return global_targets.get(target)
+
+def _lexical_scopes(
+    context: _ModuleContext,
+    source_context: str | None,
+    target: str,
+    line: int,
+    skip_class_scope: bool,
+) -> tuple[str | None, ...]:
+    if source_context is None:
+        return (None,)
+    root = target.split(".", 1)[0]
+    result: list[str | None] = []
+    current: str | None = source_context
+    nonlocal_lookup = False
+    while current is not None:
+        definition = _definition_at(context, current, line)
+        kind = definition.kind if definition is not None else None
+        hidden_class = skip_class_scope and kind == "class"
+        visible = kind == "function" or current == source_context and not hidden_class
+        if visible:
+            result.append(current)
+            if _has_declaration(context, current, line, root, "global"):
+                if not nonlocal_lookup:
+                    result.append(None)
+                return tuple(result)
+            if _has_declaration(context, current, line, root, "nonlocal"):
+                nonlocal_lookup = True
+        current = _structural_parent(current)
+    if not nonlocal_lookup:
+        result.append(None)
+    return tuple(result)
+
+
+def _resolve_scope_bindings(
+    context: _ModuleContext,
+    scope: str | None,
+    source_context: str | None,
+    target: str,
+    line: int,
+    use_position: tuple[int, int, int],
+) -> tuple[_ScopeBinding, ...] | None:
+    root = target.split(".", 1)[0]
+    scope_definition = _definition_at(context, scope, line) if scope is not None else None
+    candidates: list[tuple[tuple[int, int, int], _ScopeBinding, bool]] = []
+    deferred_bindings: list[_ScopeBinding] = []
+    for candidate_definition in context.structure.definitions:
+        if (
+            _structural_parent(candidate_definition.qualified_name) != scope
+            or candidate_definition.name != root
+            or not _inside_definition(scope_definition, candidate_definition.line)
+        ):
+            continue
+        suffix = target[len(root) :]
+        if suffix and candidate_definition.kind == "class":
+            target_id = context.context_ids.get(f"{candidate_definition.qualified_name}{suffix}")
+        elif suffix:
+            target_id = None
+        else:
+            target_id = stable_node_id(
+                context.structure.path,
+                candidate_definition.kind,
+                candidate_definition.qualified_name,
+            )
+        candidates.append(
+            (
+                (candidate_definition.line, candidate_definition.column, 0),
+                _ScopeBinding(target_id=target_id, unknown=target_id is None),
+                candidate_definition.conditional,
+            )
+        )
+    for import_binding in context.import_bindings:
+        if import_binding.context != scope or not _inside_definition(
+            scope_definition, import_binding.line
+        ):
+            continue
+        imported_target = _imported_target(import_binding, target)
+        if imported_target is None:
+            continue
+        candidate = (
+            (import_binding.line, import_binding.column, 1),
+            _ScopeBinding(imported_target=imported_target),
+            import_binding.conditional,
+        )
+        if import_binding.deferred:
+            deferred_bindings.append(candidate[1])
+        else:
+            candidates.append(candidate)
+    if (parameter := _parameter_binding(context, scope, target, line)) is not None:
+        candidates.append(((0, 0, 0), parameter, False))
+
+    direct_scope = scope == source_context
+    declared = _has_declaration(context, scope, line, root, "global") or _has_declaration(
+        context, scope, line, root, "nonlocal"
+    )
+    falls_through = declared or (
+        direct_scope and scope_definition is not None and scope_definition.kind == "class"
+    )
+    visible_candidates = candidates
+    if direct_scope:
+        visible_candidates = [candidate for candidate in candidates if candidate[0] <= use_position]
+    if visible_candidates:
+        if direct_scope:
+            possible = list(_possible_bindings(visible_candidates, falls_through))
+        else:
+            entry_position = _scope_entry_position(context, scope, source_context, line)
+            missing = _ScopeBinding(falls_through=falls_through)
+            if entry_position is None:
+                possible = [missing, *(item[1] for item in candidates)]
+            else:
+                before = [item for item in visible_candidates if item[0] < entry_position]
+                possible = list(_possible_bindings(before, falls_through)) if before else [missing]
+                possible.extend(item[1] for item in visible_candidates if item[0] >= entry_position)
+        possible.extend(deferred_bindings)
+        return tuple(dict.fromkeys(possible))
+
+    if (
+        direct_scope
+        and candidates
+        and not declared
+        and (scope is None or scope_definition is not None and scope_definition.kind == "function")
+    ):
+        return tuple(dict.fromkeys([_ScopeBinding(), *deferred_bindings]))
+    if deferred_bindings:
+        return tuple(dict.fromkeys([_ScopeBinding(falls_through=True), *deferred_bindings]))
+    return None
+
+
+def _possible_bindings(
+    candidates: list[tuple[tuple[int, int, int], _ScopeBinding, bool]],
+    missing_falls_through: bool = False,
+) -> tuple[_ScopeBinding, ...]:
+    possible: list[_ScopeBinding] = []
+    for _, binding, conditional in sorted(candidates, key=lambda candidate: candidate[0]):
+        if conditional:
+            if not possible:
+                possible.append(_ScopeBinding(falls_through=missing_falls_through))
+            possible.append(binding)
+        else:
+            possible = [binding]
+    return tuple(dict.fromkeys(possible))
+
+
+def _binding_result(
+    target: str,
+    bindings: list[_ScopeBinding],
+    global_targets: dict[str, str],
+) -> tuple[str, str | None]:
+    concrete = tuple(
+        binding
+        for binding in dict.fromkeys(bindings)
+        if binding.target_id is not None or binding.imported_target is not None or binding.unknown
+    )
+    if len(concrete) != 1 or concrete[0].unknown:
+        return target, None
+    if concrete[0].imported_target is not None:
+        return target, global_targets.get(concrete[0].imported_target)
+    return target, concrete[0].target_id
+
+
+def _scope_entry_position(
+    context: _ModuleContext,
+    scope: str | None,
+    source_context: str | None,
+    line: int,
+) -> tuple[int, int, int] | None:
+    if source_context is None:
+        return None
+    prefix = f"{scope}." if scope is not None else ""
+    if not source_context.startswith(prefix):
+        return None
+    child = source_context[len(prefix) :].split(".", 1)[0]
+    definition = _definition_at(context, f"{prefix}{child}", line)
+    if definition is None:
+        return None
+    if definition.kind == "class" and source_context != definition.qualified_name:
+        return (definition.end_line + 1, definition.column, 2)
+    return (definition.line, definition.column, 2)
+
+
+def _parameter_binding(
+    context: _ModuleContext,
+    scope: str | None,
+    target: str,
+    line: int,
+) -> _ScopeBinding | None:
+    if scope is None:
+        return None
+    receiver, separator, member = target.partition(".")
+    definition = _definition_at(context, scope, line)
+    if definition is None or receiver not in definition.parameters:
+        return None
+    if not separator or receiver not in {"self", "cls"}:
+        return _ScopeBinding(unknown=True)
+    owner = _structural_parent(scope)
+    owner_definition = _definition_at(context, owner, line) if owner is not None else None
+    if owner_definition is None or owner_definition.kind != "class":
+        return _ScopeBinding(unknown=True)
+    target_id = context.context_ids.get(f"{owner}.{member}")
+    return _ScopeBinding(target_id=target_id, unknown=target_id is None)
+
+
+def _structural_parent(context: str) -> str | None:
+    return context.rpartition(".")[0] or None
+
+
+def _definition_at(
+    context: _ModuleContext,
+    qualified_name: str,
+    line: int,
+) -> Definition | None:
+    for definition in context.structure.definitions:
+        if definition.qualified_name == qualified_name and _inside_definition(definition, line):
+            return definition
+    return None
+
+
+def _inside_definition(definition: Definition | None, line: int) -> bool:
+    return definition is None or definition.start_line <= line <= definition.end_line
 
 
 def _context_id(context: _ModuleContext, qualified_name: str | None) -> str:
@@ -328,21 +581,32 @@ def _import_bindings(
     source_path: str,
     imports: tuple[ImportEntry, ...],
 ) -> tuple[_ImportBinding, ...]:
-    bindings: dict[str | None, dict[str, str]] = {}
-    for imported in imports:
-        target = _resolved_import_target(module_name, source_path, imported)
-        visible = _visible_import_binding(imported)
-        if target is None or visible is None:
-            continue
-        bindings.setdefault(imported.context, {})[visible] = target
-
     result: list[_ImportBinding] = []
-    for context in sorted(bindings, key=lambda value: value or ""):
-        for visible, target in sorted(
-            bindings[context].items(),
-            key=lambda item: (-len(item[0].split(".")), item[0], item[1]),
-        ):
-            result.append(_ImportBinding(context, visible, target))
+    for imported in imports:
+        resolved_target = _resolved_import_target(module_name, source_path, imported)
+        visible = _visible_import_binding(imported)
+        if resolved_target is None or visible is None:
+            continue
+        target = _import_binding_target(imported, resolved_target)
+        scopes = (
+            (imported.context, imported.conditional, False),
+            *(
+                (item.context, item.conditional, item.deferred)
+                for item in imported.projected_binding_scopes
+            ),
+        )
+        for scope, conditional, deferred in scopes:
+            result.append(
+                _ImportBinding(
+                    scope,
+                    visible,
+                    target,
+                    imported.line,
+                    imported.column,
+                    conditional,
+                    deferred,
+                )
+            )
     return tuple(result)
 
 
@@ -378,28 +642,39 @@ def _visible_import_binding(imported: ImportEntry) -> str | None:
         return None if imported.name == "*" else imported.name
     if imported.module is None:
         return None
-    return imported.module
+    return imported.module.split(".", 1)[0]
 
 
-def _resolve_import_binding(
+def _import_binding_target(imported: ImportEntry, resolved_target: str) -> str:
+    if imported.alias is None and imported.name is None:
+        return resolved_target.split(".", 1)[0]
+    return resolved_target
+
+
+def _imported_target(binding: _ImportBinding, target: str) -> str | None:
+    if target == binding.visible:
+        return binding.target
+    if target.startswith(f"{binding.visible}."):
+        return f"{binding.target}{target[len(binding.visible) :]}"
+    return None
+
+
+def _has_declaration(
     context: _ModuleContext,
-    source_context: str | None,
-    target: str,
-) -> str | None:
-    current = source_context
-    while True:
-        for binding in context.import_bindings:
-            if binding.context != current:
-                continue
-            if target == binding.visible:
-                return binding.target
-            if target.startswith(f"{binding.visible}."):
-                return f"{binding.target}{target[len(binding.visible) :]}"
-        if current is None:
-            return None
-        current, separator, _ = current.rpartition(".")
-        if not separator:
-            current = None
+    scope: str | None,
+    line: int,
+    name: str,
+    kind: Literal["global", "nonlocal"],
+) -> bool:
+    definition = _definition_at(context, scope, line) if scope is not None else None
+    return any(
+        declaration.kind == kind
+        and declaration.context == scope
+        and declaration.name == name
+        and definition is not None
+        and definition.start_line <= declaration.line <= definition.end_line
+        for declaration in context.structure.declarations
+    )
 
 
 def _import_search_values(
