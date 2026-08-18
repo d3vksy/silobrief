@@ -13,6 +13,7 @@ from silobrief.language import (
     default_language_settings,
     parse_language_settings,
 )
+from silobrief.path_safety import has_link_like_component, is_link_like
 
 STATE_DIRECTORY = ".silobrief"
 _BOUNDARY_ALIAS_PATTERN = re.compile(r"[a-z0-9-]{1,40}")
@@ -63,7 +64,7 @@ def setup_project(project: Path) -> bool:
     root = _project_root(project)
     state = root / STATE_DIRECTORY
 
-    if state.exists() or state.is_symlink():
+    if state.exists() or is_link_like(state):
         _validate_state(state)
         return False
 
@@ -88,14 +89,15 @@ def setup_project(project: Path) -> bool:
         _write_json(state / "notes.json", NotesData(notes=[], notes_version=1))
         _write_json(state / "language.json", default_language_settings())
     except OSError as error:
-        shutil.rmtree(state, ignore_errors=True)
+        if not is_link_like(state):
+            shutil.rmtree(state, ignore_errors=True)
         raise SetupError(f"cannot initialize {STATE_DIRECTORY}: {error}") from error
     return True
 
 
 def _project_root(project: Path) -> Path:
-    if project.is_symlink():
-        raise SetupError("project root must not be a symbolic link")
+    if has_link_like_component(project):
+        raise SetupError("project root must not contain a symbolic link or reparse point")
     if not project.is_dir():
         raise SetupError("project root must be an existing directory")
 
@@ -106,6 +108,8 @@ def _project_root(project: Path) -> Path:
 
 
 def find_project_root(start: Path) -> Path:
+    if has_link_like_component(start):
+        raise SetupError("current directory must not contain a symbolic link or reparse point")
     if not start.is_dir():
         raise SetupError("command must run from an existing directory")
     try:
@@ -115,7 +119,7 @@ def find_project_root(start: Path) -> Path:
 
     for candidate in (current, *current.parents):
         state = candidate / STATE_DIRECTORY
-        if state.exists() or state.is_symlink():
+        if state.exists() or is_link_like(state):
             _validate_state(state)
             return candidate
     raise SetupError(f"cannot find {STATE_DIRECTORY}; run sb setup first")
@@ -139,7 +143,7 @@ def save_notes(root: Path, notes: NotesData) -> None:
 
 def load_language_settings(root: Path) -> LanguageSettings:
     path = root / STATE_DIRECTORY / "language.json"
-    if not path.exists() and not path.is_symlink():
+    if not path.exists() and not is_link_like(path):
         return default_language_settings()
     try:
         return parse_language_settings(_read_object(path))
@@ -161,7 +165,7 @@ def save_index(root: Path, content: bytes) -> None:
 
 def mark_index_stale(root: Path) -> None:
     index = root / STATE_DIRECTORY / "index.json"
-    if not index.exists() and not index.is_symlink():
+    if not index.exists() and not is_link_like(index):
         return
     data = _read_object(index)
     if data.get("stale") is True:
@@ -216,7 +220,7 @@ def _write_bytes_atomic(path: Path, content: bytes) -> None:
 
 
 def _validate_state(state: Path) -> ConfigData:
-    if state.is_symlink() or not state.is_dir():
+    if is_link_like(state) or not state.is_dir():
         raise SetupError(f"{STATE_DIRECTORY} must be a real directory")
 
     config = _parse_config(_read_object(state / "config.json"))
@@ -224,18 +228,18 @@ def _validate_state(state: Path) -> ConfigData:
     _parse_notes(_read_object(state / "notes.json"))
 
     language = state / "language.json"
-    if language.exists() or language.is_symlink():
+    if language.exists() or is_link_like(language):
         try:
             parse_language_settings(_read_object(language))
         except ValueError as error:
             raise SetupError(str(error)) from error
 
     exports = state / "exports"
-    if exports.is_symlink() or not exports.is_dir():
+    if is_link_like(exports) or not exports.is_dir():
         raise SetupError("exports must be a real directory")
 
     index = state / "index.json"
-    if index.exists() or index.is_symlink():
+    if index.exists() or is_link_like(index):
         try:
             index_data = _read_object(index)
         except SetupError as error:
@@ -351,7 +355,7 @@ def _is_version_one(value: object) -> bool:
 
 
 def _read_object(path: Path) -> dict[str, object]:
-    if path.is_symlink() or not path.is_file():
+    if is_link_like(path) or not path.is_file():
         raise SetupError(f"{path.name} must be a real file")
 
     try:

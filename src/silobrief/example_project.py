@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from silobrief.path_safety import has_link_like_component
+
 
 class ExampleProjectError(Exception):
     pass
@@ -218,8 +220,8 @@ class ChooseReferenceTests(unittest.TestCase):
 
 
 def create_example_project(target: Path) -> int:
-    if target.is_symlink():
-        raise ExampleProjectError("example path must not be a symbolic link")
+    if has_link_like_component(target):
+        raise ExampleProjectError("example path must not contain a symbolic link or reparse point")
     if target.exists():
         if not target.is_dir():
             raise ExampleProjectError("example path must be a directory")

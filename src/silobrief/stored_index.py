@@ -17,6 +17,7 @@ from silobrief.index import (
     render_index_json,
     stable_node_id,
 )
+from silobrief.path_safety import is_link_like
 from silobrief.state import STATE_DIRECTORY, is_valid_boundary_alias
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
@@ -31,7 +32,7 @@ class StoredIndexError(ValueError):
 
 def load_stored_index(root: Path) -> IndexData:
     path = root / STATE_DIRECTORY / "index.json"
-    if path.is_symlink() or not path.is_file():
+    if is_link_like(path) or not path.is_file():
         raise StoredIndexError("index.json must be a real file; run sb init")
     try:
         content = path.read_bytes()

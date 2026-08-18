@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +17,7 @@ from silobrief.renderer import BriefInput, RenderedBrief, render_brief
 from silobrief.source_review import ApprovedSourceExcerpt
 from silobrief.sources import snapshot_sources
 from silobrief.state import load_config, setup_project
+from tests.windows_junctions import directory_junction
 
 
 class TtyBuffer(io.StringIO):
@@ -326,6 +328,27 @@ class ApprovedOutputTests(unittest.TestCase):
                             output_stream=TtyBuffer(),
                         )
             self.assertEqual(target.read_text(encoding="utf-8"), "target content")
+            self.assertFalse((outside / "result.md").exists())
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_rejects_a_junction_in_the_output_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = project_in(directory)
+            exports = project / ".silobrief" / "exports"
+            outside = Path(directory) / "outside"
+            outside.mkdir()
+
+            with directory_junction(exports / "linked-parent", outside):
+                with self.assertRaisesRegex(OutputBlockedError, "reparse point"):
+                    approve_and_write(
+                        project,
+                        ".silobrief/exports/linked-parent/result.md",
+                        rendered_brief(),
+                        start=project,
+                        input_stream=TtyBuffer("WRITE\n"),
+                        output_stream=TtyBuffer(),
+                    )
+
             self.assertFalse((outside / "result.md").exists())
 
 

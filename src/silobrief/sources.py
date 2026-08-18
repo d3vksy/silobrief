@@ -6,6 +6,10 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+from silobrief.path_safety import (
+    has_link_like_component,
+    is_link_like_stat,
+)
 from silobrief.state import ConfigData
 
 _DIGEST_DOMAIN = b"silobrief-source-snapshot-v1\0"
@@ -88,7 +92,7 @@ def compare_snapshots(before: SourceSnapshot, after: SourceSnapshot) -> SourceCh
 
 
 def _validated_root(root: Path) -> Path:
-    if root.is_symlink() or not root.is_dir():
+    if has_link_like_component(root) or not root.is_dir():
         raise SourceCollectionError("project root must be a real directory")
     try:
         return root.resolve(strict=True)
@@ -114,8 +118,10 @@ def _walk_sources(
         raise SourceCollectionError(
             f"cannot inspect source directory {label}: {_error_reason(error)}"
         ) from error
-    if stat.S_ISLNK(metadata.st_mode):
-        warnings.append(SourceWarning(path=relative_directory, reason="symbolic link skipped"))
+    if is_link_like_stat(metadata):
+        warnings.append(
+            SourceWarning(path=relative_directory, reason=_link_warning_reason(metadata))
+        )
         return
     if not stat.S_ISDIR(metadata.st_mode):
         label = relative_directory or "."
@@ -135,10 +141,13 @@ def _walk_sources(
         if _is_excluded(relative_path, entry.name, default_excludes, boundaries):
             continue
         try:
-            if entry.is_symlink():
-                warnings.append(SourceWarning(path=relative_path, reason="symbolic link skipped"))
+            metadata = entry.stat(follow_symlinks=False)
+            if is_link_like_stat(metadata):
+                warnings.append(
+                    SourceWarning(path=relative_path, reason=_link_warning_reason(metadata))
+                )
                 continue
-            if entry.is_dir(follow_symlinks=False):
+            if stat.S_ISDIR(metadata.st_mode):
                 _walk_sources(
                     Path(entry.path),
                     relative_path,
@@ -148,7 +157,7 @@ def _walk_sources(
                     warnings=warnings,
                 )
                 continue
-            if relative_path.endswith(".py") and entry.is_file(follow_symlinks=False):
+            if relative_path.endswith(".py") and stat.S_ISREG(metadata.st_mode):
                 files.append(_read_regular_source(Path(entry.path), relative_path))
         except OSError as error:
             raise SourceCollectionError(
@@ -173,7 +182,7 @@ def _is_excluded(
 def _read_regular_source(path: Path, relative_path: str) -> SourceFile:
     try:
         before = path.stat(follow_symlinks=False)
-        if not stat.S_ISREG(before.st_mode):
+        if is_link_like_stat(before) or not stat.S_ISREG(before.st_mode):
             raise SourceCollectionError(f"source entry changed before read: {relative_path}")
         with path.open("rb") as stream:
             content = stream.read()
@@ -199,11 +208,17 @@ def _same_file_state(left: os.stat_result, right: os.stat_result) -> bool:
     return (
         stat.S_ISREG(left.st_mode)
         and stat.S_ISREG(right.st_mode)
+        and not is_link_like_stat(left)
+        and not is_link_like_stat(right)
         and left.st_dev == right.st_dev
         and left.st_ino == right.st_ino
         and left.st_size == right.st_size
         and left.st_mtime_ns == right.st_mtime_ns
     )
+
+
+def _link_warning_reason(metadata: os.stat_result) -> str:
+    return "symbolic link skipped" if stat.S_ISLNK(metadata.st_mode) else "reparse point skipped"
 
 
 def _snapshot_digest(files: tuple[SourceFile, ...]) -> str:

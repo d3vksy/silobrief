@@ -12,6 +12,7 @@ from pathlib import Path
 from unittest import mock
 
 from silobrief.cli import main
+from tests.windows_junctions import directory_junction
 
 DEFAULT_EXCLUDES = [
     ".git/",
@@ -232,6 +233,27 @@ class SetupCommandTests(unittest.TestCase):
 
             self.assertIn("real directory", message)
             self.assertEqual(list(project.iterdir()), [])
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_setup_rejects_project_and_state_directory_junctions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.mkdir()
+
+            with directory_junction(root / "project-link", target) as project_link:
+                message = self.assert_setup_error(project_link)
+                self.assertIn("reparse point", message)
+            self.assertFalse((target / ".silobrief").exists())
+
+            state_source = root / "state-source"
+            state_source.mkdir()
+            self.assertEqual(main(["setup", str(state_source)]), 0)
+            project = root / "project"
+            project.mkdir()
+            with directory_junction(project / ".silobrief", state_source / ".silobrief"):
+                message = self.assert_setup_error(project)
+                self.assertIn("real directory", message)
 
     def test_setup_rejects_state_file_and_partial_state_without_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
