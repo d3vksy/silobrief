@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/release-v1.0.3-4f46e5" alt="Release v1.0.3"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.4"><img src="https://img.shields.io/badge/release-v1.0.4-4f46e5" alt="Release v1.0.4"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -48,7 +48,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 1.0.3
+siloBrief 1.0.4
 ```
 
 ### Practice project
@@ -192,7 +192,7 @@ organization's disclosure rules before sharing it.
 
 ## Validation status
 
-The latest public release is v1.0.3 and follows the supported 1.x compatibility contract. In the
+The latest public release is v1.0.4 and follows the supported 1.x compatibility contract. In the
 frozen retrieval benchmark, `sb search` reaches an expected symbol for 11 of 12 tasks, with a mean
 reciprocal rank of 72.2%. Candidate search is lexical and advisory. When it misses, use the exact
 indexed Python file path during review.
@@ -208,6 +208,7 @@ across other AI models or private projects.
 - [v0.8 related-context result](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [Solo field-trial procedure](validation/v0.9/FIELD_TRIAL.md)
 - [v1.0.1 release verification](validation/v1.0.1/RELEASE_VERIFICATION.md)
+- [v1.0 scope-related context study](validation/v1.0-scope-related-context/REPORT.md)
 
 ## Exit codes
 

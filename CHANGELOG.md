@@ -7,6 +7,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-08-19
+
+### Added
+
+- Record a frozen 12-task comparison of scope-correct one-hop related context. Two of the three
+  affected tasks gained required context without adding unnecessary proposals (#185).
+
 ### Fixed
 
 - Keep indexing Pyodide and notebook-style Python files that use top-level asynchronous syntax
