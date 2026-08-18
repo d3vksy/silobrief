@@ -1,0 +1,3431 @@
+{
+  "baseline": {
+    "canary": {
+      "adjacent_edges": [
+        {
+          "kind": "module",
+          "path": "src/parcel_lab/retry.py",
+          "qualified_name": "parcel_lab.retry",
+          "relations": [
+            "contained-by"
+          ]
+        }
+      ],
+      "boundary_canary_exposures": 0,
+      "cap_ok": true,
+      "deterministic": true,
+      "edges": 38,
+      "nodes": 10,
+      "primary": {
+        "path": "src/parcel_lab/retry.py",
+        "qualified_name": "retry_request"
+      },
+      "raw_canary_exposures": 0,
+      "related": [
+        {
+          "kind": "module",
+          "path": "src/parcel_lab/retry.py",
+          "qualified_name": "parcel_lab.retry",
+          "relations": [
+            "contained-by"
+          ]
+        }
+      ]
+    },
+    "cases": [
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware.send",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "99b7cc62e0c2cb8d24e5f546b7e34e17496c265e",
+        "deterministic": true,
+        "edges": 14455,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 1,
+        "nodes": 1793,
+        "primary": {
+          "path": "starlette/middleware/cors.py",
+          "qualified_name": "CORSMiddleware.allow_explicit_origin"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware.send",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "repository": "encode/starlette",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "ninja/errors.py",
+            "qualified_name": "ConfigError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "ResponseObject",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation._model_dump_kwargs",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation.run",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/responses.py",
+            "qualified_name": "Status",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "134869b74b6cba214284faa9f13d54b7247362c0",
+        "deterministic": true,
+        "edges": 12694,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 2,
+        "nodes": 2057,
+        "primary": {
+          "path": "ninja/operation.py",
+          "qualified_name": "Operation._result_to_response"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "ninja/errors.py",
+            "qualified_name": "ConfigError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "ResponseObject",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation._model_dump_kwargs",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation.run",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/responses.py",
+            "qualified_name": "Status",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "repository": "vitalik/django-ninja",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.__call__",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "ec6f9c95443d323a8cee4d9ff5dd1bd9862f5fc8",
+        "deterministic": true,
+        "edges": 70351,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 3,
+        "nodes": 8584,
+        "primary": {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.create_response_headers"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.__call__",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "repository": "litestar-org/litestar",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Template",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.get_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.select_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/runtime.py",
+            "qualified_name": "Undefined",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "5ef70112a1ff19c05324ff889dd30405b1002044",
+        "deterministic": true,
+        "edges": 12579,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 4,
+        "nodes": 1866,
+        "primary": {
+          "path": "src/jinja2/environment.py",
+          "qualified_name": "Environment.get_or_select_template"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Template",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.get_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.select_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/runtime.py",
+            "qualified_name": "Undefined",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "repository": "pallets/jinja",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.get_verbosity",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalue",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalueorskip",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/pytest/__init__.py",
+            "qualified_name": "pytest",
+            "relations": [
+              "imports"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+        "deterministic": true,
+        "edges": 52222,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 5,
+        "nodes": 7214,
+        "primary": {
+          "path": "src/_pytest/config/__init__.py",
+          "qualified_name": "Config.getoption"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.get_verbosity",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalue",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalueorskip",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/pytest/__init__.py",
+            "qualified_name": "pytest",
+            "relations": [
+              "imports"
+            ]
+          }
+        ],
+        "repository": "pytest-dev/pytest",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "function",
+            "path": "src/poetry/config/config.py",
+            "qualified_name": "Config.create",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory._ensure_valid_poetry_version",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory.create_pool",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/packages/locker.py",
+            "qualified_name": "Locker",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/plugins/plugin_manager.py",
+            "qualified_name": "PluginManager",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/poetry.py",
+            "qualified_name": "Poetry",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/toml/file.py",
+            "qualified_name": "TOMLFile",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "92b74dcfe348d0e01e14d40d6c1fa47a4ee04a54",
+        "deterministic": true,
+        "edges": 41745,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 6,
+        "nodes": 4066,
+        "primary": {
+          "path": "src/poetry/factory.py",
+          "qualified_name": "Factory.create_poetry"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "function",
+            "path": "src/poetry/config/config.py",
+            "qualified_name": "Config.create",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory._ensure_valid_poetry_version",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory.create_pool",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/packages/locker.py",
+            "qualified_name": "Locker",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/plugins/plugin_manager.py",
+            "qualified_name": "PluginManager",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/poetry.py",
+            "qualified_name": "Poetry",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/toml/file.py",
+            "qualified_name": "TOMLFile",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "repository": "python-poetry/poetry",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/flask/sansio/app.py",
+            "qualified_name": "App",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "06ea505ce2b2042af26e96d35ebf159af7c0869d",
+        "deterministic": true,
+        "edges": 9457,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 1,
+        "nodes": 1661,
+        "primary": {
+          "path": "src/flask/sansio/app.py",
+          "qualified_name": "App.select_jinja_autoescape"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/flask/sansio/app.py",
+            "qualified_name": "App",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "pallets/flask",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "function",
+            "path": "aiohttp/helpers.py",
+            "qualified_name": "parse_http_date",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "aiohttp/web_response.py",
+            "qualified_name": "StreamResponse",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "0ed510d8dc9f6397878fe775ac7e2fbd0b13641f",
+        "deterministic": true,
+        "edges": 65073,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 2,
+        "nodes": 7070,
+        "primary": {
+          "path": "aiohttp/web_response.py",
+          "qualified_name": "StreamResponse.last_modified"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "function",
+            "path": "aiohttp/helpers.py",
+            "qualified_name": "parse_http_date",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "aiohttp/web_response.py",
+            "qualified_name": "StreamResponse",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "aio-libs/aiohttp",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "a64dc641a8e4ad777a4602d2bdec53d736901472",
+        "deterministic": true,
+        "edges": 31450,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 3,
+        "nodes": 4379,
+        "primary": {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin._get_process_states"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "sanic-org/sanic",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder.decode_line",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "9cb198944f8184df92217efc8b20d3fffa4b4fa0",
+        "deterministic": true,
+        "edges": 20372,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 4,
+        "nodes": 2276,
+        "primary": {
+          "path": "rich/ansi.py",
+          "qualified_name": "AnsiDecoder.decode"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder.decode_line",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "repository": "Textualize/rich",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/black/linegen.py",
+            "qualified_name": "black.linegen",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "_hugging_power_ops_line_to_string",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "transform_line",
+            "relations": [
+              "referenced-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/black/trans.py",
+            "qualified_name": "black.trans",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/black/trans.py",
+            "qualified_name": "CannotTransform",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_lookup",
+            "relations": [
+              "contains"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_operand",
+            "relations": [
+              "contains"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "fa72105efac5c15c3a3c83c21ec6e6097c525325",
+        "deterministic": true,
+        "edges": 14181,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 5,
+        "nodes": 1153,
+        "primary": {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/black/linegen.py",
+            "qualified_name": "black.linegen",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "_hugging_power_ops_line_to_string",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "transform_line",
+            "relations": [
+              "referenced-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/black/trans.py",
+            "qualified_name": "black.trans",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/black/trans.py",
+            "qualified_name": "CannotTransform",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_lookup",
+            "relations": [
+              "contains"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_operand",
+            "relations": [
+              "contains"
+            ]
+          }
+        ],
+        "repository": "psf/black",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "pydantic/types.py",
+            "qualified_name": "SecretStr",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "a54529f06204ecb8f940d2506ff66dd1521917c8",
+        "deterministic": true,
+        "edges": 91396,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 6,
+        "nodes": 13909,
+        "primary": {
+          "path": "pydantic/types.py",
+          "qualified_name": "SecretStr.__eq__"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "pydantic/types.py",
+            "qualified_name": "SecretStr",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "pydantic/pydantic",
+        "suite": "edge-idf"
+      }
+    ],
+    "commit": "e5329b29d884d40dc7d3b14ca7fa26c83a14878b",
+    "controls": [
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "silobrief.cli",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "main",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/language.py",
+            "qualified_name": "default_language_settings",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/path_safety.py",
+            "qualified_name": "is_link_like",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "silobrief.state",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "ConfigData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "NotesData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "SetupError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_project_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_validate_state",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_write_json",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "tests.test_current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "create_project",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_output.py",
+            "qualified_name": "tests.test_output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_output.py",
+            "qualified_name": "project_in",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_sources.py",
+            "qualified_name": "tests.test_sources",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_compare_snapshots_reports_added_removed_and_modified_sources",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_digest_includes_relative_path",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_does_not_modify_source_files",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_is_deterministic_and_uses_posix_paths",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_directory_junctions_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_excluded_trees_before_scan_or_read",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_warns_about_symlinks_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_stored_index.py",
+            "qualified_name": "tests.test_stored_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_stored_index.py",
+            "qualified_name": "create_index",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "deterministic": true,
+        "edges": 9080,
+        "name": "setup_project",
+        "nodes": 748,
+        "primary": {
+          "path": "src/silobrief/state.py",
+          "qualified_name": "setup_project"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "silobrief.cli",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "main",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/language.py",
+            "qualified_name": "default_language_settings",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/path_safety.py",
+            "qualified_name": "is_link_like",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "silobrief.state",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "ConfigData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "NotesData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "SetupError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_project_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_validate_state",
+            "relations": [
+              "calls"
+            ]
+          }
+        ]
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "silobrief.current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "load_current_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/initialization.py",
+            "qualified_name": "initialize_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "silobrief.output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "_snapshot",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "silobrief.sources",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceFile",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceSnapshot",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceWarning",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_snapshot_digest",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_validated_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_walk_sources",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "tests.test_current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "CurrentIndexTests.test_loads_current_index_and_returns_source_warnings_read_only",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_output.py",
+            "qualified_name": "tests.test_output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_output.py",
+            "qualified_name": "ApprovedOutputTests.test_source_change_after_write_approval_blocks_output",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_sources.py",
+            "qualified_name": "tests.test_sources",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_compare_snapshots_reports_added_removed_and_modified_sources",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_digest_includes_relative_path",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_does_not_modify_source_files",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_is_deterministic_and_uses_posix_paths",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_directory_junctions_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_excluded_trees_before_scan_or_read",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_warns_about_symlinks_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "deterministic": true,
+        "edges": 9080,
+        "name": "snapshot_sources",
+        "nodes": 748,
+        "primary": {
+          "path": "src/silobrief/sources.py",
+          "qualified_name": "snapshot_sources"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "silobrief.current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "load_current_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/initialization.py",
+            "qualified_name": "initialize_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "silobrief.output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "_snapshot",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "silobrief.sources",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceFile",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceSnapshot",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceWarning",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_snapshot_digest",
+            "relations": [
+              "calls"
+            ]
+          }
+        ]
+      }
+    ],
+    "runtime": {
+      "implementation": "cpython",
+      "version": [
+        3,
+        14,
+        3
+      ]
+    },
+    "version": "baseline"
+  },
+  "comparison": {
+    "affected": [
+      "litestar-org/litestar",
+      "sanic-org/sanic",
+      "psf/black"
+    ],
+    "affected_first_4": [
+      "litestar-org/litestar",
+      "sanic-org/sanic",
+      "psf/black"
+    ],
+    "decision": "proceed",
+    "external_state": {
+      "Textualize/rich": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "aio-libs/aiohttp": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "encode/starlette": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "litestar-org/litestar": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "pallets/flask": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "pallets/jinja": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "psf/black": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "pydantic/pydantic": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "pytest-dev/pytest": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "python-poetry/poetry": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "sanic-org/sanic": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      },
+      "vitalik/django-ninja": {
+        "silobrief_state_unchanged": true,
+        "status_unchanged": true,
+        "tracked_unchanged": true
+      }
+    },
+    "gates": {
+      "affected_at_least_3": true,
+      "boundary_canary_zero": true,
+      "canonical_deterministic": true,
+      "controls_unchanged": true,
+      "external_state_unchanged": true,
+      "frozen_external_inputs": true,
+      "improved_cases_at_least_2": true,
+      "invalid_edges_zero": true,
+      "no_required_neighbor_lost": true,
+      "related_cap_10": true,
+      "required_edge_precision_100": true,
+      "required_edge_recall_100": true,
+      "unnecessary_not_increased": true,
+      "worker_runtime_same": true
+    },
+    "measurements": [
+      {
+        "edges_after": 3,
+        "false_edges_removed": 0,
+        "invalid_edges_after": 0,
+        "invalid_edges_before": 0,
+        "lost_required_nodes": 0,
+        "new_required_nodes": 1,
+        "related_after": 3,
+        "related_before": 2,
+        "repository": "litestar-org/litestar",
+        "required_edges_after": 3,
+        "required_edges_before": 2,
+        "required_edges_total": 3,
+        "required_nodes_after": 2,
+        "required_nodes_before": 1,
+        "required_nodes_total": 2,
+        "unnecessary_after": 1,
+        "unnecessary_before": 1,
+        "valid_edges_after": 3
+      },
+      {
+        "edges_after": 2,
+        "false_edges_removed": 0,
+        "invalid_edges_after": 0,
+        "invalid_edges_before": 0,
+        "lost_required_nodes": 0,
+        "new_required_nodes": 1,
+        "related_after": 2,
+        "related_before": 1,
+        "repository": "sanic-org/sanic",
+        "required_edges_after": 2,
+        "required_edges_before": 1,
+        "required_edges_total": 2,
+        "required_nodes_after": 1,
+        "required_nodes_before": 0,
+        "required_nodes_total": 1,
+        "unnecessary_after": 1,
+        "unnecessary_before": 1,
+        "valid_edges_after": 2
+      },
+      {
+        "edges_after": 8,
+        "false_edges_removed": 0,
+        "invalid_edges_after": 0,
+        "invalid_edges_before": 0,
+        "lost_required_nodes": 0,
+        "new_required_nodes": 0,
+        "related_after": 7,
+        "related_before": 7,
+        "repository": "psf/black",
+        "required_edges_after": 8,
+        "required_edges_before": 7,
+        "required_edges_total": 8,
+        "required_nodes_after": 0,
+        "required_nodes_before": 0,
+        "required_nodes_total": 2,
+        "unnecessary_after": 7,
+        "unnecessary_before": 7,
+        "valid_edges_after": 8
+      }
+    ],
+    "metrics": {
+      "affected_count": 3,
+      "boundary_canary_exposures": 0,
+      "controls_unchanged": true,
+      "improved_cases": 2,
+      "invalid_edges_after": 0,
+      "lost_required_nodes": 0,
+      "maximum_related": 10,
+      "required_edge_precision": "13/13",
+      "required_edge_recall": "13/13",
+      "required_node_recall_after": "3/5",
+      "required_node_recall_before": "1/5",
+      "unnecessary_after": 9,
+      "unnecessary_before": 9
+    },
+    "oracle_sha256": "39a617eab127040f6bfa4a1577dd1be04e4d0f11093ec2c40ffad41427a9b0f1",
+    "runtime": {
+      "implementation": "cpython",
+      "version": [
+        3,
+        14,
+        3
+      ]
+    }
+  },
+  "current": {
+    "canary": {
+      "adjacent_edges": [
+        {
+          "kind": "module",
+          "path": "src/parcel_lab/retry.py",
+          "qualified_name": "parcel_lab.retry",
+          "relations": [
+            "contained-by"
+          ]
+        }
+      ],
+      "boundary_canary_exposures": 0,
+      "cap_ok": true,
+      "deterministic": true,
+      "edges": 38,
+      "nodes": 10,
+      "primary": {
+        "path": "src/parcel_lab/retry.py",
+        "qualified_name": "retry_request"
+      },
+      "raw_canary_exposures": 0,
+      "related": [
+        {
+          "kind": "module",
+          "path": "src/parcel_lab/retry.py",
+          "qualified_name": "parcel_lab.retry",
+          "relations": [
+            "contained-by"
+          ]
+        }
+      ]
+    },
+    "cases": [
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware.send",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "99b7cc62e0c2cb8d24e5f546b7e34e17496c265e",
+        "deterministic": true,
+        "edges": 14456,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 1,
+        "nodes": 1793,
+        "primary": {
+          "path": "starlette/middleware/cors.py",
+          "qualified_name": "CORSMiddleware.allow_explicit_origin"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "starlette/middleware/cors.py",
+            "qualified_name": "CORSMiddleware.send",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "repository": "encode/starlette",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "ninja/errors.py",
+            "qualified_name": "ConfigError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "ResponseObject",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation._model_dump_kwargs",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation.run",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/responses.py",
+            "qualified_name": "Status",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "134869b74b6cba214284faa9f13d54b7247362c0",
+        "deterministic": true,
+        "edges": 12694,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 2,
+        "nodes": 2057,
+        "primary": {
+          "path": "ninja/operation.py",
+          "qualified_name": "Operation._result_to_response"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "ninja/errors.py",
+            "qualified_name": "ConfigError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/operation.py",
+            "qualified_name": "ResponseObject",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation._model_dump_kwargs",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "ninja/operation.py",
+            "qualified_name": "Operation.run",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "ninja/responses.py",
+            "qualified_name": "Status",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "repository": "vitalik/django-ninja",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.__call__",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.create_send_wrapper.send_wrapper",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "ec6f9c95443d323a8cee4d9ff5dd1bd9862f5fc8",
+        "deterministic": true,
+        "edges": 70352,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 3,
+        "nodes": 8584,
+        "primary": {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.create_response_headers"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.__call__",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "litestar/middleware/rate_limit.py",
+            "qualified_name": "RateLimitMiddleware.create_send_wrapper.send_wrapper",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "repository": "litestar-org/litestar",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Template",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.get_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.select_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/runtime.py",
+            "qualified_name": "Undefined",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "5ef70112a1ff19c05324ff889dd30405b1002044",
+        "deterministic": true,
+        "edges": 12579,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 4,
+        "nodes": 1866,
+        "primary": {
+          "path": "src/jinja2/environment.py",
+          "qualified_name": "Environment.get_or_select_template"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Template",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.get_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/jinja2/environment.py",
+            "qualified_name": "Environment.select_template",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/jinja2/runtime.py",
+            "qualified_name": "Undefined",
+            "relations": [
+              "references"
+            ]
+          }
+        ],
+        "repository": "pallets/jinja",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.get_verbosity",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalue",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalueorskip",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/pytest/__init__.py",
+            "qualified_name": "pytest",
+            "relations": [
+              "imports"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+        "deterministic": true,
+        "edges": 52229,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 5,
+        "nodes": 7214,
+        "primary": {
+          "path": "src/_pytest/config/__init__.py",
+          "qualified_name": "Config.getoption"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.get_verbosity",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalue",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/_pytest/config/__init__.py",
+            "qualified_name": "Config.getvalueorskip",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/pytest/__init__.py",
+            "qualified_name": "pytest",
+            "relations": [
+              "imports"
+            ]
+          }
+        ],
+        "repository": "pytest-dev/pytest",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "function",
+            "path": "src/poetry/config/config.py",
+            "qualified_name": "Config.create",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory._ensure_valid_poetry_version",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory.create_pool",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/packages/locker.py",
+            "qualified_name": "Locker",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/plugins/plugin_manager.py",
+            "qualified_name": "PluginManager",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/poetry.py",
+            "qualified_name": "Poetry",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/toml/file.py",
+            "qualified_name": "TOMLFile",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "92b74dcfe348d0e01e14d40d6c1fa47a4ee04a54",
+        "deterministic": true,
+        "edges": 41746,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 6,
+        "nodes": 4066,
+        "primary": {
+          "path": "src/poetry/factory.py",
+          "qualified_name": "Factory.create_poetry"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "function",
+            "path": "src/poetry/config/config.py",
+            "qualified_name": "Config.create",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory._ensure_valid_poetry_version",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/poetry/factory.py",
+            "qualified_name": "Factory.create_pool",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/packages/locker.py",
+            "qualified_name": "Locker",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/plugins/plugin_manager.py",
+            "qualified_name": "PluginManager",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/poetry.py",
+            "qualified_name": "Poetry",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/poetry/toml/file.py",
+            "qualified_name": "TOMLFile",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "repository": "python-poetry/poetry",
+        "suite": "ranking"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "src/flask/sansio/app.py",
+            "qualified_name": "App",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "06ea505ce2b2042af26e96d35ebf159af7c0869d",
+        "deterministic": true,
+        "edges": 9457,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 1,
+        "nodes": 1661,
+        "primary": {
+          "path": "src/flask/sansio/app.py",
+          "qualified_name": "App.select_jinja_autoescape"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "src/flask/sansio/app.py",
+            "qualified_name": "App",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "pallets/flask",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "function",
+            "path": "aiohttp/helpers.py",
+            "qualified_name": "parse_http_date",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "aiohttp/web_response.py",
+            "qualified_name": "StreamResponse",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "0ed510d8dc9f6397878fe775ac7e2fbd0b13641f",
+        "deterministic": true,
+        "edges": 65077,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 2,
+        "nodes": 7070,
+        "primary": {
+          "path": "aiohttp/web_response.py",
+          "qualified_name": "StreamResponse.last_modified"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "function",
+            "path": "aiohttp/helpers.py",
+            "qualified_name": "parse_http_date",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "aiohttp/web_response.py",
+            "qualified_name": "StreamResponse",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "aio-libs/aiohttp",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin.serve",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "a64dc641a8e4ad777a4602d2bdec53d736901472",
+        "deterministic": true,
+        "edges": 31450,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 3,
+        "nodes": 4379,
+        "primary": {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin._get_process_states"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "sanic/mixins/startup.py",
+            "qualified_name": "StartupMixin.serve",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "repository": "sanic-org/sanic",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder.decode_line",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "9cb198944f8184df92217efc8b20d3fffa4b4fa0",
+        "deterministic": true,
+        "edges": 20372,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 4,
+        "nodes": 2276,
+        "primary": {
+          "path": "rich/ansi.py",
+          "qualified_name": "AnsiDecoder.decode"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "rich/ansi.py",
+            "qualified_name": "AnsiDecoder.decode_line",
+            "relations": [
+              "calls"
+            ]
+          }
+        ],
+        "repository": "Textualize/rich",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/black/linegen.py",
+            "qualified_name": "black.linegen",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "_hugging_power_ops_line_to_string",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "transform_line",
+            "relations": [
+              "referenced-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/black/trans.py",
+            "qualified_name": "black.trans",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/black/trans.py",
+            "qualified_name": "CannotTransform",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_lookup",
+            "relations": [
+              "contains"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_operand",
+            "relations": [
+              "calls",
+              "contains"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "fa72105efac5c15c3a3c83c21ec6e6097c525325",
+        "deterministic": true,
+        "edges": 14181,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 5,
+        "nodes": 1153,
+        "primary": {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/black/linegen.py",
+            "qualified_name": "black.linegen",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "_hugging_power_ops_line_to_string",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/linegen.py",
+            "qualified_name": "transform_line",
+            "relations": [
+              "referenced-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/black/trans.py",
+            "qualified_name": "black.trans",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/black/trans.py",
+            "qualified_name": "CannotTransform",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_lookup",
+            "relations": [
+              "contains"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/black/trans.py",
+            "qualified_name": "hug_power_op.is_simple_operand",
+            "relations": [
+              "calls",
+              "contains"
+            ]
+          }
+        ],
+        "repository": "psf/black",
+        "suite": "edge-idf"
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "class",
+            "path": "pydantic/types.py",
+            "qualified_name": "SecretStr",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "commit": "a54529f06204ecb8f940d2506ff66dd1521917c8",
+        "deterministic": true,
+        "edges": 91399,
+        "input_audit": {
+          "canonical_git_snapshot": true,
+          "tracked_clean_at_start": true,
+          "working_snapshot_inputs_frozen": true
+        },
+        "manifest_position": 6,
+        "nodes": 13909,
+        "primary": {
+          "path": "pydantic/types.py",
+          "qualified_name": "SecretStr.__eq__"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "class",
+            "path": "pydantic/types.py",
+            "qualified_name": "SecretStr",
+            "relations": [
+              "contained-by"
+            ]
+          }
+        ],
+        "repository": "pydantic/pydantic",
+        "suite": "edge-idf"
+      }
+    ],
+    "commit": "ab98e39910d9dc70eacdad3fcb4df4d5e7b579de",
+    "controls": [
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "silobrief.cli",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "main",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/language.py",
+            "qualified_name": "default_language_settings",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/path_safety.py",
+            "qualified_name": "is_link_like",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "silobrief.state",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "ConfigData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "NotesData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "SetupError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_project_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_validate_state",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_write_json",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "tests.test_current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "create_project",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_output.py",
+            "qualified_name": "tests.test_output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_output.py",
+            "qualified_name": "project_in",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_sources.py",
+            "qualified_name": "tests.test_sources",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_compare_snapshots_reports_added_removed_and_modified_sources",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_digest_includes_relative_path",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_does_not_modify_source_files",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_is_deterministic_and_uses_posix_paths",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_directory_junctions_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_excluded_trees_before_scan_or_read",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_warns_about_symlinks_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_stored_index.py",
+            "qualified_name": "tests.test_stored_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_stored_index.py",
+            "qualified_name": "create_index",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "deterministic": true,
+        "edges": 10432,
+        "name": "setup_project",
+        "nodes": 831,
+        "primary": {
+          "path": "src/silobrief/state.py",
+          "qualified_name": "setup_project"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "silobrief.cli",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/cli.py",
+            "qualified_name": "main",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/language.py",
+            "qualified_name": "default_language_settings",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/path_safety.py",
+            "qualified_name": "is_link_like",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "silobrief.state",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "ConfigData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "NotesData",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "SetupError",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_project_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/state.py",
+            "qualified_name": "_validate_state",
+            "relations": [
+              "calls"
+            ]
+          }
+        ]
+      },
+      {
+        "adjacent_edges": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "silobrief.current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "load_current_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/initialization.py",
+            "qualified_name": "initialize_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "silobrief.output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "_snapshot",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "silobrief.sources",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceFile",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceSnapshot",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceWarning",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_snapshot_digest",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_validated_root",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_walk_sources",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "tests.test_current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_current_index.py",
+            "qualified_name": "CurrentIndexTests.test_loads_current_index_and_returns_source_warnings_read_only",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_output.py",
+            "qualified_name": "tests.test_output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_output.py",
+            "qualified_name": "ApprovedOutputTests.test_source_change_after_write_approval_blocks_output",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "tests/test_sources.py",
+            "qualified_name": "tests.test_sources",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_compare_snapshots_reports_added_removed_and_modified_sources",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_digest_includes_relative_path",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_does_not_modify_source_files",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_is_deterministic_and_uses_posix_paths",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_directory_junctions_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_skips_excluded_trees_before_scan_or_read",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "tests/test_sources.py",
+            "qualified_name": "SourceSnapshotTests.test_snapshot_warns_about_symlinks_without_reading_targets",
+            "relations": [
+              "called-by"
+            ]
+          }
+        ],
+        "boundary_canary_exposures": 0,
+        "cap_ok": true,
+        "deterministic": true,
+        "edges": 10432,
+        "name": "snapshot_sources",
+        "nodes": 831,
+        "primary": {
+          "path": "src/silobrief/sources.py",
+          "qualified_name": "snapshot_sources"
+        },
+        "raw_canary_exposures": 0,
+        "related": [
+          {
+            "kind": "module",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "silobrief.current_index",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/current_index.py",
+            "qualified_name": "load_current_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/initialization.py",
+            "qualified_name": "initialize_index",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "silobrief.output",
+            "relations": [
+              "imported-by"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/output.py",
+            "qualified_name": "_snapshot",
+            "relations": [
+              "called-by"
+            ]
+          },
+          {
+            "kind": "module",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "silobrief.sources",
+            "relations": [
+              "contained-by"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceFile",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceSnapshot",
+            "relations": [
+              "calls"
+            ]
+          },
+          {
+            "kind": "class",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "SourceWarning",
+            "relations": [
+              "references"
+            ]
+          },
+          {
+            "kind": "function",
+            "path": "src/silobrief/sources.py",
+            "qualified_name": "_snapshot_digest",
+            "relations": [
+              "calls"
+            ]
+          }
+        ]
+      }
+    ],
+    "runtime": {
+      "implementation": "cpython",
+      "version": [
+        3,
+        14,
+        3
+      ]
+    },
+    "version": "current"
+  },
+  "evaluator_sha256": "124d0e7e68c5a3352a47611ab0ea165a0373b3b832646f956d48035093238d78",
+  "manifest_sha256": {
+    "edge-idf": "1b45b645362a26a24e3d89805282b4dfd14c583b527ebe326698fbce4f0b5eaf",
+    "ranking": "6fe09278638ccede6e4be981fcc8b2fd5fedcd9288dbcc780210032bce616736"
+  },
+  "schema_version": 1
+}
