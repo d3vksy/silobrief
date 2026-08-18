@@ -48,4 +48,4 @@ class VersionCommandTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(caught.exception.code, 0)
-        self.assertEqual(stdout.getvalue(), "siloBrief 1.0.2\n")
+        self.assertEqual(stdout.getvalue(), "siloBrief 1.0.3\n")

@@ -12,6 +12,7 @@ import silobrief.sources as sources
 from silobrief.boundaries import register_boundary
 from silobrief.sources import SourceWarning, compare_snapshots, snapshot_sources
 from silobrief.state import load_config, setup_project
+from tests.windows_junctions import directory_junction
 
 
 def file_digest(path: Path) -> str:
@@ -184,6 +185,28 @@ class SourceSnapshotTests(unittest.TestCase):
                     SourceWarning(path="linked.py", reason="symbolic link skipped"),
                 ),
             )
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_snapshot_skips_directory_junctions_without_reading_targets(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = root / "project"
+            project.mkdir()
+            outside = root / "outside"
+            outside.mkdir()
+            (outside / "secret.py").write_bytes(b"JUNCTION_CANARY\n")
+            setup_project(project)
+            config = load_config(project)
+
+            with directory_junction(project / "linked", outside):
+                snapshot = snapshot_sources(project, config)
+
+            self.assertEqual(snapshot.files, ())
+            self.assertEqual(
+                snapshot.warnings,
+                (SourceWarning(path="linked", reason="reparse point skipped"),),
+            )
+            self.assertNotIn(b"JUNCTION_CANARY", repr(snapshot).encode())
 
 
 if __name__ == "__main__":

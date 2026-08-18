@@ -5,6 +5,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from silobrief.path_safety import has_link_like_component, is_link_like
 from silobrief.state import (
     STATE_DIRECTORY,
     BoundaryData,
@@ -123,8 +124,12 @@ def _boundary_path(root: Path, start: Path, path_text: str) -> str:
         raise SetupError("boundary path must not contain ..")
 
     try:
+        if has_link_like_component(start):
+            raise SetupError("current directory must not contain a symbolic link or reparse point")
         current = start.resolve(strict=True)
         current.relative_to(root)
+    except SetupError:
+        raise
     except (OSError, ValueError) as error:
         raise SetupError("current directory is outside the project root") from error
 
@@ -132,8 +137,8 @@ def _boundary_path(root: Path, start: Path, path_text: str) -> str:
     candidate = current
     for part in parts:
         candidate /= part
-        if candidate.is_symlink():
-            raise SetupError("boundary path must not contain symbolic links")
+        if is_link_like(candidate):
+            raise SetupError("boundary path must not contain symbolic links or reparse points")
     if not candidate.is_file() and not candidate.is_dir():
         raise SetupError("boundary path must be an existing file or directory")
 

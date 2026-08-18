@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest import mock
 
 from silobrief.cli import main
+from tests.windows_junctions import directory_junction
 
 
 class TtyBuffer(io.StringIO):
@@ -209,6 +210,19 @@ class ExampleCommandTests(unittest.TestCase):
             message = self.assert_example_error(link)
 
             self.assertIn("symbolic link", message)
+            self.assertEqual(list(target.iterdir()), [])
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_rejects_a_directory_junction_target(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.mkdir()
+
+            with directory_junction(root / "practice", target) as junction:
+                message = self.assert_example_error(junction)
+
+            self.assertIn("reparse point", message)
             self.assertEqual(list(target.iterdir()), [])
 
     def test_generation_does_not_change_the_working_directory(self) -> None:

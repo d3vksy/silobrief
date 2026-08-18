@@ -177,7 +177,7 @@ class ChatReviewTests(unittest.TestCase):
             "retry",
             source_index(),
             source_notes(),
-            input_stream=TtyBuffer("y\n1\n\n\nn\nn\nn\nn\nn\n"),
+            input_stream=TtyBuffer("y\n1\nsrc/service.py\n\n\n\nn\nn\nn\nn\nn\n"),
             output_stream=output,
             cli_language="ko",
         )
@@ -193,6 +193,11 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("[r1] 함수 helper.run", visible)
         self.assertIn("선택한 코드가 이 함수를 호출함", visible)
         self.assertIn("선택한 코드가 이 함수를 불러옴(import)", visible)
+        self.assertIn(
+            "소스코드를 포함할 함수나 클래스 번호를 선택하세요 "
+            "(소스코드 없이 파일 정보만 포함하려면 Enter):",
+            visible,
+        )
         self.assertNotIn("연관 맥락", visible)
 
     def test_allows_every_disclosure_field_to_be_declined(self) -> None:
@@ -253,6 +258,11 @@ class ChatReviewTests(unittest.TestCase):
         self.assertIn("Functions and classes in `src/guided.py`:", visible)
         self.assertIn("1. class Service", visible)
         self.assertIn("2. function Service.run", visible)
+        self.assertIn(
+            "Select function or class numbers to include their source code "
+            "(press Enter to include file details only, without source code):",
+            visible,
+        )
         outline = visible.split("Functions and classes in `src/guided.py`:\n", 1)[1].split(
             "Select function or class numbers", 1
         )[0]

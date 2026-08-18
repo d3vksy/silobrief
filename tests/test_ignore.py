@@ -13,6 +13,7 @@ from unittest import mock
 
 from silobrief.cli import main
 from silobrief.state import SetupError
+from tests.windows_junctions import directory_junction
 
 
 @contextlib.contextmanager
@@ -318,6 +319,21 @@ class IgnoreCommandTests(unittest.TestCase):
                     with self.subTest(path=path_text):
                         self.assert_ignore_error([path_text, "--as", "Must fail"])
                         self.assertEqual(state_snapshot(project), before)
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_ignore_rejects_a_directory_junction_component(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            actual = project / "actual"
+            actual.mkdir(parents=True)
+            (actual / "private.py").write_text("pass\n", encoding="utf-8")
+            self.assertEqual(main(["setup", str(project)]), 0)
+            before = state_snapshot(project)
+
+            with directory_junction(project / "linked", actual), working_directory(project):
+                self.assert_ignore_error(["linked/private.py", "--as", "Must fail"])
+
+            self.assertEqual(state_snapshot(project), before)
 
     def test_ignore_rejects_invalid_stored_boundary_schema(self) -> None:
         invalid_boundaries = [

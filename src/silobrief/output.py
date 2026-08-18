@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TextIO
 
 from silobrief.language import Language, localized
+from silobrief.path_safety import has_link_like_component, is_link_like
 from silobrief.renderer import RenderedBrief
 from silobrief.sources import SourceCollectionError, SourceSnapshot, snapshot_sources
 from silobrief.state import STATE_DIRECTORY, SetupError, load_config
@@ -118,8 +119,8 @@ def _output_path(root: Path, start: Path, output_text: str) -> Path:
 
     candidate = requested if requested.is_absolute() else resolved_start / requested
     candidate = candidate.absolute()
-    if candidate.is_symlink():
-        raise OutputBlockedError("output path must not be a symbolic link")
+    if is_link_like(candidate):
+        raise OutputBlockedError("output path must not be a symbolic link or reparse point")
     if candidate.exists():
         raise OutputBlockedError("output path already exists")
 
@@ -128,8 +129,8 @@ def _output_path(root: Path, start: Path, output_text: str) -> Path:
 
 
 def _available_path(destination: Path, root: Path) -> Path:
-    if destination.is_symlink():
-        raise OutputBlockedError("output path must not be a symbolic link")
+    if is_link_like(destination):
+        raise OutputBlockedError("output path must not be a symbolic link or reparse point")
     if destination.exists():
         raise OutputBlockedError("output path already exists")
     _require_allowed_location(destination, root)
@@ -142,7 +143,7 @@ def _uses_foreign_windows_path(path: str, *, platform: str) -> bool:
 
 
 def _real_directory(path: Path, label: str) -> Path:
-    if path.is_symlink() or not path.is_dir():
+    if has_link_like_component(path) or not path.is_dir():
         raise OutputBlockedError(f"{label} must be a real directory")
     try:
         return path.resolve(strict=True)
@@ -154,8 +155,8 @@ def _real_parent(parent: Path) -> Path:
     current = Path(parent.anchor)
     for part in parent.parts[1:]:
         current /= part
-        if current.is_symlink():
-            raise OutputBlockedError("output path contains a symbolic link")
+        if is_link_like(current):
+            raise OutputBlockedError("output path contains a symbolic link or reparse point")
     if not parent.is_dir():
         raise OutputBlockedError("output parent must be an existing directory")
     try:
@@ -171,7 +172,7 @@ def _require_allowed_location(destination: Path, root: Path) -> None:
         return
 
     exports = root / STATE_DIRECTORY / "exports"
-    if exports.is_symlink() or not exports.is_dir():
+    if is_link_like(exports) or not exports.is_dir():
         raise OutputBlockedError("project exports must be a real directory")
     try:
         resolved_exports = exports.resolve(strict=True)

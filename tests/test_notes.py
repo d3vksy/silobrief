@@ -13,6 +13,7 @@ from unittest import mock
 
 from silobrief.cli import main
 from silobrief.state import SetupError
+from tests.windows_junctions import directory_junction
 
 
 @contextlib.contextmanager
@@ -175,6 +176,22 @@ class HumanNotesTests(unittest.TestCase):
                     with self.subTest(path=path_text):
                         self.assert_log_error([path_text, "--comment", "Must fail"])
                         self.assertEqual(notes.read_bytes(), before)
+
+    @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
+    def test_log_rejects_a_directory_junction_component(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            actual = project / "actual"
+            actual.mkdir(parents=True)
+            (actual / "service.py").write_text("pass\n", encoding="utf-8")
+            self.assertEqual(main(["setup", str(project)]), 0)
+            notes = project / ".silobrief" / "notes.json"
+            before = notes.read_bytes()
+
+            with directory_junction(project / "linked", actual), working_directory(project):
+                self.assert_log_error(["linked/service.py", "--comment", "Must fail"])
+
+            self.assertEqual(notes.read_bytes(), before)
 
     def test_state_rejects_invalid_note_entries(self) -> None:
         invalid_notes: list[object] = [

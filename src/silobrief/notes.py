@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
+from silobrief.path_safety import has_link_like_component, is_link_like
 from silobrief.state import (
     ConfigData,
     HumanNoteData,
@@ -51,16 +52,20 @@ def _note_path(root: Path, start: Path, path_text: str) -> str:
         raise SetupError("note path must not contain ..")
 
     try:
+        if has_link_like_component(start):
+            raise SetupError("current directory must not contain a symbolic link or reparse point")
         current = start.resolve(strict=True)
         current.relative_to(root)
+    except SetupError:
+        raise
     except (OSError, ValueError) as error:
         raise SetupError("current directory is outside the project root") from error
 
     candidate = current
     for part in (part for part in normalized.parts if part not in ("", ".")):
         candidate /= part
-        if candidate.is_symlink():
-            raise SetupError("note path must not contain symbolic links")
+        if is_link_like(candidate):
+            raise SetupError("note path must not contain symbolic links or reparse points")
     if not candidate.is_file() and not candidate.is_dir():
         raise SetupError("note path must be an existing file or directory")
 
