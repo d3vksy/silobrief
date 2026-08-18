@@ -111,6 +111,62 @@ class PythonStructureTests(unittest.TestCase):
             ("Box", "Box.transform"),
         )
 
+    def test_accepts_top_level_async_syntax_without_losing_scope_owners(self) -> None:
+        source = source_file(
+            "pyodide_runner.py",
+            (
+                b"async def main():\n"
+                b"    await inside()\n"
+                b"def outer():\n"
+                b"    selected = None\n"
+                b"    def middle():\n"
+                b"        class Configure:\n"
+                b"            nonlocal selected\n"
+                b"            import package.client as selected\n"
+                b"        return Configure\n"
+                b"    return middle\n"
+                b"await main()\n"
+                b"async for item in items:\n"
+                b"    consume(item)\n"
+                b"async with manager():\n"
+                b"    consume(resource)\n"
+                b"values = [item async for item in items]\n"
+                b"async \\\n"
+                b"def continued():\n"
+                b"    pass\n"
+                b"await\f continued()\n"
+                b"async\fdef formfeed():\n"
+                b"    pass\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+        selected = next(item for item in module.imports if item.alias == "selected")
+
+        self.assertEqual(
+            selected.projected_binding_scopes,
+            (ImportBindingScope("outer", conditional=True, deferred=True),),
+        )
+        self.assertIn(Definition("function", "main", "main", True, 1, 1, 1, 2), module.definitions)
+        self.assertIn(
+            Definition("function", "continued", "continued", True, 17, 1, 17, 19),
+            module.definitions,
+        )
+        self.assertIn(
+            Definition("function", "formfeed", "formfeed", True, 21, 1, 21, 22),
+            module.definitions,
+        )
+        self.assertIn(SymbolUse(None, "main", 11, 7), module.calls)
+
+    def test_top_level_async_fallback_keeps_invalid_scopes_rejected(self) -> None:
+        sources = [b"def inner():\n    nonlocal missing\n"]
+        if sys.version_info >= (3, 14):
+            sources.append(b"class Invalid:\n    await run()\n")
+
+        for content in sources:
+            with self.subTest(content=content), self.assertRaises(PythonParseError):
+                extract_structures(source_snapshot(source_file("invalid.py", content)))
+
     def test_extracts_import_variants_in_source_order(self) -> None:
         source = source_file(
             "imports.py",
