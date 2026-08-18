@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import ast
+import io
+import symtable
+import tokenize
 from dataclasses import dataclass
 from typing import Literal, TypeAlias
 
@@ -52,6 +55,13 @@ class Definition:
 
 
 @dataclass(frozen=True, slots=True)
+class ImportBindingScope:
+    context: str | None
+    conditional: bool = False
+    deferred: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class ImportEntry:
     module: str | None
     name: str | None
@@ -61,6 +71,7 @@ class ImportEntry:
     line: int
     column: int
     conditional: bool = False
+    projected_binding_scopes: tuple[ImportBindingScope, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +114,8 @@ def extract_structures(snapshot: SourceSnapshot) -> tuple[ModuleStructure, ...]:
 def extract_module_structure(source: SourceFile) -> ModuleStructure:
     try:
         tree = ast.parse(source.content, filename=source.path, mode="exec")
+        encoding, _ = tokenize.detect_encoding(io.BytesIO(source.content).readline)
+        symbols = symtable.symtable(source.content.decode(encoding), source.path, "exec")
     except SyntaxError as error:
         raise PythonParseError(
             path=source.path,
@@ -111,7 +124,7 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
             reason=error.msg,
         ) from error
 
-    visitor = _StructureVisitor()
+    visitor = _StructureVisitor(symbols)
     visitor.visit(tree)
     return ModuleStructure(
         path=source.path,
@@ -124,13 +137,17 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
 
 
 class _StructureVisitor(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, symbols: symtable.SymbolTable) -> None:
         self.definitions: list[Definition] = []
         self.imports: list[ImportEntry] = []
         self.calls: list[SymbolUse] = []
         self.references: list[SymbolUse] = []
         self.declarations: list[ScopeDeclaration] = []
         self._contexts: list[str] = []
+        self._context_kinds: list[DefinitionKind] = []
+        self._context_conditionals: list[bool] = []
+        self._scope_declarations: list[dict[str, DeclarationKind]] = []
+        self._symbol_tables = [symbols]
         self._conditional_depth = 0
         self._synthetic_scopes: list[set[str]] = []
         self._lookup_limit: tuple[int, int] | None = None
@@ -157,6 +174,9 @@ class _StructureVisitor(ast.NodeVisitor):
                     line=line,
                     column=column,
                     conditional=self._conditional_depth > 0,
+                    projected_binding_scopes=self._projected_import_scopes(
+                        imported.asname or imported.name.split(".", 1)[0]
+                    ),
                 )
             )
 
@@ -173,6 +193,9 @@ class _StructureVisitor(ast.NodeVisitor):
                     line=line,
                     column=column,
                     conditional=self._conditional_depth > 0,
+                    projected_binding_scopes=self._projected_import_scopes(
+                        imported.asname or imported.name
+                    ),
                 )
             )
 
@@ -286,6 +309,10 @@ class _StructureVisitor(ast.NodeVisitor):
         finally:
             self._lookup_limit = previous_limit
         self._contexts.append(qualified_name)
+        self._context_kinds.append(kind)
+        self._context_conditionals.append(self._conditional_depth > 0)
+        self._scope_declarations.append({})
+        self._symbol_tables.append(_child_symbol_table(self._symbol_tables[-1], node, kind))
         previous_conditional_depth = self._conditional_depth
         self._conditional_depth = 0
         try:
@@ -293,7 +320,11 @@ class _StructureVisitor(ast.NodeVisitor):
                 self.visit(statement)
         finally:
             self._conditional_depth = previous_conditional_depth
+            self._scope_declarations.pop()
+            self._context_conditionals.pop()
+            self._context_kinds.pop()
             self._contexts.pop()
+            self._symbol_tables.pop()
 
     def _visit_definition_header(
         self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef
@@ -317,6 +348,44 @@ class _StructureVisitor(ast.NodeVisitor):
         self.declarations.extend(
             ScopeDeclaration(kind, name, self._context, line, column) for name in node.names
         )
+        if self._scope_declarations:
+            self._scope_declarations[-1].update(dict.fromkeys(node.names, kind))
+
+    def _projected_import_scopes(self, name: str) -> tuple[ImportBindingScope, ...]:
+        if not self._context_kinds:
+            return ()
+        declaration = self._scope_declarations[-1].get(name)
+        if declaration is None:
+            return ()
+
+        source_kind = self._context_kinds[-1]
+        deferred = source_kind == "function"
+        conditional = self._conditional_depth > 0
+        conditional = conditional or (
+            self._context_conditionals[-1] if source_kind == "class" else True
+        )
+        if declaration == "global":
+            for kind, definition_conditional in zip(
+                self._context_kinds[:-1], self._context_conditionals[:-1], strict=True
+            ):
+                if kind == "function":
+                    conditional = deferred = True
+                conditional = conditional or definition_conditional
+            return (ImportBindingScope(None, conditional, deferred),)
+
+        for index in range(len(self._contexts) - 2, -1, -1):
+            kind = self._context_kinds[index]
+            if kind == "function":
+                try:
+                    owns_name = self._symbol_tables[index + 1].lookup(name).is_local()
+                except KeyError:
+                    owns_name = False
+                if owns_name:
+                    return (ImportBindingScope(self._contexts[index], conditional, deferred),)
+                conditional = deferred = True
+            else:
+                conditional = conditional or self._context_conditionals[index]
+        return ()
 
     def _symbol_use(self, target: str, line: int, column: int) -> SymbolUse:
         root = target.split(".", 1)[0]
@@ -371,6 +440,22 @@ class _StructureVisitor(ast.NodeVisitor):
     @property
     def _context(self) -> str | None:
         return self._contexts[-1] if self._contexts else None
+
+
+def _child_symbol_table(
+    parent: symtable.SymbolTable,
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+    kind: DefinitionKind,
+) -> symtable.SymbolTable:
+    for child in parent.get_children():
+        if child.get_name() == node.name and child.get_lineno() == node.lineno:
+            if child.get_type() == kind:
+                return child
+            try:
+                return _child_symbol_table(child, node, kind)
+            except RuntimeError:
+                pass
+    raise RuntimeError(f"missing symbol table for {kind} {node.name} at line {node.lineno}")
 
 
 def _dotted_name(node: ast.expr) -> str | None:
