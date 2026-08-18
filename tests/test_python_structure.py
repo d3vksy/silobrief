@@ -8,6 +8,7 @@ from silobrief.python_structure import (
     Definition,
     ImportEntry,
     PythonParseError,
+    ScopeDeclaration,
     SymbolUse,
     extract_structures,
 )
@@ -52,8 +53,28 @@ class PythonStructureTests(unittest.TestCase):
             (
                 Definition("class", "Outer", "Outer", False, 1, 1, 1, 7),
                 Definition("class", "Inner", "Outer.Inner", False, 2, 5, 2, 3),
-                Definition("function", "method", "Outer.method", False, 4, 5, 4, 5),
-                Definition("function", "fetch", "Outer.fetch", True, 6, 5, 6, 7),
+                Definition(
+                    "function",
+                    "method",
+                    "Outer.method",
+                    False,
+                    4,
+                    5,
+                    4,
+                    5,
+                    ("self",),
+                ),
+                Definition(
+                    "function",
+                    "fetch",
+                    "Outer.fetch",
+                    True,
+                    6,
+                    5,
+                    6,
+                    7,
+                    ("self",),
+                ),
                 Definition("function", "top", "top", False, 8, 1, 8, 10),
                 Definition("function", "nested", "top.nested", False, 9, 5, 9, 10),
             ),
@@ -118,6 +139,75 @@ class PythonStructureTests(unittest.TestCase):
             ),
         )
 
+    def test_extracts_global_and_nonlocal_declarations_by_context(self) -> None:
+        source = source_file(
+            "scopes.py",
+            (
+                b"value = 1\n"
+                b"def outer():\n"
+                b"    value = 2\n"
+                b"    def use_nonlocal():\n"
+                b"        nonlocal value\n"
+                b"        return value\n"
+                b"    def use_global():\n"
+                b"        global value\n"
+                b"        return value\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+
+        self.assertEqual(
+            module.declarations,
+            (
+                ScopeDeclaration("nonlocal", "value", "outer.use_nonlocal", 5, 9),
+                ScopeDeclaration("global", "value", "outer.use_global", 8, 9),
+            ),
+        )
+
+    def test_marks_conditional_bindings_without_leaking_into_definition_bodies(self) -> None:
+        source = source_file(
+            "branches.py",
+            (
+                b"def choose(flag):\n"
+                b"    if flag:\n"
+                b"        import private_api as service\n"
+                b"    else:\n"
+                b"        def service():\n"
+                b"            import body_dependency\n"
+                b"    import direct_dependency\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+        imports = {(item.module, item.context): item.conditional for item in module.imports}
+        service = next(item for item in module.definitions if item.name == "service")
+
+        self.assertTrue(imports[("private_api", "choose")])
+        self.assertFalse(imports[("body_dependency", "choose.service")])
+        self.assertFalse(imports[("direct_dependency", "choose")])
+        self.assertTrue(service.conditional)
+
+    def test_marks_lambda_and_comprehension_lookup_scopes(self) -> None:
+        source = source_file(
+            "synthetic.py",
+            (
+                b"class Worker:\n"
+                b"    lambda_value = (lambda local: local())(None)\n"
+                b"    values = [item() for item in items()]\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+        calls = {call.target: call for call in module.calls}
+
+        self.assertTrue(calls["local"].skip_class_scope)
+        self.assertTrue(calls["local"].synthetic_local)
+        self.assertFalse(calls["items"].skip_class_scope)
+        self.assertFalse(calls["items"].synthetic_local)
+        self.assertTrue(calls["item"].skip_class_scope)
+        self.assertTrue(calls["item"].synthetic_local)
+
     def test_attributes_definition_header_calls_to_the_enclosing_context(self) -> None:
         source = source_file(
             "definitions.py",
@@ -155,7 +245,10 @@ class PythonStructureTests(unittest.TestCase):
             },
         )
         self.assertEqual(len(module.calls), len(contexts))
-        self.assertIn(SymbolUse("outer", "Value", 3, 22), module.references)
+        self.assertIn(
+            SymbolUse("outer", "Value", 3, 22, lookup_limit=(3, 5)),
+            module.references,
+        )
 
     def test_omits_source_text_comments_docstrings_and_string_literals(self) -> None:
         source = source_file(

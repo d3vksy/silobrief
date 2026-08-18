@@ -7,6 +7,7 @@ from typing import Literal, TypeAlias
 from silobrief.sources import SourceFile, SourceSnapshot
 
 DefinitionKind: TypeAlias = Literal["class", "function"]
+DeclarationKind: TypeAlias = Literal["global", "nonlocal"]
 
 
 class PythonParseError(Exception):
@@ -46,6 +47,8 @@ class Definition:
     column: int
     start_line: int
     end_line: int
+    parameters: tuple[str, ...] = ()
+    conditional: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,12 +60,25 @@ class ImportEntry:
     context: str | None
     line: int
     column: int
+    conditional: bool = False
 
 
 @dataclass(frozen=True, slots=True)
 class SymbolUse:
     context: str | None
     target: str
+    line: int
+    column: int
+    skip_class_scope: bool = False
+    synthetic_local: bool = False
+    lookup_limit: tuple[int, int] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ScopeDeclaration:
+    kind: DeclarationKind
+    name: str
+    context: str | None
     line: int
     column: int
 
@@ -74,6 +90,7 @@ class ModuleStructure:
     imports: tuple[ImportEntry, ...]
     calls: tuple[SymbolUse, ...]
     references: tuple[SymbolUse, ...]
+    declarations: tuple[ScopeDeclaration, ...]
 
 
 def extract_structures(snapshot: SourceSnapshot) -> tuple[ModuleStructure, ...]:
@@ -102,6 +119,7 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
         imports=tuple(visitor.imports),
         calls=tuple(visitor.calls),
         references=tuple(visitor.references),
+        declarations=tuple(visitor.declarations),
     )
 
 
@@ -111,7 +129,11 @@ class _StructureVisitor(ast.NodeVisitor):
         self.imports: list[ImportEntry] = []
         self.calls: list[SymbolUse] = []
         self.references: list[SymbolUse] = []
+        self.declarations: list[ScopeDeclaration] = []
         self._contexts: list[str] = []
+        self._conditional_depth = 0
+        self._synthetic_scopes: list[set[str]] = []
+        self._lookup_limit: tuple[int, int] | None = None
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_definition(node, "class", is_async=False)
@@ -134,6 +156,7 @@ class _StructureVisitor(ast.NodeVisitor):
                     context=self._context,
                     line=line,
                     column=column,
+                    conditional=self._conditional_depth > 0,
                 )
             )
 
@@ -149,6 +172,7 @@ class _StructureVisitor(ast.NodeVisitor):
                     context=self._context,
                     line=line,
                     column=column,
+                    conditional=self._conditional_depth > 0,
                 )
             )
 
@@ -158,7 +182,7 @@ class _StructureVisitor(ast.NodeVisitor):
             self.visit(node.func)
         else:
             line, column = _location(node)
-            self.calls.append(SymbolUse(self._context, target, line, column))
+            self.calls.append(self._symbol_use(target, line, column))
 
         for argument in node.args:
             self.visit(argument)
@@ -170,14 +194,65 @@ class _StructureVisitor(ast.NodeVisitor):
             target = _dotted_name(node)
             if target is not None:
                 line, column = _location(node)
-                self.references.append(SymbolUse(self._context, target, line, column))
+                self.references.append(self._symbol_use(target, line, column))
                 return
         self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
             line, column = _location(node)
-            self.references.append(SymbolUse(self._context, node.id, line, column))
+            self.references.append(self._symbol_use(node.id, line, column))
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:
+        for default in (*node.args.defaults, *node.args.kw_defaults):
+            if default is not None:
+                self.visit(default)
+        self._visit_synthetic(node.body, set(_argument_names(node.args)))
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._visit_comprehension(node.generators, (node.elt,))
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._visit_comprehension(node.generators, (node.elt,))
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self._visit_comprehension(node.generators, (node.elt,))
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._visit_comprehension(node.generators, (node.key, node.value))
+
+    def visit_If(self, node: ast.If) -> None:
+        self._visit_conditional(node)
+
+    def visit_For(self, node: ast.For) -> None:
+        self._visit_conditional(node)
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        self._visit_conditional(node)
+
+    def visit_While(self, node: ast.While) -> None:
+        self._visit_conditional(node)
+
+    def visit_Try(self, node: ast.Try) -> None:
+        self._visit_conditional(node)
+
+    def visit_TryStar(self, node: ast.AST) -> None:
+        self._visit_conditional(node)
+
+    def visit_Match(self, node: ast.Match) -> None:
+        self._visit_conditional(node)
+
+    def visit_With(self, node: ast.With) -> None:
+        self._visit_conditional(node)
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
+        self._visit_conditional(node)
+
+    def visit_Global(self, node: ast.Global) -> None:
+        self._record_declarations("global", node)
+
+    def visit_Nonlocal(self, node: ast.Nonlocal) -> None:
+        self._record_declarations("nonlocal", node)
 
     def _visit_definition(
         self,
@@ -200,14 +275,24 @@ class _StructureVisitor(ast.NodeVisitor):
                 column,
                 start_line,
                 end_line,
+                _function_parameters(node),
+                self._conditional_depth > 0,
             )
         )
-        self._visit_definition_header(node)
+        previous_limit = self._lookup_limit
+        self._lookup_limit = (line, column)
+        try:
+            self._visit_definition_header(node)
+        finally:
+            self._lookup_limit = previous_limit
         self._contexts.append(qualified_name)
+        previous_conditional_depth = self._conditional_depth
+        self._conditional_depth = 0
         try:
             for statement in node.body:
                 self.visit(statement)
         finally:
+            self._conditional_depth = previous_conditional_depth
             self._contexts.pop()
 
     def _visit_definition_header(
@@ -222,6 +307,66 @@ class _StructureVisitor(ast.NodeVisitor):
                 for item in value:
                     if isinstance(item, ast.AST):
                         self.visit(item)
+
+    def _record_declarations(
+        self,
+        kind: DeclarationKind,
+        node: ast.Global | ast.Nonlocal,
+    ) -> None:
+        line, column = _location(node)
+        self.declarations.extend(
+            ScopeDeclaration(kind, name, self._context, line, column) for name in node.names
+        )
+
+    def _symbol_use(self, target: str, line: int, column: int) -> SymbolUse:
+        root = target.split(".", 1)[0]
+        return SymbolUse(
+            self._context,
+            target,
+            line,
+            column,
+            skip_class_scope=bool(self._synthetic_scopes),
+            synthetic_local=any(root in scope for scope in reversed(self._synthetic_scopes)),
+            lookup_limit=self._lookup_limit,
+        )
+
+    def _visit_synthetic(self, node: ast.AST, names: set[str]) -> None:
+        self._synthetic_scopes.append(names)
+        try:
+            self.visit(node)
+        finally:
+            self._synthetic_scopes.pop()
+
+    def _visit_comprehension(
+        self,
+        generators: list[ast.comprehension],
+        results: tuple[ast.expr, ...],
+    ) -> None:
+        first, *remaining = generators
+        self.visit(first.iter)
+        names = _bound_names(first.target)
+        self._synthetic_scopes.append(names)
+        try:
+            self.visit(first.target)
+            for condition in first.ifs:
+                self.visit(condition)
+            for generator in remaining:
+                self.visit(generator.iter)
+                names.update(_bound_names(generator.target))
+                self.visit(generator.target)
+                for condition in generator.ifs:
+                    self.visit(condition)
+            for result in results:
+                self.visit(result)
+        finally:
+            self._synthetic_scopes.pop()
+
+    def _visit_conditional(self, node: ast.AST) -> None:
+        self._conditional_depth += 1
+        try:
+            self.generic_visit(node)
+        finally:
+            self._conditional_depth -= 1
 
     @property
     def _context(self) -> str | None:
@@ -239,6 +384,32 @@ def _dotted_name(node: ast.expr) -> str | None:
     parts.append(current.id)
     parts.reverse()
     return ".".join(parts)
+
+
+def _function_parameters(
+    node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef,
+) -> tuple[str, ...]:
+    return () if isinstance(node, ast.ClassDef) else _argument_names(node.args)
+
+
+def _argument_names(arguments: ast.arguments) -> tuple[str, ...]:
+    names = [argument.arg for argument in (*arguments.posonlyargs, *arguments.args)]
+    if arguments.vararg is not None:
+        names.append(arguments.vararg.arg)
+    names.extend(argument.arg for argument in arguments.kwonlyargs)
+    if arguments.kwarg is not None:
+        names.append(arguments.kwarg.arg)
+    return tuple(names)
+
+
+def _bound_names(node: ast.expr) -> set[str]:
+    if isinstance(node, ast.Name):
+        return {node.id}
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return set().union(*(_bound_names(item) for item in node.elts))
+    if isinstance(node, ast.Starred):
+        return _bound_names(node.value)
+    return set()
 
 
 def _location(node: ast.stmt | ast.expr) -> tuple[int, int]:
