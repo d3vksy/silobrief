@@ -20,7 +20,7 @@ _MAX_IMPLEMENTATION_CANDIDATES = 7
 _MAX_TEST_CANDIDATES = _MAX_CANDIDATES - _MAX_IMPLEMENTATION_CANDIDATES
 _LEADING_ACTION_BONUS = 8
 _EXACT_MODULE_BONUS = 4
-_TEST_QUERY_TOKENS = frozenset({"test", "tests", "pytest", "unittest"})
+_TEST_QUERY_TOKENS = frozenset({"test", "tests", "pytest", "unittest", "테스트"})
 _WORD_PATTERN = re.compile(r"[^\W_]+", re.UNICODE)
 
 
