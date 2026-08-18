@@ -7,6 +7,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-08-18
+
+### Fixed
+
+- Exclude every indexed item from a file when the user leaves that file out during review (#170).
+- Recognize Korean test requests when deciding whether to include test-file candidates (#171).
+- Clarify that choosing a file path opens its outline and only explicitly selected definitions add
+  source code to the brief (#172).
+- Attribute decorators, base classes, and default-value expressions to the enclosing scope instead
+  of treating them as calls from the function or class body (#173).
+- Reject Windows reparse points while validating project sources, local state, and output paths.
+
 ## [1.0.2] - 2026-08-17
 
 ### Changed
