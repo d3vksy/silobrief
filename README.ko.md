@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/release-v1.0.3-4f46e5" alt="릴리스 v1.0.3"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.4"><img src="https://img.shields.io/badge/release-v1.0.4-4f46e5" alt="릴리스 v1.0.4"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -48,7 +48,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 1.0.3
+siloBrief 1.0.4
 ```
 
 ### 실습 예제
@@ -191,7 +191,7 @@ siloBrief는 등록된 제외 경로를 읽지 않고, 색인을 만들 때 심�
 
 ## 검증 현황
 
-최신 공개 버전은 v1.0.3이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
+최신 공개 버전은 v1.0.4이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
 12개 과제 중 11개의 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다. 후보 검색은 단어 기반
 제안입니다. 원하는 코드를 찾지 못하면 검토 중 정확한 Python 파일 상대 경로를 입력할 수
 있습니다.
@@ -207,6 +207,7 @@ Django Ninja, pytest, Jinja 저장소에서 Python 소스를 바꾸지 않고 �
 - [v0.8 연관 맥락 결과](validation/v0.8/RELATED_CONTEXT_RESULT.md)
 - [1인 현장 시험 절차](validation/v0.9/FIELD_TRIAL.md)
 - [v1.0.1 릴리스 검증](validation/v1.0.1/RELEASE_VERIFICATION.md)
+- [v1.0 범위 기반 연관 코드 검증](validation/v1.0-scope-related-context/REPORT.md)
 
 ## 종료 코드
 
