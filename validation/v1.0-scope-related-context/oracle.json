@@ -1,0 +1,183 @@
+{
+  "cases": [
+    {
+      "allowed_edges": [
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware",
+          "relation": "contained-by"
+        },
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.__call__",
+          "relation": "called-by"
+        },
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.create_send_wrapper.send_wrapper",
+          "relation": "called-by"
+        }
+      ],
+      "required_edges": [
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware",
+          "relation": "contained-by"
+        },
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.__call__",
+          "relation": "called-by"
+        },
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.create_send_wrapper.send_wrapper",
+          "relation": "called-by"
+        }
+      ],
+      "required_nodes": [
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.__call__"
+        },
+        {
+          "path": "litestar/middleware/rate_limit.py",
+          "qualified_name": "RateLimitMiddleware.create_send_wrapper.send_wrapper"
+        }
+      ],
+      "repository": "litestar-org/litestar"
+    },
+    {
+      "allowed_edges": [
+        {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin",
+          "relation": "contained-by"
+        },
+        {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin.serve",
+          "relation": "called-by"
+        }
+      ],
+      "required_edges": [
+        {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin",
+          "relation": "contained-by"
+        },
+        {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin.serve",
+          "relation": "called-by"
+        }
+      ],
+      "required_nodes": [
+        {
+          "path": "sanic/mixins/startup.py",
+          "qualified_name": "StartupMixin.serve"
+        }
+      ],
+      "repository": "sanic-org/sanic"
+    },
+    {
+      "allowed_edges": [
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "black.linegen",
+          "relation": "imported-by"
+        },
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "_hugging_power_ops_line_to_string",
+          "relation": "called-by"
+        },
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "transform_line",
+          "relation": "referenced-by"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "black.trans",
+          "relation": "contained-by"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "CannotTransform",
+          "relation": "calls"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_lookup",
+          "relation": "contains"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_operand",
+          "relation": "calls"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_operand",
+          "relation": "contains"
+        }
+      ],
+      "required_edges": [
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "black.linegen",
+          "relation": "imported-by"
+        },
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "_hugging_power_ops_line_to_string",
+          "relation": "called-by"
+        },
+        {
+          "path": "src/black/linegen.py",
+          "qualified_name": "transform_line",
+          "relation": "referenced-by"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "black.trans",
+          "relation": "contained-by"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "CannotTransform",
+          "relation": "calls"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_lookup",
+          "relation": "contains"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_operand",
+          "relation": "calls"
+        },
+        {
+          "path": "src/black/trans.py",
+          "qualified_name": "hug_power_op.is_simple_operand",
+          "relation": "contains"
+        }
+      ],
+      "required_nodes": [
+        {
+          "path": "src/black/lines.py",
+          "qualified_name": "Line.append"
+        },
+        {
+          "path": "src/blib2to3/pytree.py",
+          "qualified_name": "Leaf.clone"
+        }
+      ],
+      "repository": "psf/black"
+    }
+  ],
+  "frozen_before_interpretation": true,
+  "schema_version": 1
+}

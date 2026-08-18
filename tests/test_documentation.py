@@ -72,8 +72,8 @@ SAFETY_EXPECTATIONS = {
     "README.ko.md": ("제외 경로", "심볼릭 링크", "보안 검사기"),
 }
 VALIDATION_EXPECTATIONS = {
-    "README.md": ("v1.0.3", "1.x", "11 of 12", "72.2%"),
-    "README.ko.md": ("v1.0.3", "1.x", "12개 과제 중 11개", "72.2%"),
+    "README.md": ("v1.0.4", "1.x", "11 of 12", "72.2%"),
+    "README.ko.md": ("v1.0.4", "1.x", "12개 과제 중 11개", "72.2%"),
 }
 VALIDATION_PROJECTS = ("Django Ninja", "pytest", "Jinja")
 VALIDATION_LINKS = (
@@ -84,6 +84,7 @@ VALIDATION_LINKS = (
     "validation/v0.8/RELATED_CONTEXT_RESULT.md",
     "validation/v0.9/FIELD_TRIAL.md",
     "validation/v1.0.1/RELEASE_VERIFICATION.md",
+    "validation/v1.0-scope-related-context/REPORT.md",
 )
 PRACTICE_FLOW_EXPECTATIONS = (
     "sb example ./silobrief-practice",
@@ -161,6 +162,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.0.4] - 2026-08-19", changelog)
         self.assertIn("## [1.0.3] - 2026-08-18", changelog)
         self.assertIn("## [1.0.2] - 2026-08-17", changelog)
         self.assertIn("## [1.0.1] - 2026-08-12", changelog)
@@ -187,8 +189,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertNotIn("has not released a supported version yet", security)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "1.0.3"'), 1)
-        self.assertEqual(version("silobrief"), "1.0.3")
+        self.assertEqual(pyproject.count('version = "1.0.4"'), 1)
+        self.assertEqual(version("silobrief"), "1.0.4")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

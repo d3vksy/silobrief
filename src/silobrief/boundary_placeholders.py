@@ -71,6 +71,9 @@ class BoundaryMatcher:
                 return self._match_module(f"{origin}{suffix}")
         return None
 
+    def match_resolved(self, target: str) -> BoundaryPlaceholder | None:
+        return self._match_module(target)
+
     def _visible_origins(self, context: str | None) -> tuple[tuple[str, str], ...]:
         contexts: list[str | None] = []
         current = context

@@ -7,6 +7,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-08-19
+
+### Added
+
+- Record a frozen 12-task comparison of scope-correct one-hop related context. Two of the three
+  affected tasks gained required context without adding unnecessary proposals (#185).
+
+### Fixed
+
+- Keep indexing Pyodide and notebook-style Python files that use top-level asynchronous syntax
+  while preserving scope metadata (#188).
+- Resolve definitions, imports, method receivers, and boundary placeholders using Python lexical
+  scopes and source-order rebinding rules (#182). Existing projects should run `sb init` after
+  upgrading to rebuild the derived index with corrected graph edges.
+
 ## [1.0.3] - 2026-08-18
 
 ### Fixed
