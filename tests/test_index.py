@@ -214,6 +214,639 @@ class DeterministicIndexTests(unittest.TestCase):
             index.edges,
         )
 
+    def test_resolves_definitions_in_python_lexical_scopes(self) -> None:
+        source = source_file(
+            "scope_demo.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def outer():\n"
+                b"    def helper():\n"
+                b"        return 'local'\n"
+                b"    return helper()\n"
+                b"class Worker:\n"
+                b"    def helper(self):\n"
+                b"        return 'method'\n"
+                b"    def run(self):\n"
+                b"        helper()\n"
+                b"        def inner():\n"
+                b"            return self.helper()\n"
+                b"        return inner()\n"
+                b"    @classmethod\n"
+                b"    def create(cls):\n"
+                b"        return cls.helper()\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes["outer"].id,
+                "call",
+                "helper",
+                nodes["outer.helper"].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes["Worker.run"].id,
+                "call",
+                "helper",
+                nodes["helper"].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes["Worker.run"].id,
+                "call",
+                "inner",
+                nodes["Worker.run.inner"].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes["Worker.run.inner"].id,
+                "call",
+                "self.helper",
+                nodes["Worker.helper"].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes["Worker.create"].id,
+                "call",
+                "cls.helper",
+                nodes["Worker.helper"].id,
+            ),
+            index.edges,
+        )
+
+    def test_resolves_imports_in_python_lexical_scopes(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from pkg import global_target as alias\n"
+                b"def outer():\n"
+                b"    from pkg import local_target as alias\n"
+                b"    def inner():\n"
+                b"        return alias()\n"
+                b"    class NestedWorker:\n"
+                b"        from pkg import class_target as alias\n"
+                b"        def run(self):\n"
+                b"            return alias()\n"
+                b"    return inner()\n"
+                b"class Worker:\n"
+                b"    from pkg import class_target as alias\n"
+                b"    value = alias()\n"
+                b"    def run(self):\n"
+                b"        return alias()\n"
+            ),
+        )
+        dependency = source_file(
+            "pkg.py",
+            (
+                b"def global_target():\n"
+                b"    return 'global'\n"
+                b"def local_target():\n"
+                b"    return 'local'\n"
+                b"def class_target():\n"
+                b"    return 'class'\n"
+            ),
+        )
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "outer.inner")].id,
+                "call",
+                "alias",
+                nodes[("pkg.py", "local_target")].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "Worker")].id,
+                "call",
+                "alias",
+                nodes[("pkg.py", "class_target")].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "Worker.run")].id,
+                "call",
+                "alias",
+                nodes[("pkg.py", "global_target")].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "outer.NestedWorker.run")].id,
+                "call",
+                "alias",
+                nodes[("pkg.py", "local_target")].id,
+            ),
+            index.edges,
+        )
+
+    def test_local_import_takes_priority_over_outer_definition(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def outer():\n"
+                b"    from pkg import helper\n"
+                b"    return helper()\n"
+            ),
+        )
+        dependency = source_file("pkg.py", b"def helper():\n    return 'imported'\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "outer")].id,
+                "call",
+                "helper",
+                nodes[("pkg.py", "helper")].id,
+            ),
+            index.edges,
+        )
+
+    def test_uses_the_latest_definition_or_import_in_the_same_scope(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"def imported_last():\n"
+                b"    def helper():\n"
+                b"        return 'local'\n"
+                b"    from pkg import helper\n"
+                b"    callback = helper\n"
+                b"    return helper()\n"
+                b"def defined_last():\n"
+                b"    from pkg import helper\n"
+                b"    def helper():\n"
+                b"        return 'local'\n"
+                b"    callback = helper\n"
+                b"    return helper()\n"
+            ),
+        )
+        dependency = source_file("pkg.py", b"def helper():\n    return 'imported'\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        imported = nodes[("pkg.py", "helper")]
+        local = nodes[("caller.py", "defined_last.helper")]
+
+        for kind in ("call", "reference"):
+            with self.subTest(scope="imported_last", kind=kind):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", "imported_last")].id,
+                        kind,
+                        "helper",
+                        imported.id,
+                    ),
+                    index.edges,
+                )
+            with self.subTest(scope="defined_last", kind=kind):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", "defined_last")].id,
+                        kind,
+                        "helper",
+                        local.id,
+                    ),
+                    index.edges,
+                )
+
+    def test_calls_follow_repeated_import_rebindings(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"def choose():\n"
+                b"    from first import target as selected\n"
+                b"    selected()\n"
+                b"    from second import target as selected\n"
+                b"    selected()\n"
+            ),
+        )
+        first = source_file("first.py", b"def target():\n    return 1\n")
+        second = source_file("second.py", b"def target():\n    return 2\n")
+        snapshot = source_snapshot(caller, first, second)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        choose = nodes[("caller.py", "choose")]
+
+        self.assertIn(
+            IndexEdge(choose.id, "call", "selected", nodes[("first.py", "target")].id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(choose.id, "call", "selected", nodes[("second.py", "target")].id),
+            index.edges,
+        )
+
+    def test_nested_uses_take_the_latest_binding_before_their_definition(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from first import target as module_selected\n"
+                b"from second import target as module_selected\n"
+                b"def module_user():\n"
+                b"    return module_selected()\n"
+                b"def outer():\n"
+                b"    from first import target as local_selected\n"
+                b"    from second import target as local_selected\n"
+                b"    def inner():\n"
+                b"        return local_selected()\n"
+                b"    return inner\n"
+            ),
+        )
+        first = source_file("first.py", b"def target():\n    return 1\n")
+        second = source_file("second.py", b"def target():\n    return 2\n")
+        snapshot = source_snapshot(caller, first, second)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        second_target = nodes[("second.py", "target")]
+
+        for qualified_name, target in (
+            ("module_user", "module_selected"),
+            ("outer.inner", "local_selected"),
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", qualified_name)].id,
+                        "call",
+                        target,
+                        second_target.id,
+                    ),
+                    index.edges,
+                )
+
+    def test_function_bodies_resolve_module_bindings_defined_later(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"def run():\n"
+                b"    Later()\n"
+                b"    return selected()\n"
+                b"class Later:\n"
+                b"    pass\n"
+                b"from dependency import target as selected\n"
+            ),
+        )
+        dependency = source_file("dependency.py", b"def target():\n    return 1\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        run = nodes[("caller.py", "run")]
+
+        self.assertIn(
+            IndexEdge(run.id, "call", "Later", nodes[("caller.py", "Later")].id), index.edges
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "selected", nodes[("dependency.py", "target")].id),
+            index.edges,
+        )
+
+    def test_declarations_are_scoped_to_each_duplicate_definition_body(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from module_api import target as selected\n"
+                b"def outer():\n"
+                b"    from local_api import target as selected\n"
+                b"    def duplicate():\n"
+                b"        global selected\n"
+                b"        return selected()\n"
+                b"    def duplicate():\n"
+                b"        return selected()\n"
+                b"    return duplicate()\n"
+            ),
+        )
+        module_api = source_file("module_api.py", b"def target():\n    return 1\n")
+        local_api = source_file("local_api.py", b"def target():\n    return 2\n")
+        snapshot = source_snapshot(caller, module_api, local_api)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        duplicate = nodes[("caller.py", "outer.duplicate")]
+
+        self.assertIn(
+            IndexEdge(duplicate.id, "call", "selected", nodes[("module_api.py", "target")].id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(duplicate.id, "call", "selected", nodes[("local_api.py", "target")].id),
+            index.edges,
+        )
+
+    def test_class_only_import_is_not_visible_to_a_method(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"class Worker:\n"
+                b"    from pkg import helper as alias\n"
+                b"    def run(self):\n"
+                b"        return alias()\n"
+            ),
+        )
+        dependency = source_file("pkg.py", b"def helper():\n    return 1\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        call = next(
+            edge
+            for edge in index.edges
+            if edge.source_id == nodes[("caller.py", "Worker.run")].id and edge.kind == "call"
+        )
+
+        self.assertEqual(call.target, "alias")
+        self.assertIsNone(call.target_id)
+
+    def test_dotted_import_binds_the_top_level_package_name(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"def pkg():\n"
+                b"    return 'function'\n"
+                b"def run():\n"
+                b"    import pkg.sub\n"
+                b"    return pkg\n"
+            ),
+        )
+        package = source_file("pkg/__init__.py", b"VALUE = 1\n")
+        dependency = source_file("pkg/sub.py", b"VALUE = 2\n")
+        snapshot = source_snapshot(caller, package, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "run")].id,
+                "reference",
+                "pkg",
+                nodes[("pkg/__init__.py", "pkg")].id,
+            ),
+            index.edges,
+        )
+
+    def test_declaration_scope_imports_override_existing_outer_bindings(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from first import target as selected\n"
+                b"def use_global():\n"
+                b"    global selected\n"
+                b"    from second import target as selected\n"
+                b"    return selected()\n"
+                b"def outer():\n"
+                b"    from first import target as selected\n"
+                b"    def use_nonlocal():\n"
+                b"        nonlocal selected\n"
+                b"        from second import target as selected\n"
+                b"        return selected()\n"
+                b"    return use_nonlocal()\n"
+            ),
+        )
+        first = source_file("first.py", b"def target():\n    return 1\n")
+        second = source_file("second.py", b"def target():\n    return 2\n")
+        snapshot = source_snapshot(caller, first, second)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        second_target = nodes[("second.py", "target")]
+
+        for qualified_name in ("use_global", "outer.use_nonlocal"):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", qualified_name)].id,
+                        "call",
+                        "selected",
+                        second_target.id,
+                    ),
+                    index.edges,
+                )
+
+    def test_class_declaration_imports_update_their_actual_outer_scopes(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from first import target as module_selected\n"
+                b"class ModuleWriter:\n"
+                b"    global module_selected\n"
+                b"    from second import target as module_selected\n"
+                b"    def use_module(self):\n"
+                b"        return module_selected()\n"
+                b"def after_module_class():\n"
+                b"    return module_selected()\n"
+                b"def outer():\n"
+                b"    from first import target as closure_selected\n"
+                b"    class ClosureWriter:\n"
+                b"        nonlocal closure_selected\n"
+                b"        from second import target as closure_selected\n"
+                b"        def use_closure(self):\n"
+                b"            return closure_selected()\n"
+                b"    def after_closure_class():\n"
+                b"        return closure_selected()\n"
+                b"    return ClosureWriter, after_closure_class\n"
+            ),
+        )
+        first = source_file("first.py", b"def target():\n    return 1\n")
+        second = source_file("second.py", b"def target():\n    return 2\n")
+        snapshot = source_snapshot(caller, first, second)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        second_target = nodes[("second.py", "target")]
+
+        for qualified_name, target in (
+            ("ModuleWriter.use_module", "module_selected"),
+            ("after_module_class", "module_selected"),
+            ("outer.ClosureWriter.use_closure", "closure_selected"),
+            ("outer.after_closure_class", "closure_selected"),
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", qualified_name)].id,
+                        "call",
+                        target,
+                        second_target.id,
+                    ),
+                    index.edges,
+                )
+
+    def test_redefinition_uses_the_latest_definition_node_kind(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def Target():\n"
+                b"    return 'function'\n"
+                b"class Target:\n"
+                b"    def helper(self):\n"
+                b"        return 'method'\n"
+                b"    def run(self):\n"
+                b"        helper()\n"
+                b"        return self.helper()\n"
+                b"Target()\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.kind, node.qualified_name): node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes[("module", "caller")].id,
+                "call",
+                "Target",
+                nodes[("class", "Target")].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes[("function", "Target.run")].id,
+                "call",
+                "self.helper",
+                nodes[("function", "Target.helper")].id,
+            ),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(nodes[("function", "Target.run")].id, "call", "helper", None),
+            index.edges,
+        )
+        self.assertNotIn(
+            IndexEdge(
+                nodes[("function", "Target.run")].id,
+                "call",
+                "helper",
+                nodes[("function", "Target.helper")].id,
+            ),
+            index.edges,
+        )
+
+    def test_function_redefinition_keeps_its_nested_function_scope(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"class Target:\n"
+                b"    pass\n"
+                b"def Target():\n"
+                b"    def helper():\n"
+                b"        return 'nested'\n"
+                b"    def run():\n"
+                b"        return helper()\n"
+                b"    return run()\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.kind, node.qualified_name): node for node in index.nodes}
+
+        self.assertIn(
+            IndexEdge(
+                nodes[("function", "Target.run")].id,
+                "call",
+                "helper",
+                nodes[("function", "Target.helper")].id,
+            ),
+            index.edges,
+        )
+
+    def test_synthetic_scopes_skip_class_bindings_and_keep_local_names_unresolved(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'module'\n"
+                b"def lambda_local():\n"
+                b"    return 'module'\n"
+                b"def comprehension_local():\n"
+                b"    return 'module'\n"
+                b"class Worker:\n"
+                b"    def helper():\n"
+                b"        return 'class'\n"
+                b"    lambda_value = (lambda: helper())()\n"
+                b"    comprehension_value = [helper() for _ in ()]\n"
+                b"    lambda_shadow = (lambda lambda_local: lambda_local())(None)\n"
+                b"    comprehension_shadow = "
+                b"[comprehension_local() for comprehension_local in ()]\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+        worker = nodes["Worker"]
+
+        self.assertIn(
+            IndexEdge(worker.id, "call", "helper", nodes["helper"].id),
+            index.edges,
+        )
+        self.assertNotIn(
+            IndexEdge(worker.id, "call", "helper", nodes["Worker.helper"].id),
+            index.edges,
+        )
+        for name in ("lambda_local", "comprehension_local"):
+            with self.subTest(name=name):
+                self.assertIn(IndexEdge(worker.id, "call", name, None), index.edges)
+                self.assertNotIn(
+                    IndexEdge(worker.id, "call", name, nodes[name].id),
+                    index.edges,
+                )
+
+    def test_definition_header_resolves_the_previous_import_binding(self) -> None:
+        caller = source_file(
+            "caller.py",
+            b"from pkg import Base\nclass Base(Base):\n    pass\n",
+        )
+        dependency = source_file("pkg.py", b"class Base:\n    pass\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.kind, node.qualified_name): node for node in index.nodes}
+        caller_module = nodes[("caller.py", "module", "caller")]
+
+        self.assertIn(
+            IndexEdge(
+                caller_module.id,
+                "reference",
+                "Base",
+                nodes[("pkg.py", "class", "Base")].id,
+            ),
+            index.edges,
+        )
+
     def test_json_is_identical_for_equivalent_input_order(self) -> None:
         first_source = source_file(
             "a.py",

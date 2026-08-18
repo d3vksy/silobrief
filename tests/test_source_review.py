@@ -5,10 +5,12 @@ import io
 import unittest
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
-from silobrief.index import IndexData, IndexEdge, IndexNode, NodeKind, NodeTokens
+from silobrief.index import IndexData, IndexEdge, IndexNode, NodeKind, NodeTokens, build_index
+from silobrief.python_structure import extract_structures
 from silobrief.review import DisclosureChoices, ReviewNode, ReviewSelection
 from silobrief.source_review import SourceReviewError, review_source_disclosure
 from silobrief.sources import SourceFile, SourceSnapshot
+from silobrief.state import DEFAULT_EXCLUDES, BoundaryData, ConfigData
 
 
 class TtyBuffer(io.StringIO):
@@ -147,6 +149,59 @@ class SourceReviewTests(unittest.TestCase):
         self.assertEqual(len(approved), 1)
         self.assertEqual(approved[0].qualified_name, "Service")
         self.assertEqual(approved[0].boundary_aliases, ("delivery-boundary",))
+
+    def test_deferred_boundary_binding_requires_expose(self) -> None:
+        source = snapshot(
+            source_file(
+                "service.py",
+                (
+                    b"import public_zone as backend\n"
+                    b"def configure():\n"
+                    b"    global backend\n"
+                    b"    import private_zone as backend\n"
+                    b"import public_zone as backend\n"
+                    b"configure()\n"
+                    b"def run():\n"
+                    b"    return backend.HiddenClient()\n"
+                ),
+            )
+        )
+        source_index = build_index(
+            source,
+            extract_structures(source),
+            ConfigData(
+                boundaries=[
+                    BoundaryData(
+                        alias="private-service",
+                        description="Approved private service",
+                        path="private_zone.py",
+                    )
+                ],
+                default_excludes=list(DEFAULT_EXCLUDES),
+                schema_version=1,
+            ),
+        )
+        run = next(node for node in source_index.nodes if node.qualified_name == "run")
+        selection = ReviewSelection((review_node(run),), (), FIELDS)
+
+        declined = review_source_disclosure(
+            source_index,
+            source,
+            selection,
+            input_stream=TtyBuffer("y\nnot-expose\n"),
+            output_stream=TtyBuffer(),
+        )
+        approved = review_source_disclosure(
+            source_index,
+            source,
+            selection,
+            input_stream=TtyBuffer("y\nEXPOSE\n"),
+            output_stream=TtyBuffer(),
+        )
+
+        self.assertEqual(declined, ())
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0].boundary_aliases, ("private-service",))
 
     def test_parse_failure_does_not_remove_valid_candidate(self) -> None:
         broken = node("broken", "bad.py", "function", "broken")
