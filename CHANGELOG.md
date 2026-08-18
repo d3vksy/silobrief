@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep indexing Pyodide and notebook-style Python files that use top-level asynchronous syntax
+  while preserving scope metadata (#188).
+
 ## [1.0.3] - 2026-08-18
 
 ### Fixed

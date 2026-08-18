@@ -115,7 +115,7 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
     try:
         tree = ast.parse(source.content, filename=source.path, mode="exec")
         encoding, _ = tokenize.detect_encoding(io.BytesIO(source.content).readline)
-        symbols = symtable.symtable(source.content.decode(encoding), source.path, "exec")
+        symbols = _scope_symbol_table(source.content.decode(encoding), source.path)
     except SyntaxError as error:
         raise PythonParseError(
             path=source.path,
@@ -134,6 +134,63 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
         references=tuple(visitor.references),
         declarations=tuple(visitor.declarations),
     )
+
+
+def _scope_symbol_table(source: str, path: str) -> symtable.SymbolTable:
+    try:
+        return symtable.symtable(source, path, "exec")
+    except SyntaxError as original_error:
+        try:
+            compile(
+                source,
+                path,
+                "exec",
+                flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT,
+                dont_inherit=True,
+            )
+        except SyntaxError:
+            raise original_error from None
+        try:
+            return symtable.symtable(_without_async_keywords(source), path, "exec")
+        except (RuntimeError, SyntaxError):
+            raise original_error from None
+
+
+def _without_async_keywords(source: str) -> str:
+    lines = list(io.StringIO(source))
+    edits: dict[int, list[tuple[int, int, str]]] = {}
+    tokens = tuple(tokenize.generate_tokens(io.StringIO(source).readline))
+    for index, token in enumerate(tokens):
+        if token.type != tokenize.NAME or token.string not in {"async", "await"}:
+            continue
+        replacement = "+    "
+        if token.string == "async":
+            following = next(
+                candidate
+                for candidate in tokens[index + 1 :]
+                if candidate.type
+                not in {
+                    tokenize.COMMENT,
+                    tokenize.DEDENT,
+                    tokenize.INDENT,
+                    tokenize.NEWLINE,
+                    tokenize.NL,
+                }
+            )
+            if following.string not in {"def", "for", "with"}:
+                raise RuntimeError("unexpected async syntax while building symbol table")
+            replacement = following.string.ljust(len(token.string))
+            edits.setdefault(following.start[0] - 1, []).append(
+                (following.start[1], following.end[1], " " * len(following.string))
+            )
+        edits.setdefault(token.start[0] - 1, []).append((token.start[1], token.end[1], replacement))
+    for line, ranges in edits.items():
+        for start, end, replacement in sorted(ranges, reverse=True):
+            lines[line] = f"{lines[line][:start]}{replacement}{lines[line][end:]}"
+    rewritten = "".join(lines)
+    if len(rewritten) != len(source):
+        raise RuntimeError("symbol-table rewrite changed source positions")
+    return rewritten
 
 
 class _StructureVisitor(ast.NodeVisitor):
