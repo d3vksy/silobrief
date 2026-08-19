@@ -170,6 +170,44 @@ class DeterministicIndexTests(unittest.TestCase):
             index.edges,
         )
 
+    def test_preserves_src_when_it_is_the_actual_package_name(self) -> None:
+        package = source_file(
+            "src/__init__.py",
+            b"from .worker import helper\n",
+        )
+        dependency = source_file(
+            "src/worker.py",
+            b"def helper():\n    return 42\n",
+        )
+        caller = source_file(
+            "app.py",
+            b"from src.worker import helper as absolute_helper\n"
+            b"def run():\n    return absolute_helper()\n",
+        )
+        snapshot = source_snapshot(package, dependency, caller)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.kind, node.qualified_name): node for node in index.nodes}
+        package_module = nodes[("src/__init__.py", "module", "src")]
+        dependency_module = nodes[("src/worker.py", "module", "src.worker")]
+        dependency_function = nodes[("src/worker.py", "function", "helper")]
+        caller_module = nodes[("app.py", "module", "app")]
+        run = nodes[("app.py", "function", "run")]
+
+        self.assertIn(
+            IndexEdge(package_module.id, "import", "src.worker.helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(caller_module.id, "import", "src.worker.helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(run.id, "call", "absolute_helper", dependency_function.id),
+            index.edges,
+        )
+        self.assertNotEqual(package_module.id, dependency_module.id)
+
     def test_resolves_relative_and_aliased_import_calls(self) -> None:
         caller = source_file(
             "src/pkg/feature.py",
