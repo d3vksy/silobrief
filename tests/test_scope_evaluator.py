@@ -125,10 +125,12 @@ class ScopeEvaluatorTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertEqual(completed.stdout, "")
         self.assertIn(
-            str(external_root / "v0.4-ranking-holdout" / "holdout.json"), completed.stderr
+            str(external_root.resolve() / "v0.4-ranking-holdout" / "holdout.json"),
+            completed.stderr,
         )
         self.assertIn(
-            str(external_root / "v0.4-edge-idf-holdout" / "holdout.json"), completed.stderr
+            str(external_root.resolve() / "v0.4-edge-idf-holdout" / "holdout.json"),
+            completed.stderr,
         )
         self.assertIn("prepare.py --external-root", completed.stderr)
         self.assertNotIn("FileNotFoundError", completed.stderr)
@@ -160,7 +162,7 @@ class ScopeEvaluatorTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 2)
         self.assertIn("pinned scope evaluation checkouts are missing", completed.stderr)
         self.assertIn(
-            str(external_root / "v0.4-ranking-holdout" / "repos" / "starlette"),
+            str(external_root.resolve() / "v0.4-ranking-holdout" / "repos" / "starlette"),
             completed.stderr,
         )
         self.assertIn("prepare.py --external-root", completed.stderr)
