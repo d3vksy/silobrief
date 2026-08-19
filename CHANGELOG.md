@@ -19,6 +19,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Preserve absolute and relative imports when a project's real top-level package is named `src`
   (#201).
 - Reject indexes built by older graph algorithms and tell users to run `sb init` (#202).
+- Make the frozen scope evaluator runnable from a clean clone with pinned corpus setup and clear
+  missing-input errors (#204).
 
 ## [1.0.4] - 2026-08-19
 

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-08-07T10:08:00+09:00",
+  "frozen_ranker_sha256": "208da562a5e6b4dac176216f77ea25ec6a1861f9cef0f2b7e5321b7012d445e7",
+  "cases": [
+    {
+      "category": "backend",
+      "repository": "pallets/flask",
+      "commit": "06ea505ce2b2042af26e96d35ebf159af7c0869d",
+      "reference_fix_commit": "9368fb3f3c52d74534d14c1bef03c79c103356cd",
+      "prompt": "Make template autoescaping recognize HTML, HTM, XML, XHTML, and SVG filename extensions case-insensitively while preserving the no-filename default. Return a unified diff and focused regression tests.",
+      "target_path": "src/flask/sansio/app.py",
+      "target_qualified_name": "App.select_jinja_autoescape"
+    },
+    {
+      "category": "backend",
+      "repository": "aio-libs/aiohttp",
+      "commit": "0ed510d8dc9f6397878fe775ac7e2fbd0b13641f",
+      "reference_fix_commit": "2b9068690af7f868ccd01552c58cf045afc6d9f6",
+      "prompt": "When assigning a datetime with fractional seconds to Last-Modified, round it up to the next whole second just like a numeric timestamp so the header is never earlier than the resource modification time. Return a unified diff and focused regression tests.",
+      "target_path": "aiohttp/web_response.py",
+      "target_qualified_name": "StreamResponse.last_modified"
+    },
+    {
+      "category": "backend",
+      "repository": "sanic-org/sanic",
+      "commit": "a64dc641a8e4ad777a4602d2bdec53d736901472",
+      "reference_fix_commit": "dc0939e682eeaace8b2832f634999f3390b1d5d1",
+      "prompt": "During worker shutdown, treat a broken manager pipe, connection reset, or EOF while reading process states as no remaining active workers instead of crashing, while preserving terminal-state filtering. Return a unified diff and focused regression tests.",
+      "target_path": "sanic/mixins/startup.py",
+      "target_qualified_name": "StartupMixin._get_process_states"
+    },
+    {
+      "category": "general-python",
+      "repository": "Textualize/rich",
+      "commit": "9cb198944f8184df92217efc8b20d3fffa4b4fa0",
+      "reference_fix_commit": "69cee6e1be30071c3ee994608590004eddce1501",
+      "prompt": "Preserve leading, repeated, and trailing newline characters when decoding ANSI terminal text into styled Text values, without changing escape handling. Return a unified diff and focused regression tests.",
+      "target_path": "rich/ansi.py",
+      "target_qualified_name": "AnsiDecoder.decode"
+    },
+    {
+      "category": "general-python",
+      "repository": "psf/black",
+      "commit": "fa72105efac5c15c3a3c83c21ec6e6097c525325",
+      "reference_fix_commit": "006b2a74d4deac01fa16e85ccc9f5810b53a7391",
+      "ignored_paths": [
+        {
+          "path": "tests/data",
+          "description": "Black formatter fixtures intentionally contain invalid Python"
+        }
+      ],
+      "prompt": "With --skip-magic-trailing-comma, keep a syntactically required comma in a one-element subscript when a long expression also passes through power-operator spacing normalization. Return a unified diff and focused regression tests.",
+      "target_path": "src/black/trans.py",
+      "target_qualified_name": "hug_power_op"
+    },
+    {
+      "category": "general-python",
+      "repository": "pydantic/pydantic",
+      "commit": "a54529f06204ecb8f940d2506ff66dd1521917c8",
+      "reference_fix_commit": "35b8d94c1435a3e78fc919cfdb439a1ef85a8d6f",
+      "prompt": "Compare SecretStr values containing non-ASCII text or lone surrogates without raising TypeError, while keeping constant-time equality behavior and returning false for other types. Return a unified diff and focused regression tests.",
+      "target_path": "pydantic/types.py",
+      "target_qualified_name": "SecretStr.__eq__"
+    }
+  ]
+}
