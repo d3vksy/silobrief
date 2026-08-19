@@ -366,7 +366,7 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(result, 3)
             self.assertIn("cannot read index.json", stderr_text)
 
-            index.write_text('{"index_version": 2}\n', encoding="utf-8", newline="\n")
+            index.write_text('{"index_version": 3}\n', encoding="utf-8", newline="\n")
             result, _, _, stderr_text = run_chat(project, ".silobrief/exports/incompatible.md", "")
             self.assertEqual(result, 3)
             self.assertIn("not compatible", stderr_text)
@@ -379,6 +379,35 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(result, 4)
             self.assertIn("sources changed", stderr_text)
             self.assertFalse((project / ".silobrief/exports/changed.md").exists())
+
+    def test_search_and_brief_reject_v1_index_with_rebuild_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            index = project / ".silobrief" / "index.json"
+            current = index.read_bytes()
+            legacy = current.replace(b'"index_version": 2', b'"index_version": 1')
+            self.assertNotEqual(legacy, current)
+            index.write_bytes(legacy)
+
+            search_stderr = io.StringIO()
+            with working_directory(project), contextlib.redirect_stderr(search_stderr):
+                search_result = main(["search", "run"])
+
+            brief_result, _, _, brief_stderr = run_chat(
+                project,
+                ".silobrief/exports/outdated.md",
+                "",
+            )
+
+            self.assertEqual(search_result, 3)
+            self.assertIn("outdated", search_stderr.getvalue())
+            self.assertIn("run sb init", search_stderr.getvalue())
+            self.assertEqual(brief_result, 3)
+            self.assertIn("outdated", brief_stderr)
+            self.assertIn("run sb init", brief_stderr)
+            self.assertFalse((project / ".silobrief/exports/outdated.md").exists())
+            self.assertEqual(index.read_bytes(), legacy)
 
     def test_blocks_non_tty_refusal_and_existing_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

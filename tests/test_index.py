@@ -1166,8 +1166,11 @@ class DeterministicIndexTests(unittest.TestCase):
             set(parsed),
             {"config_digest", "edges", "index_version", "nodes", "source_digest", "stale"},
         )
-        self.assertEqual(parsed["index_version"], 1)
+        self.assertEqual(parsed["index_version"], 2)
         self.assertIs(parsed["stale"], False)
+
+        with self.assertRaisesRegex(IndexBuildError, "current version"):
+            render_index_json(replace(first, index_version=1))
 
     def test_config_and_source_digest_changes_are_visible(self) -> None:
         source = source_file("module.py", b"VALUE = 1\n")

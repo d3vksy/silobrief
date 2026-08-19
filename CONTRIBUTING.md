@@ -89,6 +89,8 @@ retry after a successful upload.
 - Add complete parameter and return types to every function and method.
 - Keep `mypy --strict` passing without per-module relaxations.
 - Use the standard library at runtime.
+- Increase `INDEX_VERSION` whenever a change alters stored nodes, edges, search tokens, or their
+  meaning. siloBrief will then reject older indexes until the user runs `sb init`.
 - Write a failing acceptance or regression test before the smallest implementation.
 - Avoid speculative abstractions, unused extension points, and comments that repeat the code.
 

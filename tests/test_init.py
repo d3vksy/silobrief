@@ -173,7 +173,7 @@ class InitCommandTests(unittest.TestCase):
             self.assertNotIn(b"fixture-private-canary", first_index)
             self.assertIn(b"delivery-boundary", first_index)
             index = index_object(project)
-            self.assertEqual(index["index_version"], 1)
+            self.assertEqual(index["index_version"], 2)
             self.assertIs(index["stale"], False)
 
     def test_init_reports_parse_error_and_preserves_existing_index(self) -> None:

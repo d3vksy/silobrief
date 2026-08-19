@@ -21,7 +21,7 @@ from silobrief.cli import main
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-fixture"
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n"
-INDEX_SHA256 = "ba9d4618aec48471c7f117008fcc467f71259c89cbbc03d7f93107ddc81a1fd1"
+INDEX_SHA256 = "69a477a6abaf7c1b0d60efaa80cf02dfc1e567278c28b2bbfe462a32217517c3"
 BRIEF_SHA256 = "f4403caa6c83ed619bc3783f1d3931d8fc4ff2fd000e28666b6da2152ad4d82c"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",

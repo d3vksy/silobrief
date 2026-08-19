@@ -316,10 +316,13 @@ class SetupCommandTests(unittest.TestCase):
 
             notes.write_text('{"notes": [], "notes_version": 1}\n', encoding="utf-8")
             index = state / "index.json"
-            index.write_text('{"index_version": 2}\n', encoding="utf-8")
+            for version in (True, 3):
+                with self.subTest(index_version=version):
+                    content = json.dumps({"index_version": version}) + "\n"
+                    index.write_text(content, encoding="utf-8")
 
-            self.assert_setup_error(project)
-            self.assertEqual(index.read_text(encoding="utf-8"), '{"index_version": 2}\n')
+                    self.assert_setup_error(project)
+                    self.assertEqual(index.read_text(encoding="utf-8"), content)
 
     def test_setup_removes_new_state_after_write_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

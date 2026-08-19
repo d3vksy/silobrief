@@ -11,10 +11,13 @@ from unittest import mock
 from silobrief import current_index
 from silobrief.boundaries import register_boundary
 from silobrief.current_index import CurrentIndexError, load_current_index
+from silobrief.index import config_digest
 from silobrief.initialization import initialize_index
 from silobrief.sources import SourceCollectionError, SourceWarning, snapshot_sources
 from silobrief.state import SetupError, load_config, setup_project
 from silobrief.stored_index import StoredIndexError, load_stored_index
+
+V1_0_4_INDEX = Path(__file__).with_name("fixtures") / "index-v1.0.4-minimal.json"
 
 
 def create_project(project: Path) -> tuple[Path, Path]:
@@ -94,6 +97,55 @@ class CurrentIndexTests(unittest.TestCase):
             self.assertEqual(loaded, expected)
             self.assertEqual(current_snapshot, replace(snapshot, warnings=(warning,)))
             self.assertEqual(file_state(project), before)
+
+    def test_v1_0_4_index_requires_init_before_it_can_be_used(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            source = project / "service.py"
+            source.write_text("def run():\n    return 1\n", encoding="utf-8", newline="\n")
+            setup_project(project)
+            state = project / ".silobrief"
+            index_path = state / "index.json"
+            index_path.write_bytes(V1_0_4_INDEX.read_bytes())
+            legacy_bytes = index_path.read_bytes()
+            config_bytes = (state / "config.json").read_bytes()
+            notes_bytes = (state / "notes.json").read_bytes()
+            source_bytes = source.read_bytes()
+            before_setup = file_state(project)
+            legacy_index = object_file(index_path)
+
+            self.assertEqual(legacy_index["index_version"], 1)
+            self.assertEqual(legacy_index["config_digest"], config_digest(load_config(project)))
+            self.assertEqual(
+                legacy_index["source_digest"],
+                snapshot_sources(project, load_config(project)).digest,
+            )
+
+            self.assertFalse(setup_project(project))
+            self.assertEqual(file_state(project), before_setup)
+
+            with self.assertRaises(StoredIndexError) as caught:
+                load_current_index(project)
+
+            self.assertIn("outdated", str(caught.exception))
+            self.assertIn("run sb init", str(caught.exception))
+            self.assertEqual(index_path.read_bytes(), legacy_bytes)
+
+            initialize_index(project)
+            self.assertEqual(
+                index_path.read_bytes(),
+                legacy_bytes.replace(b'"index_version": 1', b'"index_version": 2'),
+            )
+            loaded, snapshot = load_current_index(project)
+
+            self.assertEqual(loaded.index_version, 2)
+            self.assertEqual(loaded.source_digest, snapshot.digest)
+            self.assertEqual((state / "config.json").read_bytes(), config_bytes)
+            self.assertEqual((state / "notes.json").read_bytes(), notes_bytes)
+            self.assertEqual(source.read_bytes(), source_bytes)
+            current_state = file_state(project)
+            self.assertFalse(setup_project(project))
+            self.assertEqual(file_state(project), current_state)
 
     def test_stale_and_config_mismatch_stop_before_source_collection(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

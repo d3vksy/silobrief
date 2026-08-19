@@ -17,6 +17,11 @@ from silobrief.index import (
     render_index_json,
     stable_node_id,
 )
+from silobrief.index_version import (
+    INDEX_VERSION,
+    is_current_index_version,
+    is_rebuildable_index_version,
+)
 from silobrief.path_safety import is_link_like
 from silobrief.state import STATE_DIRECTORY, is_valid_boundary_alias
 
@@ -50,7 +55,10 @@ def _index(value: object) -> IndexData:
         value,
         {"config_digest", "edges", "index_version", "nodes", "source_digest", "stale"},
     )
-    if type(data["index_version"]) is not int or data["index_version"] != 1:
+    index_version = data["index_version"]
+    if is_rebuildable_index_version(index_version) and not is_current_index_version(index_version):
+        raise StoredIndexError("index.json uses an outdated version; run sb init")
+    if not is_current_index_version(index_version):
         raise StoredIndexError("index.json has an unsupported version")
     if type(data["stale"]) is not bool:
         raise StoredIndexError("index.json stale flag is invalid")
@@ -60,7 +68,7 @@ def _index(value: object) -> IndexData:
     return IndexData(
         config_digest=_digest(data["config_digest"]),
         edges=edges,
-        index_version=1,
+        index_version=INDEX_VERSION,
         nodes=nodes,
         source_digest=_digest(data["source_digest"]),
         stale=data["stale"],
