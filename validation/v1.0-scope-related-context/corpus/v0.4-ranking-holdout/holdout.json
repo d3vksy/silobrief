@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "frozen_at": "2026-08-07T09:21:39.8379915+09:00",
+  "issue": "https://github.com/d3vksy/silobrief/issues/105",
+  "protocol": {
+    "baseline": "develop at a73797445d1be12c60ea5946ef2258ff1054a228",
+    "evaluation_timing": "Do not measure either ranker until the implementation is frozen.",
+    "success": "Hybrid exact-target recall@10 is at least 4/6, improves at least two cases over baseline, preserves every baseline Top 10 target, and stays within the latency gate in Issue #105."
+  },
+  "cases": [
+    {
+      "category": "backend",
+      "repository": "encode/starlette",
+      "commit": "99b7cc62e0c2cb8d24e5f546b7e34e17496c265e",
+      "prompt": "Preserve existing Vary values when CORS middleware mirrors an allowed request origin. Return a unified diff and focused regression tests.",
+      "target_path": "starlette/middleware/cors.py",
+      "target_qualified_name": "CORSMiddleware.allow_explicit_origin"
+    },
+    {
+      "category": "backend",
+      "repository": "vitalik/django-ninja",
+      "commit": "134869b74b6cba214284faa9f13d54b7247362c0",
+      "prompt": "Keep temporal response headers and status handling intact when converting a handler result through its configured response model. Return a unified diff and focused tests.",
+      "target_path": "ninja/operation.py",
+      "target_qualified_name": "Operation._result_to_response"
+    },
+    {
+      "category": "backend",
+      "repository": "litestar-org/litestar",
+      "commit": "ec6f9c95443d323a8cee4d9ff5dd1bd9862f5fc8",
+      "prompt": "Keep the remaining rate-limit response header at zero after request history reaches or exceeds the configured maximum. Return a unified diff and focused tests.",
+      "target_path": "litestar/middleware/rate_limit.py",
+      "target_qualified_name": "RateLimitMiddleware.create_response_headers"
+    },
+    {
+      "category": "general-python",
+      "repository": "pallets/jinja",
+      "commit": "5ef70112a1ff19c05324ff889dd30405b1002044",
+      "prompt": "Treat an Undefined template selector as one template name while returning existing Template objects unchanged and keeping list fallback behavior. Return a unified diff and focused tests.",
+      "target_path": "src/jinja2/environment.py",
+      "target_qualified_name": "Environment.get_or_select_template"
+    },
+    {
+      "category": "general-python",
+      "repository": "pytest-dev/pytest",
+      "commit": "28e86a6c2ae0173831e4925a4af89b02a2936d09",
+      "prompt": "When skip mode reads an undeclared or None command-line option, skip unless an explicit default was supplied, while preserving literal --OPT lookup. Return a unified diff and focused tests.",
+      "target_path": "src/_pytest/config/__init__.py",
+      "target_qualified_name": "Config.getoption"
+    },
+    {
+      "category": "general-python",
+      "repository": "python-poetry/poetry",
+      "commit": "92b74dcfe348d0e01e14d40d6c1fa47a4ee04a54",
+      "prompt": "Propagate disabled caching through project creation and repository-pool setup while leaving plugin activation controlled independently. Return a unified diff and focused tests.",
+      "target_path": "src/poetry/factory.py",
+      "target_qualified_name": "Factory.create_poetry"
+    }
+  ]
+}
