@@ -489,7 +489,9 @@ def _binding_result(
     if len(concrete) != 1 or concrete[0].unknown:
         return target, None
     if concrete[0].imported_target is not None:
-        return target, global_targets.get(concrete[0].imported_target)
+        imported_target = concrete[0].imported_target
+        target_id = global_targets.get(imported_target)
+        return (target, target_id) if target_id is not None else (imported_target, None)
     return target, concrete[0].target_id
 
 

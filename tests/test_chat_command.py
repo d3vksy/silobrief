@@ -66,12 +66,13 @@ def prepare_project(project: Path) -> Path:
     private.mkdir()
     service = package / "service.py"
     service.write_text(
-        "import urllib3\n"
+        "import urllib3 as http\n"
+        "import json\n"
         "from private.secret import send\n\n"
         "SOURCE_CANARY = 'allowed-source-canary'\n\n"
         "def run():\n"
         "    send()\n"
-        "    return urllib3\n",
+        "    return http\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -209,7 +210,10 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(stderr, "")
             self.assertTrue(destination.is_file())
             self.assertFalse(destination.with_name("context-only.sources.md").exists())
-            self.assertIn("source_delivery: none", destination.read_text(encoding="utf-8"))
+            markdown = destination.read_text(encoding="utf-8")
+            self.assertIn("source_delivery: none", markdown)
+            self.assertIn("urllib3", markdown)
+            self.assertNotIn("json", markdown)
 
     def test_src_layout_boundary_is_redacted_in_exact_path_brief(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
