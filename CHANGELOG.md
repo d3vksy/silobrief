@@ -12,6 +12,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Preserve every source span for repeated definitions such as property accessors, overloads, and
   conditional implementations (#197).
 - Reserve test-file candidates when Korean requests use forms such as `테스트를` or `테스트용` (#198).
+- Aggregate approved public imports and boundary descriptions from selected source context (#199).
 
 ## [1.0.4] - 2026-08-19
 

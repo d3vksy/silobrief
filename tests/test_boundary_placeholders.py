@@ -85,7 +85,7 @@ class BoundaryPlaceholderTests(unittest.TestCase):
         )
         self.assertIn(placeholder, rendered)
         self.assertIn(b'"target": "requests"', rendered)
-        self.assertIn(b'"target": "http.get"', rendered)
+        self.assertIn(b'"target": "requests.get"', rendered)
         self.assertIn(
             b'"imports": [\n          "approved",\n          "http",\n'
             b'          "internal",\n          "requests",\n          "service"\n        ]',
@@ -365,10 +365,10 @@ class BoundaryPlaceholderTests(unittest.TestCase):
             calls["use_local"].target_id,
             nodes["use_local.private"].id,
         )
-        for node_name in ("use_parameter", "use_public_import"):
-            with self.subTest(node_name=node_name):
-                self.assertEqual(calls[node_name].target, "private")
-                self.assertIsNone(calls[node_name].target_id)
+        self.assertEqual(calls["use_parameter"].target, "private")
+        self.assertIsNone(calls["use_parameter"].target_id)
+        self.assertEqual(calls["use_public_import"].target, "public_api.helper")
+        self.assertIsNone(calls["use_public_import"].target_id)
         self.assertNotIn(b'"alias": "private-code"', render_index_json(index))
 
     def test_conditional_boundary_import_is_redacted_conservatively(self) -> None:
@@ -680,7 +680,7 @@ class BoundaryPlaceholderTests(unittest.TestCase):
             edge for edge in index.edges if edge.source_id == run.id and edge.kind == "call"
         )
 
-        self.assertEqual(call.target, "selected.send")
+        self.assertEqual(call.target, "public_zone.send")
         self.assertIsNone(call.target_id)
 
 
