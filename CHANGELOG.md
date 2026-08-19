@@ -21,6 +21,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Reject indexes built by older graph algorithms and tell users to run `sb init` (#202).
 - Make the frozen scope evaluator runnable from a clean clone with pinned corpus setup and clear
   missing-input errors (#204).
+- Include every repository asset linked from the packaged README files in the source distribution
+  (#203).
 
 ## [1.0.4] - 2026-08-19
 
