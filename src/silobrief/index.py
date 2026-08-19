@@ -134,11 +134,13 @@ def build_index(
     contexts: dict[str, _ModuleContext] = {}
     all_nodes: list[IndexNode] = []
     global_targets: dict[str, str] = {}
+    src_is_package = "src/__init__.py" in sources
     for path in sorted(sources):
         context = _build_module_context(
             sources[path],
             modules[path],
             tuple(config["boundaries"]),
+            src_is_package=src_is_package,
         )
         contexts[path] = context
         module_node = _module_node(context)
@@ -182,8 +184,10 @@ def _build_module_context(
     source: SourceFile,
     structure: ModuleStructure,
     boundaries: tuple[BoundaryData, ...],
+    *,
+    src_is_package: bool,
 ) -> _ModuleContext:
-    module_name = _module_name(source.path)
+    module_name = _module_name(source.path, src_is_package=src_is_package)
     module_id = stable_node_id(source.path, "module", module_name)
     text_tokens = extract_scoped_source_text_tokens(source, structure.definitions)
     definition_tokens = dict(text_tokens.definitions)
@@ -618,10 +622,10 @@ def _context_id(context: _ModuleContext, qualified_name: str | None) -> str:
         raise IndexBuildError(f"unknown source context: {qualified_name}") from error
 
 
-def _module_name(path: str) -> str:
+def _module_name(path: str, *, src_is_package: bool) -> str:
     _validate_relative_path(path)
     parts = list(PurePosixPath(path).parts)
-    if len(parts) > 1 and parts[0] == "src" and parts[1] != "__init__.py":
+    if not src_is_package and len(parts) > 1 and parts[0] == "src" and parts[1] != "__init__.py":
         parts.pop(0)
     filename = parts[-1]
     if filename == "__init__.py" and len(parts) > 1:

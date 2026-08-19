@@ -16,6 +16,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Aggregate approved public imports and boundary descriptions from selected source context (#199).
 - Keep local assignment targets unresolved instead of linking them to shadowed global or boundary
   symbols (#200).
+- Preserve absolute and relative imports when a project's real top-level package is named `src`
+  (#201).
 
 ## [1.0.4] - 2026-08-19
 
