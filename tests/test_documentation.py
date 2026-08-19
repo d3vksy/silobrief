@@ -188,6 +188,17 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertIn("| 0.5.x | :x: |", security)
         self.assertNotIn("has not released a supported version yet", security)
 
+        self.assertIn(
+            "https://github.com/d3vksy/silobrief/security/advisories/new",
+            security,
+        )
+        self.assertNotIn("public GitHub profile", security)
+
+        conduct = (REPOSITORY_ROOT / "CODE_OF_CONDUCT.md").read_text(encoding="utf-8")
+        self.assertIn("Report content", conduct)
+        self.assertIn("reporting-abuse-or-spam", conduct)
+        self.assertNotIn("public GitHub profile", conduct)
+
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
         self.assertEqual(pyproject.count('version = "1.0.4"'), 1)
         self.assertEqual(version("silobrief"), "1.0.4")

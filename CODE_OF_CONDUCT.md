@@ -46,9 +46,12 @@ represents the community in public spaces.
 
 ## Enforcement
 
-Report abusive, harassing, or otherwise unacceptable behavior to the repository owner using
-the contact information on their public GitHub profile. All complaints will be reviewed and
-investigated promptly and fairly.
+For behavior on GitHub, use the relevant Issue, pull request, discussion, or comment's
+**Report content** action. Choose **Report to repository admins** when GitHub offers it. If that
+option is unavailable, follow GitHub's [abuse reporting instructions](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam)
+to contact GitHub Support privately. Do not open a public Issue for a private conduct report.
+
+Reports delivered to community leaders will be reviewed and investigated promptly and fairly.
 
 Community leaders must respect the privacy and security of the reporter of any incident.
 
