@@ -4,7 +4,7 @@ import hashlib
 import unittest
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
-from silobrief.index import build_index, render_index_json
+from silobrief.index import IndexEdge, build_index, render_index_json
 from silobrief.python_structure import extract_structures
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import DEFAULT_EXCLUDES, BoundaryData, ConfigData
@@ -371,6 +371,232 @@ class BoundaryPlaceholderTests(unittest.TestCase):
         self.assertIsNone(calls["use_public_import"].target_id)
         self.assertNotIn(b'"alias": "private-code"', render_index_json(index))
 
+    def test_local_store_forms_shadow_global_and_raw_boundary_targets(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"def private():\n"
+                b"    return 'global'\n"
+                b"def assigned():\n"
+                b"    private = object()\n"
+                b"    return private()\n"
+                b"def annotated():\n"
+                b"    private: object\n"
+                b"    return private()\n"
+                b"def augmented():\n"
+                b"    private += object()\n"
+                b"    return private()\n"
+                b"def looped(values):\n"
+                b"    for private in values:\n"
+                b"        pass\n"
+                b"    return private()\n"
+                b"def managed(manager):\n"
+                b"    with manager() as private:\n"
+                b"        pass\n"
+                b"    return private()\n"
+                b"def caught(error):\n"
+                b"    try:\n"
+                b"        raise error\n"
+                b"    except Exception as private:\n"
+                b"        pass\n"
+                b"    return private()\n"
+                b"def matched(value):\n"
+                b"    match value:\n"
+                b"        case {'private': private}:\n"
+                b"            pass\n"
+                b"    return private()\n"
+                b"def named(factory):\n"
+                b"    (private := factory)\n"
+                b"    return private()\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-code",
+            description="Approved private code",
+            path="private.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        for qualified_name in (
+            "annotated",
+            "assigned",
+            "augmented",
+            "caught",
+            "looped",
+            "managed",
+            "matched",
+            "named",
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(nodes[qualified_name].id, "call", "private", None),
+                    index.edges,
+                )
+        self.assertNotIn(b'"alias": "private-code"', render_index_json(index))
+
+    def test_conditional_store_does_not_hide_a_possible_boundary_import(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"def choose(use_public):\n"
+                b"    from private_zone import HiddenClient as service\n"
+                b"    if use_public:\n"
+                b"        service = object()\n"
+                b"    def run():\n"
+                b"        return service()\n"
+                b"    return run\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-service",
+            description="Approved private service",
+            path="private_zone.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        run = next(node for node in index.nodes if node.qualified_name == "choose.run")
+        call = next(
+            edge for edge in index.edges if edge.source_id == run.id and edge.kind == "call"
+        )
+
+        self.assertEqual(
+            call.target,
+            BoundaryPlaceholder("private-service", "Approved private service"),
+        )
+        self.assertIsNone(call.target_id)
+        self.assertNotIn(b"private_zone", render_index_json(index))
+
+    def test_expression_control_flow_keeps_possible_boundaries(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"import private_zone as service\n"
+                b"flag = False\n"
+                b"flag and (service := object())\n"
+                b"(service := object()) if flag else None\n"
+                b"0 > flag > (service := object())\n"
+                b"assert True, (service := object())\n"
+                b"service.HiddenClient()\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-service",
+            description="Approved private service",
+            path="private_zone.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        module = next(node for node in index.nodes if node.kind == "module")
+
+        self.assertIn(
+            IndexEdge(
+                module.id,
+                "call",
+                BoundaryPlaceholder("private-service", "Approved private service"),
+                None,
+            ),
+            index.edges,
+        )
+        rendered = render_index_json(index)
+        for forbidden in (b"private_zone", b"HiddenClient"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, rendered)
+
+    def test_assignment_target_walrus_does_not_hide_a_boundary_from_the_rhs(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"import private_zone as service\n"
+                b"target[(service := object()) and 0] = service.HiddenClient()\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-service",
+            description="Approved private service",
+            path="private_zone.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        module = next(node for node in index.nodes if node.kind == "module")
+
+        self.assertIn(
+            IndexEdge(
+                module.id,
+                "call",
+                BoundaryPlaceholder("private-service", "Approved private service"),
+                None,
+            ),
+            index.edges,
+        )
+        rendered = render_index_json(index)
+        for forbidden in (b"private_zone", b"HiddenClient"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, rendered)
+
+    def test_global_and_nonlocal_stores_keep_deferred_boundaries_conservative(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"import private_zone as module_service\n"
+                b"def update_global():\n"
+                b"    global module_service\n"
+                b"    module_service = object()\n"
+                b"    return module_service.run()\n"
+                b"def use_global():\n"
+                b"    return module_service.run()\n"
+                b"def outer():\n"
+                b"    from private_zone import HiddenClient as local_service\n"
+                b"    def update_nonlocal():\n"
+                b"        nonlocal local_service\n"
+                b"        local_service = object()\n"
+                b"        return local_service()\n"
+                b"    def use_nonlocal():\n"
+                b"        return local_service()\n"
+                b"    return update_nonlocal, use_nonlocal\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-service",
+            description="Approved private service",
+            path="private_zone.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        for qualified_name, target in (
+            ("update_global", "module_service.run"),
+            ("outer.update_nonlocal", "local_service"),
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(nodes[qualified_name].id, "call", target, None), index.edges
+                )
+        for qualified_name, target in (
+            ("use_global", "module_service.run"),
+            ("outer.use_nonlocal", "local_service"),
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[qualified_name].id,
+                        "call",
+                        BoundaryPlaceholder("private-service", "Approved private service"),
+                        None,
+                    ),
+                    index.edges,
+                )
+                self.assertNotIn(
+                    IndexEdge(nodes[qualified_name].id, "call", target, None),
+                    index.edges,
+                )
+        rendered = render_index_json(index)
+        for forbidden in (b"private_zone", b"HiddenClient"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, rendered)
+
     def test_conditional_boundary_import_is_redacted_conservatively(self) -> None:
         source = source_snapshot(
             "service.py",
@@ -517,6 +743,41 @@ class BoundaryPlaceholderTests(unittest.TestCase):
                     BoundaryPlaceholder("private-service", "Approved private service"),
                 )
                 self.assertIsNone(call.target_id)
+        rendered = render_index_json(index)
+        for forbidden in (b"private_zone", b"HiddenClient"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, rendered)
+
+    def test_later_store_does_not_hide_a_boundary_possible_for_a_closure(self) -> None:
+        source = source_snapshot(
+            "service.py",
+            (
+                b"def choose():\n"
+                b"    from private_zone import HiddenClient as service\n"
+                b"    def run():\n"
+                b"        return service()\n"
+                b"    run()\n"
+                b"    service = object()\n"
+                b"    return run\n"
+            ),
+        )
+        boundary = BoundaryData(
+            alias="private-service",
+            description="Approved private service",
+            path="private_zone.py",
+        )
+
+        index = build_index(source, extract_structures(source), config(boundary))
+        run = next(node for node in index.nodes if node.qualified_name == "choose.run")
+        call = next(
+            edge for edge in index.edges if edge.source_id == run.id and edge.kind == "call"
+        )
+
+        self.assertEqual(
+            call.target,
+            BoundaryPlaceholder("private-service", "Approved private service"),
+        )
+        self.assertIsNone(call.target_id)
         rendered = render_index_json(index)
         for forbidden in (b"private_zone", b"HiddenClient"):
             with self.subTest(forbidden=forbidden):

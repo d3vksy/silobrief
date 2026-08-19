@@ -437,6 +437,226 @@ class DeterministicIndexTests(unittest.TestCase):
                     index.edges,
                 )
 
+    def test_local_store_bindings_keep_calls_and_references_unresolved(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def assigned():\n"
+                b"    helper = lambda: None\n"
+                b"    return helper(), helper.attribute\n"
+                b"def annotated():\n"
+                b"    helper: object\n"
+                b"    return helper(), helper.attribute\n"
+                b"def augmented():\n"
+                b"    helper += 1\n"
+                b"    return helper(), helper.attribute\n"
+                b"def looped(values):\n"
+                b"    for helper in values:\n"
+                b"        pass\n"
+                b"    return helper(), helper.attribute\n"
+                b"def managed(manager):\n"
+                b"    with manager() as helper:\n"
+                b"        pass\n"
+                b"    return helper(), helper.attribute\n"
+                b"def caught(error):\n"
+                b"    try:\n"
+                b"        raise error\n"
+                b"    except Exception as helper:\n"
+                b"        pass\n"
+                b"    return helper(), helper.attribute\n"
+                b"def matched(value):\n"
+                b"    match value:\n"
+                b"        case {'helper': helper}:\n"
+                b"            pass\n"
+                b"    return helper(), helper.attribute\n"
+                b"def named(factory):\n"
+                b"    (helper := factory)\n"
+                b"    return helper(), helper.attribute\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        for qualified_name in (
+            "annotated",
+            "assigned",
+            "augmented",
+            "caught",
+            "looped",
+            "managed",
+            "matched",
+            "named",
+        ):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(nodes[qualified_name].id, "call", "helper", None),
+                    index.edges,
+                )
+                self.assertIn(
+                    IndexEdge(nodes[qualified_name].id, "reference", "helper.attribute", None),
+                    index.edges,
+                )
+
+    def test_store_binding_preserves_rhs_order_without_alias_inference(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from dependency import helper\n"
+                b"helper = helper()\n"
+                b"def public_helper():\n"
+                b"    return 2\n"
+                b"def later():\n"
+                b"    return helper()\n"
+                b"def use_alias():\n"
+                b"    callback = public_helper\n"
+                b"    return callback()\n"
+            ),
+        )
+        dependency = source_file("dependency.py", b"def helper():\n    return 1\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        caller_module = nodes[("caller.py", "caller")]
+        dependency_helper = nodes[("dependency.py", "helper")]
+
+        self.assertIn(
+            IndexEdge(caller_module.id, "call", "helper", dependency_helper.id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(nodes[("caller.py", "later")].id, "call", "helper", None), index.edges
+        )
+        self.assertIn(
+            IndexEdge(nodes[("caller.py", "use_alias")].id, "call", "callback", None),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "use_alias")].id,
+                "reference",
+                "public_helper",
+                nodes[("caller.py", "public_helper")].id,
+            ),
+            index.edges,
+        )
+
+    def test_annotation_only_keeps_existing_runtime_bindings(self) -> None:
+        caller = source_file(
+            "caller.py",
+            (
+                b"from dependency import helper\n"
+                b"helper: object\n"
+                b"def use_module():\n"
+                b"    return helper()\n"
+                b"def use_import():\n"
+                b"    from dependency import helper\n"
+                b"    helper: object\n"
+                b"    return helper()\n"
+                b"class Worker:\n"
+                b"    def helper(self):\n"
+                b"        return 1\n"
+                b"    def run(self):\n"
+                b"        self: object\n"
+                b"        return self.helper()\n"
+            ),
+        )
+        dependency = source_file("dependency.py", b"def helper():\n    return 1\n")
+        snapshot = source_snapshot(caller, dependency)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {(node.path, node.qualified_name): node for node in index.nodes}
+        dependency_helper = nodes[("dependency.py", "helper")]
+
+        for qualified_name in ("use_module", "use_import"):
+            with self.subTest(qualified_name=qualified_name):
+                self.assertIn(
+                    IndexEdge(
+                        nodes[("caller.py", qualified_name)].id,
+                        "call",
+                        "helper",
+                        dependency_helper.id,
+                    ),
+                    index.edges,
+                )
+        self.assertIn(
+            IndexEdge(
+                nodes[("caller.py", "Worker.run")].id,
+                "call",
+                "self.helper",
+                nodes[("caller.py", "Worker.helper")].id,
+            ),
+            index.edges,
+        )
+
+    def test_lambda_walrus_binding_does_not_shadow_its_enclosing_scope(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def outer():\n"
+                b"    callback = lambda: ((helper := lambda: 'local'), helper())[1]\n"
+                b"    return helper(), callback\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        self.assertIn(IndexEdge(nodes["outer"].id, "call", "helper", None), index.edges)
+        self.assertIn(
+            IndexEdge(nodes["outer"].id, "call", "helper", nodes["helper"].id),
+            index.edges,
+        )
+
+    def test_enclosing_store_binding_shadows_a_global_for_closures(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def outer():\n"
+                b"    def inner():\n"
+                b"        return helper()\n"
+                b"    helper = lambda: 'local'\n"
+                b"    return inner\n"
+                b"def annotation_outer():\n"
+                b"    helper: object\n"
+                b"    def inner():\n"
+                b"        return helper()\n"
+                b"    return inner\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+
+        self.assertIn(IndexEdge(nodes["outer.inner"].id, "call", "helper", None), index.edges)
+        self.assertNotIn(
+            IndexEdge(nodes["outer.inner"].id, "call", "helper", nodes["helper"].id),
+            index.edges,
+        )
+        self.assertIn(
+            IndexEdge(nodes["annotation_outer.inner"].id, "call", "helper", None),
+            index.edges,
+        )
+        self.assertNotIn(
+            IndexEdge(
+                nodes["annotation_outer.inner"].id,
+                "call",
+                "helper",
+                nodes["helper"].id,
+            ),
+            index.edges,
+        )
+
     def test_calls_follow_repeated_import_rebindings(self) -> None:
         caller = source_file(
             "caller.py",
@@ -793,6 +1013,8 @@ class DeterministicIndexTests(unittest.TestCase):
                 b"    return 'module'\n"
                 b"def comprehension_local():\n"
                 b"    return 'module'\n"
+                b"def later():\n"
+                b"    return ()\n"
                 b"class Worker:\n"
                 b"    def helper():\n"
                 b"        return 'class'\n"
@@ -801,6 +1023,7 @@ class DeterministicIndexTests(unittest.TestCase):
                 b"    lambda_shadow = (lambda lambda_local: lambda_local())(None)\n"
                 b"    comprehension_shadow = "
                 b"[comprehension_local() for comprehension_local in ()]\n"
+                b"    chained = [item for item in () for later in later()]\n"
             ),
         )
         snapshot = source_snapshot(source)
@@ -817,7 +1040,7 @@ class DeterministicIndexTests(unittest.TestCase):
             IndexEdge(worker.id, "call", "helper", nodes["Worker.helper"].id),
             index.edges,
         )
-        for name in ("lambda_local", "comprehension_local"):
+        for name in ("lambda_local", "comprehension_local", "later"):
             with self.subTest(name=name):
                 self.assertIn(IndexEdge(worker.id, "call", name, None), index.edges)
                 self.assertNotIn(
@@ -844,6 +1067,35 @@ class DeterministicIndexTests(unittest.TestCase):
                 "Base",
                 nodes[("pkg.py", "class", "Base")].id,
             ),
+            index.edges,
+        )
+
+    def test_definition_headers_see_earlier_walrus_bindings(self) -> None:
+        source = source_file(
+            "caller.py",
+            (
+                b"def helper():\n"
+                b"    return 'global'\n"
+                b"def run(value=((helper := lambda: 'local'), helper())):\n"
+                b"    return value\n"
+                b"class Child((helper := object), helper):\n"
+                b"    pass\n"
+            ),
+        )
+        snapshot = source_snapshot(source)
+
+        index = build_index(snapshot, extract_structures(snapshot), config())
+        nodes = {node.qualified_name: node for node in index.nodes}
+        module = nodes["caller"]
+
+        self.assertIn(IndexEdge(module.id, "call", "helper", None), index.edges)
+        self.assertIn(IndexEdge(module.id, "reference", "helper", None), index.edges)
+        self.assertNotIn(
+            IndexEdge(module.id, "call", "helper", nodes["helper"].id),
+            index.edges,
+        )
+        self.assertNotIn(
+            IndexEdge(module.id, "reference", "helper", nodes["helper"].id),
             index.edges,
         )
 

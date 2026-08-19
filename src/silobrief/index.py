@@ -11,7 +11,13 @@ from silobrief.boundary_placeholders import (
     BoundaryPlaceholder,
     import_target,
 )
-from silobrief.python_structure import Definition, ImportEntry, ModuleStructure, SymbolUse
+from silobrief.python_structure import (
+    Definition,
+    ImportEntry,
+    ModuleStructure,
+    StoreBinding,
+    SymbolUse,
+)
 from silobrief.search_tokens import extract_scoped_source_text_tokens, normalize_search_tokens
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import BoundaryData, ConfigData
@@ -73,6 +79,17 @@ class _ImportBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class _StoreBinding:
+    context: str | None
+    name: str
+    line: int
+    column: int
+    conditional: bool
+    runtime: bool
+    deferred: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class _ScopeBinding:
     target_id: str | None = None
     imported_target: str | None = None
@@ -88,6 +105,7 @@ class _ModuleContext:
     definition_nodes: tuple[IndexNode, ...]
     context_ids: dict[str, str]
     import_bindings: tuple[_ImportBinding, ...]
+    store_bindings: tuple[_StoreBinding, ...]
     path_tokens: tuple[str, ...]
     import_tokens: tuple[str, ...]
     comment_tokens: tuple[str, ...]
@@ -208,6 +226,7 @@ def _build_module_context(
         definition_nodes=tuple(definition_nodes),
         context_ids=context_ids,
         import_bindings=_import_bindings(module_name, source.path, structure.imports),
+        store_bindings=_store_bindings(structure.store_bindings),
         path_tokens=path_tokens,
         import_tokens=import_tokens,
         comment_tokens=text_tokens.module.comments,
@@ -302,7 +321,7 @@ def _resolve_use_target(
 ) -> tuple[str | BoundaryPlaceholder, str | None]:
     if synthetic_local:
         return target, None
-    use_position = (*lookup_limit, -1) if lookup_limit is not None else (line, column, 2)
+    use_position = (line, column, 3)
     possible: list[_ScopeBinding] = []
     saw_binding = False
     for scope in _lexical_scopes(context, source_context, target, line, skip_class_scope):
@@ -313,6 +332,7 @@ def _resolve_use_target(
             target,
             line,
             use_position,
+            lookup_limit,
         )
         if bindings is None:
             continue
@@ -374,6 +394,7 @@ def _resolve_scope_bindings(
     target: str,
     line: int,
     use_position: tuple[int, int, int],
+    definition_under_construction: tuple[int, int] | None,
 ) -> tuple[_ScopeBinding, ...] | None:
     root = target.split(".", 1)[0]
     scope_definition = _definition_at(context, scope, line) if scope is not None else None
@@ -384,6 +405,8 @@ def _resolve_scope_bindings(
             _structural_parent(candidate_definition.qualified_name) != scope
             or candidate_definition.name != root
             or not _inside_definition(scope_definition, candidate_definition.line)
+            or definition_under_construction
+            == (candidate_definition.line, candidate_definition.column)
         ):
             continue
         suffix = target[len(root) :]
@@ -421,12 +444,40 @@ def _resolve_scope_bindings(
             deferred_bindings.append(candidate[1])
         else:
             candidates.append(candidate)
+    for store_binding in context.store_bindings:
+        if (
+            not store_binding.runtime
+            or store_binding.context != scope
+            or store_binding.name != root
+            or not _inside_definition(scope_definition, store_binding.line)
+        ):
+            continue
+        candidate = (
+            (store_binding.line, store_binding.column, 2),
+            _ScopeBinding(unknown=True),
+            store_binding.conditional,
+        )
+        if store_binding.deferred:
+            deferred_bindings.append(candidate[1])
+        else:
+            candidates.append(candidate)
     if (parameter := _parameter_binding(context, scope, target, line)) is not None:
         candidates.append(((0, 0, 0), parameter, False))
 
     direct_scope = scope == source_context
     declared = _has_declaration(context, scope, line, root, "global") or _has_declaration(
         context, scope, line, root, "nonlocal"
+    )
+    static_local = (
+        not declared
+        and scope_definition is not None
+        and scope_definition.kind == "function"
+        and any(
+            item.context == scope
+            and item.name == root
+            and _inside_definition(scope_definition, item.line)
+            for item in context.store_bindings
+        )
     )
     falls_through = declared or (
         direct_scope and scope_definition is not None and scope_definition.kind == "class"
@@ -451,11 +502,13 @@ def _resolve_scope_bindings(
 
     if (
         direct_scope
-        and candidates
+        and (candidates or static_local)
         and not declared
         and (scope is None or scope_definition is not None and scope_definition.kind == "function")
     ):
         return tuple(dict.fromkeys([_ScopeBinding(), *deferred_bindings]))
+    if static_local:
+        return tuple(dict.fromkeys([_ScopeBinding(unknown=True), *deferred_bindings]))
     if deferred_bindings:
         return tuple(dict.fromkeys([_ScopeBinding(falls_through=True), *deferred_bindings]))
     return None
@@ -606,6 +659,31 @@ def _import_bindings(
                     imported.line,
                     imported.column,
                     conditional,
+                    deferred,
+                )
+            )
+    return tuple(result)
+
+
+def _store_bindings(bindings: tuple[StoreBinding, ...]) -> tuple[_StoreBinding, ...]:
+    result: list[_StoreBinding] = []
+    for binding in bindings:
+        scopes = (
+            (binding.context, binding.conditional, False),
+            *(
+                (item.context, item.conditional, item.deferred)
+                for item in binding.projected_binding_scopes
+            ),
+        )
+        for scope, conditional, deferred in scopes:
+            result.append(
+                _StoreBinding(
+                    scope,
+                    binding.name,
+                    binding.line,
+                    binding.column,
+                    conditional,
+                    binding.runtime,
                     deferred,
                 )
             )

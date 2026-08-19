@@ -75,6 +75,17 @@ class ImportEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class StoreBinding:
+    name: str
+    context: str | None
+    line: int
+    column: int
+    conditional: bool = False
+    runtime: bool = True
+    projected_binding_scopes: tuple[ImportBindingScope, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class SymbolUse:
     context: str | None
     target: str
@@ -102,6 +113,7 @@ class ModuleStructure:
     calls: tuple[SymbolUse, ...]
     references: tuple[SymbolUse, ...]
     declarations: tuple[ScopeDeclaration, ...]
+    store_bindings: tuple[StoreBinding, ...] = ()
 
 
 def extract_structures(snapshot: SourceSnapshot) -> tuple[ModuleStructure, ...]:
@@ -133,6 +145,7 @@ def extract_module_structure(source: SourceFile) -> ModuleStructure:
         calls=tuple(visitor.calls),
         references=tuple(visitor.references),
         declarations=tuple(visitor.declarations),
+        store_bindings=tuple(visitor.store_bindings),
     )
 
 
@@ -200,6 +213,7 @@ class _StructureVisitor(ast.NodeVisitor):
         self.calls: list[SymbolUse] = []
         self.references: list[SymbolUse] = []
         self.declarations: list[ScopeDeclaration] = []
+        self.store_bindings: list[StoreBinding] = []
         self._contexts: list[str] = []
         self._context_kinds: list[DefinitionKind] = []
         self._context_conditionals: list[bool] = []
@@ -207,6 +221,8 @@ class _StructureVisitor(ast.NodeVisitor):
         self._symbol_tables = [symbols]
         self._conditional_depth = 0
         self._synthetic_scopes: list[set[str]] = []
+        self._suppress_store_bindings = 0
+        self._store_position_overrides: list[tuple[int, int]] = []
         self._lookup_limit: tuple[int, int] | None = None
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -231,7 +247,7 @@ class _StructureVisitor(ast.NodeVisitor):
                     line=line,
                     column=column,
                     conditional=self._conditional_depth > 0,
-                    projected_binding_scopes=self._projected_import_scopes(
+                    projected_binding_scopes=self._projected_binding_scopes(
                         imported.asname or imported.name.split(".", 1)[0]
                     ),
                 )
@@ -250,7 +266,7 @@ class _StructureVisitor(ast.NodeVisitor):
                     line=line,
                     column=column,
                     conditional=self._conditional_depth > 0,
-                    projected_binding_scopes=self._projected_import_scopes(
+                    projected_binding_scopes=self._projected_binding_scopes(
                         imported.asname or imported.name
                     ),
                 )
@@ -283,11 +299,86 @@ class _StructureVisitor(ast.NodeVisitor):
             line, column = _location(node)
             self.references.append(self._symbol_use(node.id, line, column))
 
+    def visit_Assign(self, node: ast.Assign) -> None:
+        self.visit(node.value)
+        for target in node.targets:
+            self._visit_store_target(target, _end_location(node))
+        self._record_store_bindings(
+            set().union(*(_bound_names(target) for target in node.targets)),
+            _end_location(node),
+        )
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if node.value is not None:
+            self.visit(node.value)
+        self._visit_store_target(node.target, _end_location(node))
+        self.visit(node.annotation)
+        self._record_store_bindings(
+            _bound_names(node.target),
+            _end_location(node),
+            runtime=node.value is not None,
+        )
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        self.visit(node.target)
+        self.visit(node.value)
+        self._record_store_bindings(_bound_names(node.target), _end_location(node))
+
+    def visit_NamedExpr(self, node: ast.NamedExpr) -> None:
+        self.visit(node.value)
+        self.visit(node.target)
+        self._record_store_bindings(
+            _bound_names(node.target),
+            _end_location(node),
+            conditional=bool(self._synthetic_scopes),
+        )
+
+    def visit_BoolOp(self, node: ast.BoolOp) -> None:
+        first, *remaining = node.values
+        self.visit(first)
+        self._conditional_depth += 1
+        try:
+            for value in remaining:
+                self.visit(value)
+        finally:
+            self._conditional_depth -= 1
+
+    def visit_IfExp(self, node: ast.IfExp) -> None:
+        self.visit(node.test)
+        self._conditional_depth += 1
+        try:
+            self.visit(node.body)
+            self.visit(node.orelse)
+        finally:
+            self._conditional_depth -= 1
+
+    def visit_Compare(self, node: ast.Compare) -> None:
+        self.visit(node.left)
+        first, *remaining = node.comparators
+        self.visit(first)
+        self._conditional_depth += 1
+        try:
+            for comparator in remaining:
+                self.visit(comparator)
+        finally:
+            self._conditional_depth -= 1
+
+    def visit_Assert(self, node: ast.Assert) -> None:
+        self._conditional_depth += 1
+        try:
+            self.visit(node.test)
+            if node.msg is not None:
+                self.visit(node.msg)
+        finally:
+            self._conditional_depth -= 1
+
     def visit_Lambda(self, node: ast.Lambda) -> None:
         for default in (*node.args.defaults, *node.args.kw_defaults):
             if default is not None:
                 self.visit(default)
-        self._visit_synthetic(node.body, set(_argument_names(node.args)))
+        names = set(_argument_names(node.args))
+        names.update(_walrus_bound_names(node.body))
+        self._visit_synthetic(node.body, names, suppress_store_bindings=True)
 
     def visit_ListComp(self, node: ast.ListComp) -> None:
         self._visit_comprehension(node.generators, (node.elt,))
@@ -305,10 +396,10 @@ class _StructureVisitor(ast.NodeVisitor):
         self._visit_conditional(node)
 
     def visit_For(self, node: ast.For) -> None:
-        self._visit_conditional(node)
+        self._visit_for(node)
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
-        self._visit_conditional(node)
+        self._visit_for(node)
 
     def visit_While(self, node: ast.While) -> None:
         self._visit_conditional(node)
@@ -320,13 +411,36 @@ class _StructureVisitor(ast.NodeVisitor):
         self._visit_conditional(node)
 
     def visit_Match(self, node: ast.Match) -> None:
-        self._visit_conditional(node)
+        self._conditional_depth += 1
+        try:
+            self.visit(node.subject)
+            for case in node.cases:
+                self.visit(case.pattern)
+                self._record_store_bindings(
+                    _match_bound_names(case.pattern),
+                    _end_location(case.pattern),
+                )
+                if case.guard is not None:
+                    self.visit(case.guard)
+                for statement in case.body:
+                    self.visit(statement)
+        finally:
+            self._conditional_depth -= 1
 
     def visit_With(self, node: ast.With) -> None:
-        self._visit_conditional(node)
+        self._visit_with(node)
 
     def visit_AsyncWith(self, node: ast.AsyncWith) -> None:
-        self._visit_conditional(node)
+        self._visit_with(node)
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
+        if node.type is not None:
+            self.visit(node.type)
+        if node.name is not None:
+            position = _end_location(node.type) if node.type is not None else _location(node)
+            self._record_store_bindings({node.name}, position)
+        for statement in node.body:
+            self.visit(statement)
 
     def visit_Global(self, node: ast.Global) -> None:
         self._record_declarations("global", node)
@@ -408,7 +522,7 @@ class _StructureVisitor(ast.NodeVisitor):
         if self._scope_declarations:
             self._scope_declarations[-1].update(dict.fromkeys(node.names, kind))
 
-    def _projected_import_scopes(self, name: str) -> tuple[ImportBindingScope, ...]:
+    def _projected_binding_scopes(self, name: str) -> tuple[ImportBindingScope, ...]:
         if not self._context_kinds:
             return ()
         declaration = self._scope_declarations[-1].get(name)
@@ -456,11 +570,19 @@ class _StructureVisitor(ast.NodeVisitor):
             lookup_limit=self._lookup_limit,
         )
 
-    def _visit_synthetic(self, node: ast.AST, names: set[str]) -> None:
+    def _visit_synthetic(
+        self,
+        node: ast.AST,
+        names: set[str],
+        *,
+        suppress_store_bindings: bool = False,
+    ) -> None:
         self._synthetic_scopes.append(names)
+        self._suppress_store_bindings += suppress_store_bindings
         try:
             self.visit(node)
         finally:
+            self._suppress_store_bindings -= suppress_store_bindings
             self._synthetic_scopes.pop()
 
     def _visit_comprehension(
@@ -470,7 +592,7 @@ class _StructureVisitor(ast.NodeVisitor):
     ) -> None:
         first, *remaining = generators
         self.visit(first.iter)
-        names = _bound_names(first.target)
+        names = set().union(*(_bound_names(generator.target) for generator in generators))
         self._synthetic_scopes.append(names)
         try:
             self.visit(first.target)
@@ -478,7 +600,6 @@ class _StructureVisitor(ast.NodeVisitor):
                 self.visit(condition)
             for generator in remaining:
                 self.visit(generator.iter)
-                names.update(_bound_names(generator.target))
                 self.visit(generator.target)
                 for condition in generator.ifs:
                     self.visit(condition)
@@ -486,6 +607,66 @@ class _StructureVisitor(ast.NodeVisitor):
                 self.visit(result)
         finally:
             self._synthetic_scopes.pop()
+
+    def _visit_for(self, node: ast.For | ast.AsyncFor) -> None:
+        self._conditional_depth += 1
+        try:
+            self.visit(node.iter)
+            self._visit_store_target(node.target, _end_location(node.iter))
+            self._record_store_bindings(_bound_names(node.target), _end_location(node.iter))
+            for statement in (*node.body, *node.orelse):
+                self.visit(statement)
+        finally:
+            self._conditional_depth -= 1
+
+    def _visit_with(self, node: ast.With | ast.AsyncWith) -> None:
+        self._conditional_depth += 1
+        try:
+            for item in node.items:
+                self.visit(item.context_expr)
+                if item.optional_vars is not None:
+                    self._visit_store_target(item.optional_vars, _end_location(item.optional_vars))
+                    self._record_store_bindings(
+                        _bound_names(item.optional_vars),
+                        _end_location(item.optional_vars),
+                    )
+            for statement in node.body:
+                self.visit(statement)
+        finally:
+            self._conditional_depth -= 1
+
+    def _record_store_bindings(
+        self,
+        names: set[str],
+        position: tuple[int, int],
+        *,
+        conditional: bool = False,
+        runtime: bool = True,
+    ) -> None:
+        if self._suppress_store_bindings:
+            return
+        if self._store_position_overrides:
+            position = self._store_position_overrides[-1]
+        line, column = position
+        for name in sorted(names):
+            self.store_bindings.append(
+                StoreBinding(
+                    name,
+                    self._context,
+                    line,
+                    column,
+                    conditional=self._conditional_depth > 0 or conditional,
+                    runtime=runtime,
+                    projected_binding_scopes=self._projected_binding_scopes(name),
+                )
+            )
+
+    def _visit_store_target(self, node: ast.expr, position: tuple[int, int]) -> None:
+        self._store_position_overrides.append(position)
+        try:
+            self.visit(node)
+        finally:
+            self._store_position_overrides.pop()
 
     def _visit_conditional(self, node: ast.AST) -> None:
         self._conditional_depth += 1
@@ -554,5 +735,53 @@ def _bound_names(node: ast.expr) -> set[str]:
     return set()
 
 
-def _location(node: ast.stmt | ast.expr) -> tuple[int, int]:
+def _match_bound_names(node: ast.pattern) -> set[str]:
+    if isinstance(node, ast.MatchAs):
+        names = _match_bound_names(node.pattern) if node.pattern is not None else set()
+        if node.name is not None:
+            names.add(node.name)
+        return names
+    if isinstance(node, ast.MatchStar):
+        return {node.name} if node.name is not None else set()
+    if isinstance(node, ast.MatchSequence):
+        return set().union(*(_match_bound_names(item) for item in node.patterns))
+    if isinstance(node, ast.MatchMapping):
+        names = set().union(*(_match_bound_names(item) for item in node.patterns))
+        if node.rest is not None:
+            names.add(node.rest)
+        return names
+    if isinstance(node, ast.MatchClass):
+        return set().union(
+            *(_match_bound_names(item) for item in (*node.patterns, *node.kwd_patterns))
+        )
+    if isinstance(node, ast.MatchOr):
+        return set().union(*(_match_bound_names(item) for item in node.patterns))
+    return set()
+
+
+def _walrus_bound_names(node: ast.AST) -> set[str]:
+    names: set[str] = set()
+
+    def collect(current: ast.AST) -> None:
+        if isinstance(current, ast.Lambda):
+            for default in (*current.args.defaults, *current.args.kw_defaults):
+                if default is not None:
+                    collect(default)
+            return
+        if isinstance(current, ast.NamedExpr):
+            names.update(_bound_names(current.target))
+        for child in ast.iter_child_nodes(current):
+            collect(child)
+
+    collect(node)
+    return names
+
+
+def _location(node: ast.stmt | ast.expr | ast.pattern | ast.ExceptHandler) -> tuple[int, int]:
     return node.lineno, node.col_offset + 1
+
+
+def _end_location(node: ast.stmt | ast.expr | ast.pattern) -> tuple[int, int]:
+    line = node.end_lineno if node.end_lineno is not None else node.lineno
+    column = node.end_col_offset if node.end_col_offset is not None else node.col_offset
+    return line, column + 1
