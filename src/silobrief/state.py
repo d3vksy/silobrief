@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TypedDict
 
+from silobrief.index_version import INDEX_VERSION, is_rebuildable_index_version
 from silobrief.language import (
     LanguageSettings,
     default_language_settings,
@@ -244,8 +245,10 @@ def _validate_state(state: Path) -> ConfigData:
             index_data = _read_object(index)
         except SetupError as error:
             raise IndexStateError(str(error)) from error
-        if not _is_version_one(index_data.get("index_version")):
-            raise IndexStateError("index.json is not compatible with version 1")
+        if not is_rebuildable_index_version(index_data.get("index_version")):
+            raise IndexStateError(
+                f"index.json is not compatible with index version {INDEX_VERSION}"
+            )
     return config
 
 

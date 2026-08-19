@@ -78,6 +78,10 @@ def invalidate_version(value: dict[str, object]) -> None:
     value["index_version"] = True
 
 
+def use_future_version(value: dict[str, object]) -> None:
+    value["index_version"] = 3
+
+
 def invalidate_digest(value: dict[str, object]) -> None:
     value["source_digest"] = "not-a-digest"
 
@@ -143,6 +147,7 @@ class StoredIndexTests(unittest.TestCase):
         mutations: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
             ("unknown key", add_unknown_key),
             ("version", invalidate_version),
+            ("future version", use_future_version),
             ("digest", invalidate_digest),
             ("node", invalidate_node_id),
             ("tokens", invalidate_tokens),

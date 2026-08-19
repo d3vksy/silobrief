@@ -11,6 +11,7 @@ from silobrief.boundary_placeholders import (
     BoundaryPlaceholder,
     import_target,
 )
+from silobrief.index_version import INDEX_VERSION, is_current_index_version
 from silobrief.python_structure import (
     Definition,
     ImportEntry,
@@ -161,7 +162,7 @@ def build_index(
     return IndexData(
         config_digest=config_digest(config),
         edges=tuple(sorted(edges, key=_edge_key)),
-        index_version=1,
+        index_version=INDEX_VERSION,
         nodes=tuple(sorted(all_nodes, key=_node_key)),
         source_digest=snapshot.digest,
         stale=False,
@@ -169,10 +170,12 @@ def build_index(
 
 
 def render_index_json(index: IndexData) -> bytes:
+    if not is_current_index_version(index.index_version):
+        raise IndexBuildError("index does not use the current version")
     value: dict[str, object] = {
         "config_digest": index.config_digest,
         "edges": [_edge_value(edge) for edge in index.edges],
-        "index_version": index.index_version,
+        "index_version": INDEX_VERSION,
         "nodes": [_node_value(node) for node in index.nodes],
         "source_digest": index.source_digest,
         "stale": index.stale,
