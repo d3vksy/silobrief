@@ -211,16 +211,28 @@ class LexicalRankingTests(unittest.TestCase):
         source_index = index(*implementation, *tests)
 
         without_tests = rank_candidates("match behavior", source_index, notes())
-        with_tests = rank_candidates("match behavior tests", source_index, notes())
-        with_korean_tests = rank_candidates("match behavior 테스트", source_index, notes())
-
         self.assertEqual(len(without_tests), 7)
         self.assertTrue(all(not item.node.path.startswith("tests/") for item in without_tests))
-        self.assertEqual(len(with_tests), 10)
-        self.assertTrue(all(not item.node.path.startswith("tests/") for item in with_tests[:7]))
-        self.assertTrue(all(item.node.path.startswith("tests/") for item in with_tests[7:]))
-        self.assertEqual(len(with_korean_tests), 10)
-        self.assertTrue(all(item.node.path.startswith("tests/") for item in with_korean_tests[7:]))
+        for prompt in (
+            "match behavior tests",
+            "match behavior 테스트",
+            "match behavior 테스트를 추가해 주세요",
+            "match behavior 테스트가 필요해",
+            "match behavior 테스트도 확인해 주세요",
+            "match behavior 테스트용 코드를 찾아줘",
+        ):
+            with self.subTest(prompt=prompt):
+                ranked = rank_candidates(prompt, source_index, notes())
+                self.assertEqual(len(ranked), 10)
+                self.assertTrue(all(not item.node.path.startswith("tests/") for item in ranked[:7]))
+                self.assertTrue(all(item.node.path.startswith("tests/") for item in ranked[7:]))
+        contest_request = rank_candidates(
+            "match behavior 콘테스트를 준비해 주세요",
+            source_index,
+            notes(),
+        )
+        self.assertEqual(len(contest_request), 7)
+        self.assertTrue(all(not item.node.path.startswith("tests/") for item in contest_request))
 
     def test_ignores_module_and_import_only_matches(self) -> None:
         module = node(
