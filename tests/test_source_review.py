@@ -150,6 +150,38 @@ class SourceReviewTests(unittest.TestCase):
         self.assertEqual(approved[0].qualified_name, "Service")
         self.assertEqual(approved[0].boundary_aliases, ("delivery-boundary",))
 
+    def test_reviews_every_span_for_a_repeated_definition(self) -> None:
+        value = node("value", "models.py", "function", "Item.value")
+        source = snapshot(
+            source_file(
+                "models.py",
+                (
+                    b"class Item:\n"
+                    b"    @property\n"
+                    b"    def value(self):\n"
+                    b"        return self._value\n"
+                    b"\n"
+                    b"    @value.setter\n"
+                    b"    def value(self, new):\n"
+                    b"        self._value = new\n"
+                ),
+            )
+        )
+        output = TtyBuffer()
+
+        approved = review_source_disclosure(
+            index(value),
+            source,
+            ReviewSelection((review_node(value),), (), FIELDS),
+            input_stream=TtyBuffer("y\ny\n"),
+            output_stream=output,
+        )
+
+        self.assertEqual(len(approved), 2)
+        self.assertIn("@property", approved[0].content)
+        self.assertIn("@value.setter", approved[1].content)
+        self.assertEqual(output.getvalue().count("Source candidate:"), 2)
+
     def test_deferred_boundary_binding_requires_expose(self) -> None:
         source = snapshot(
             source_file(

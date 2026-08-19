@@ -14,7 +14,7 @@ from silobrief.source_excerpts import (
     SourceExcerptError,
     SourceExcerptLimitError,
     SourceSelection,
-    extract_source_excerpt,
+    extract_source_excerpts,
     prepare_source_excerpts,
 )
 from silobrief.sources import SourceSnapshot
@@ -69,10 +69,12 @@ def review_source_disclosure(
     candidates: list[SourceExcerpt] = []
     for node in sorted(selected_nodes.values(), key=_node_key):
         try:
-            candidates.append(
-                extract_source_excerpt(
+            candidates.extend(
+                extract_source_excerpts(
                     snapshot,
-                    SourceSelection(node.path, node.kind, node.qualified_name),
+                    (SourceSelection(node.path, node.kind, node.qualified_name),),
+                    max_lines=sys.maxsize,
+                    max_utf8_bytes=sys.maxsize,
                 )
             )
         except SourceExcerptError as error:

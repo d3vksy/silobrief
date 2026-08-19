@@ -7,6 +7,11 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve every source span for repeated definitions such as property accessors, overloads, and
+  conditional implementations (#197).
+
 ## [1.0.4] - 2026-08-19
 
 ### Added

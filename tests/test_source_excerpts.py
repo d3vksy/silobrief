@@ -7,6 +7,7 @@ from silobrief.source_excerpts import (
     SourceExcerptError,
     SourceExcerptLimitError,
     SourceSelection,
+    extract_source_excerpt,
     extract_source_excerpts,
 )
 from silobrief.sources import SourceFile, SourceSnapshot
@@ -116,6 +117,76 @@ class SourceExcerptTests(unittest.TestCase):
         self.assertEqual(
             excerpts[0].content, "class Service:\n    def run(self):\n        return 1\n"
         )
+
+    def test_preserves_every_repeated_definition_span(self) -> None:
+        source = source_file(
+            "models.py",
+            (
+                b"class Item:\n"
+                b"    @property\n"
+                b"    def value(self):\n"
+                b"        return self._value\n"
+                b"\n"
+                b"    @value.setter\n"
+                b"    def value(self, new):\n"
+                b"        self._value = new\n"
+                b"\n"
+                b"@overload\n"
+                b"def render(value: int) -> str: ...\n"
+                b"@overload\n"
+                b"def render(value: str) -> str: ...\n"
+                b"def render(value):\n"
+                b"    return str(value)\n"
+                b"\n"
+                b"if FLAG:\n"
+                b"    def choose():\n"
+                b"        return 'first'\n"
+                b"else:\n"
+                b"    def choose():\n"
+                b"        return 'second'\n"
+            ),
+        )
+
+        excerpts = extract_source_excerpts(
+            snapshot(source),
+            (
+                SourceSelection("models.py", "function", "Item.value"),
+                SourceSelection("models.py", "function", "render"),
+                SourceSelection("models.py", "function", "choose"),
+            ),
+        )
+
+        self.assertEqual(
+            [item.qualified_name for item in excerpts],
+            ["Item.value", "Item.value", "render", "render", "render", "choose", "choose"],
+        )
+        contents = [item.content for item in excerpts]
+        self.assertTrue(any("@property" in content for content in contents))
+        self.assertTrue(any("@value.setter" in content for content in contents))
+        self.assertEqual(sum("@overload" in content for content in contents), 2)
+        self.assertTrue(any("return 'first'" in content for content in contents))
+        self.assertTrue(any("return 'second'" in content for content in contents))
+
+    def test_repeated_definitions_share_limits_and_reject_singular_lookup(self) -> None:
+        source = source_file(
+            "models.py",
+            (
+                b"class Item:\n"
+                b"    @property\n"
+                b"    def value(self):\n"
+                b"        return self._value\n"
+                b"\n"
+                b"    @value.setter\n"
+                b"    def value(self, new):\n"
+                b"        self._value = new\n"
+            ),
+        )
+        selection = SourceSelection("models.py", "function", "Item.value")
+
+        with self.assertRaisesRegex(SourceExcerptLimitError, "6 lines"):
+            extract_source_excerpts(snapshot(source), (selection,), max_lines=5)
+        with self.assertRaisesRegex(SourceExcerptError, "multiple definitions"):
+            extract_source_excerpt(snapshot(source), selection)
 
     def test_sorts_excerpts_by_path_and_source_location(self) -> None:
         first = source_file("a.py", b"def zed():\n    pass\n\ndef alpha():\n    pass\n")
