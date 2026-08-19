@@ -9,6 +9,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Point vulnerability and conduct reports to working private GitHub channels (#196).
 - Preserve every source span for repeated definitions such as property accessors, overloads, and
   conditional implementations (#197).
 - Reserve test-file candidates when Korean requests use forms such as `테스트를` or `테스트용` (#198).

@@ -18,9 +18,9 @@ The latest 1.0.x release is the currently supported line.
 
 Do not open a public Issue for a suspected vulnerability or accidental disclosure.
 
-Use GitHub private vulnerability reporting when it is available. If it is unavailable, contact
-the repository owner using the contact information on their public GitHub profile. Include the
-affected version or commit, reproduction steps, impact, and a minimal synthetic example.
+Use the repository's [private vulnerability reporting form](https://github.com/d3vksy/silobrief/security/advisories/new).
+GitHub requires you to sign in before opening the form. Include the affected version or commit,
+reproduction steps, impact, and a minimal synthetic example.
 
 Do not include real credentials, private source code, organization names, or restricted data in
 the report.
