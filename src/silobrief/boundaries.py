@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import os
 import stat
+import sys
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -113,7 +114,7 @@ def unregister_boundary(selector: str, *, start: Path) -> BoundaryData:
 
 @contextmanager
 def _config_update_lock(state: Path, state_descriptor: int | None) -> Iterator[None]:
-    if os.name != "nt":
+    if sys.platform != "win32":
         if state_descriptor is None:
             raise SetupError("state directory descriptor is unavailable")
         _lock_descriptor(state_descriptor)
@@ -144,9 +145,9 @@ def _config_update_lock(state: Path, state_descriptor: int | None) -> Iterator[N
             or not os.path.samestat(metadata, current)
         ):
             raise SetupError("config lock must be a real file")
-        _ensure_lock_byte(descriptor)
         _lock_descriptor(descriptor)
         acquired = True
+        _ensure_lock_byte(descriptor)
         try:
             current = path.stat(follow_symlinks=False)
         except OSError as error:
@@ -176,7 +177,7 @@ def _ensure_lock_byte(descriptor: int) -> None:
 
 
 def _lock_descriptor(descriptor: int) -> None:
-    if os.name != "nt":
+    if sys.platform != "win32":
         file_locks = cast(_FileLockModule, importlib.import_module("fcntl"))
 
         try:
@@ -201,7 +202,7 @@ def _lock_descriptor(descriptor: int) -> None:
 
 def _unlock_descriptor(descriptor: int) -> None:
     try:
-        if os.name == "nt":
+        if sys.platform == "win32":
             import msvcrt
 
             os.lseek(descriptor, 0, os.SEEK_SET)

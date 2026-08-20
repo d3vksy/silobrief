@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import os
 import stat
+import sys
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -265,10 +266,6 @@ def _protected_output_directory(
         write_descriptor = parent_descriptor
 
     try:
-        if os.name == "nt" and _normalized_windows_path(
-            _windows_handle_path(parent_descriptor)
-        ) != _normalized_windows_path(path):
-            raise OutputBlockedError("output parent must remain a real directory")
         if not _same_directory(path, parent_descriptor):
             raise OutputBlockedError("output parent must remain a real directory")
         guard = _OutputDirectoryGuard(
@@ -368,6 +365,8 @@ def _same_path_identity(path: Path, identity: tuple[int, int]) -> bool:
 
 
 def _open_windows_directory(path: Path) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows output handles are unavailable")
     import ctypes
     import msvcrt
 
@@ -409,6 +408,8 @@ def _open_windows_directory(path: Path) -> int:
 
 
 def _windows_handle_path(descriptor: int) -> Path:
+    if sys.platform != "win32":
+        raise OSError("Windows output handles are unavailable")
     import ctypes
     import msvcrt
 
@@ -435,15 +436,6 @@ def _windows_handle_path(descriptor: int) -> Path:
     elif value.startswith("\\\\?\\"):
         value = value[4:]
     return Path(value)
-
-
-def _normalized_windows_path(path: Path) -> str:
-    value = str(path.absolute())
-    if value.startswith("\\\\?\\UNC\\"):
-        value = f"\\\\{value[8:]}"
-    elif value.startswith("\\\\?\\"):
-        value = value[4:]
-    return os.path.normcase(os.path.normpath(value))
 
 
 def _require_allowed_location(destination: Path, root: Path) -> None:
@@ -599,6 +591,8 @@ def _open_new_file(path: Path, directory_descriptor: int | None) -> tuple[int, b
 
 
 def _open_windows_output_file(path: Path) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows output handles are unavailable")
     import ctypes
     import msvcrt
 
@@ -775,7 +769,7 @@ def _abort_created_file(guard: _OutputDirectoryGuard) -> None:
 
 
 def _mark_windows_file_for_deletion(created: _CreatedFile) -> bool:
-    if created.descriptor < 0:
+    if sys.platform != "win32" or created.descriptor < 0:
         return False
     try:
         import ctypes

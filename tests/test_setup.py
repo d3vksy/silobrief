@@ -263,7 +263,7 @@ class SetupCommandTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
     def test_setup_locks_project_root_before_creating_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve(strict=True)
             project = root / "project"
             project.mkdir()
             state = project / ".silobrief"
@@ -312,7 +312,7 @@ class SetupCommandTests(unittest.TestCase):
 
     def test_setup_does_not_clean_a_replaced_real_state_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve(strict=True)
             project = root / "project"
             replacement = root / "replacement"
             project.mkdir()
@@ -719,7 +719,7 @@ class SetupCommandTests(unittest.TestCase):
 
     def test_setup_binds_incomplete_exports_validation_to_one_directory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve(strict=True)
             state = project / ".silobrief"
             exports = state / "exports"
             exports.mkdir(parents=True)

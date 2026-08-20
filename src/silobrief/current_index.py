@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import stat
+import sys
+import threading
 from dataclasses import dataclass, field
 from io import FileIO
 from pathlib import Path
@@ -61,6 +63,7 @@ class _ApprovalResources:
     state_fd: int
     config_fd: int
     index_fd: int
+    watch_fd: int | None
     root_generation: _FileGeneration
     state_generation: _FileGeneration
     config_generation: _FileGeneration
@@ -68,10 +71,12 @@ class _ApprovalResources:
     config_content: bytes
     index_content: bytes
     root_identity: SourceRootIdentity
+    watch_changed: bool = False
+    watch_lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     status: int = 0
 
     def revalidate(self) -> None:
-        if self.status or has_link_like_component(self.root):
+        if self.status or self._watch_changed() or has_link_like_component(self.root):
             raise CurrentIndexError("project settings changed during approval; run sb init")
         state = self.root / STATE_DIRECTORY
         try:
@@ -96,6 +101,7 @@ class _ApprovalResources:
             if (
                 _read_descriptor(self.config_fd) != self.config_content
                 or _read_descriptor(self.index_fd) != self.index_content
+                or self._watch_changed()
             ):
                 raise CurrentIndexError("project settings changed during approval; run sb init")
         except OSError as error:
@@ -103,11 +109,19 @@ class _ApprovalResources:
                 "project settings changed during approval; run sb init"
             ) from error
 
+    def _watch_changed(self) -> bool:
+        with self.watch_lock:
+            self.watch_changed = self.watch_changed or _approval_watch_changed(self.watch_fd)
+            return self.watch_changed
+
     def close(self) -> None:
         if self.status == 2:
             return
         self.status = 2
-        _close_descriptors(self.root_fd, self.state_fd, self.config_fd, self.index_fd)
+        descriptors = [self.root_fd, self.state_fd, self.config_fd, self.index_fd]
+        if self.watch_fd is not None:
+            descriptors.append(self.watch_fd)
+        _close_descriptors(*descriptors)
 
 
 def load_current_index(root: Path) -> tuple[IndexData, SourceSnapshot]:
@@ -189,9 +203,14 @@ def _open_approval_resources(root: Path) -> _ApprovalResources:
         return opened
 
     try:
+        watch_descriptor = _open_approval_watch()
+        if watch_descriptor is not None:
+            descriptors.append(watch_descriptor)
         root_descriptor, root_generation = hold(root, root.name, None, True)
+        _add_approval_watch(watch_descriptor, f"/proc/self/fd/{root_descriptor}")
         state = root / STATE_DIRECTORY
         state_descriptor, state_generation = hold(state, STATE_DIRECTORY, root_descriptor, True)
+        _add_approval_watch(watch_descriptor, f"/proc/self/fd/{state_descriptor}")
         config_descriptor, config_generation = hold(
             state / "config.json", "config.json", state_descriptor, False
         )
@@ -204,6 +223,7 @@ def _open_approval_resources(root: Path) -> _ApprovalResources:
             state_fd=state_descriptor,
             config_fd=config_descriptor,
             index_fd=index_descriptor,
+            watch_fd=watch_descriptor,
             root_generation=root_generation,
             state_generation=state_generation,
             config_generation=config_generation,
@@ -299,6 +319,43 @@ def _read_descriptor(descriptor: int) -> bytes:
         return FileIO(descriptor, closefd=False).read()
     finally:
         os.lseek(descriptor, position, os.SEEK_SET)
+
+
+def _open_approval_watch() -> int | None:
+    if sys.platform != "linux":
+        return None
+    import ctypes
+
+    libc = ctypes.CDLL(None, use_errno=True)
+    initialize = libc.inotify_init1
+    initialize.argtypes = (ctypes.c_int,)
+    initialize.restype = ctypes.c_int
+    descriptor = int(initialize(os.O_NONBLOCK | int(getattr(os, "O_CLOEXEC", 0))))
+    if descriptor < 0:
+        raise OSError(ctypes.get_errno(), "cannot monitor approval state")
+    return descriptor
+
+
+def _add_approval_watch(descriptor: int | None, path: str) -> None:
+    if descriptor is None:
+        return
+    import ctypes
+
+    add_watch = ctypes.CDLL(None, use_errno=True).inotify_add_watch
+    add_watch.argtypes = (ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32)
+    add_watch.restype = ctypes.c_int
+    change_mask = 0x2 | 0x4 | 0x8 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 | 0x2000
+    if add_watch(descriptor, os.fsencode(path), change_mask) < 0:
+        raise OSError(ctypes.get_errno(), "cannot monitor approval state")
+
+
+def _approval_watch_changed(descriptor: int | None) -> bool:
+    if descriptor is None:
+        return False
+    try:
+        return bool(os.read(descriptor, 65536))
+    except BlockingIOError:
+        return False
 
 
 def _close_descriptors(*descriptors: int) -> None:

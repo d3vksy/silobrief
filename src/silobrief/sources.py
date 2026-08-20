@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+import sys
 from collections.abc import Iterator
 from contextlib import AbstractContextManager, contextmanager
 from dataclasses import dataclass, field
@@ -100,7 +101,9 @@ def load_source_config(
 ) -> tuple[ConfigData, SourceRootIdentity]:
     with _validated_root(root, expected_root_identity, protected_root_descriptor) as project:
         config_root = (
-            root if project.descriptor is None else Path("/proc/self/fd") / str(project.descriptor)
+            project.expected_path
+            if project.descriptor is None
+            else Path("/proc/self/fd") / str(project.descriptor)
         )
         config = load_config(config_root)
         _require_current_root(project)
@@ -512,7 +515,7 @@ def _capture_boundary_tree(
             raise SourceCollectionError(
                 f"registered boundary has no stable file ID: {child.relative_path}"
             )
-        path = project.path / Path(child.relative_path)
+        path = project.expected_path / Path(child.relative_path)
         access = 0x00000080 | (0x00000001 if child.children else 0)
         try:
             handle = _open_windows_handle(
@@ -563,13 +566,12 @@ def _verify_boundary_handle(
     expected_directory: bool | None,
     handle: int,
 ) -> tuple[int, bool]:
-    path = project.path / Path(relative)
     expected_path = project.expected_path / Path(relative)
     try:
         attributes = _windows_handle_attributes(handle)
         actual_path = _windows_handle_path(handle)
         entry_id = _windows_handle_file_id(handle)
-        observed = path.stat(follow_symlinks=False)
+        observed = expected_path.stat(follow_symlinks=False)
     except OSError as error:
         raise SourceCollectionError(
             f"cannot protect registered boundary {relative}: {_error_reason(error)}"
@@ -623,7 +625,11 @@ def _read_regular_source(
                 raise SourceCollectionError(
                     f"source entry changed location before read: {relative_path}"
                 )
-            locked_path_state = path.stat(follow_symlinks=False) if os.name == "nt" else opened
+            locked_path_state = (
+                (parent.expected_path / path.name).stat(follow_symlinks=False)
+                if os.name == "nt"
+                else opened
+            )
             if not _same_file_state(locked_path_state, opened) or not _same_entry_observation(
                 expected,
                 locked_path_state,
@@ -682,7 +688,7 @@ def _scan_directory(
     directory: _SourceDirectory,
 ) -> AbstractContextManager[Iterator[os.DirEntry[str]]]:
     target: int | Path = (
-        directory.descriptor if directory.descriptor is not None else directory.path
+        directory.descriptor if directory.descriptor is not None else directory.expected_path
     )
     return os.scandir(target)
 
@@ -690,7 +696,7 @@ def _scan_directory(
 def _directory_metadata(directory: _SourceDirectory) -> os.stat_result:
     if directory.descriptor is not None:
         return os.fstat(directory.descriptor)
-    return directory.path.stat(follow_symlinks=False)
+    return directory.expected_path.stat(follow_symlinks=False)
 
 
 @contextmanager
@@ -699,29 +705,32 @@ def _open_root_directory(
     expected_identity: SourceRootIdentity,
     protected_root_descriptor: int | None = None,
 ) -> Iterator[_SourceDirectory]:
-    if os.name == "nt":
+    if sys.platform == "win32":
         import msvcrt
 
         handles: list[int] = []
         borrowed_descriptor: int | None = None
-        current = Path(path.anchor)
+        requested = Path(path.anchor)
+        canonical: Path | None = None
         try:
             for component in (path.anchor, *path.parts[1:]):
                 if component != path.anchor:
-                    current /= component
-                if current == path and protected_root_descriptor is not None:
+                    requested /= component
+                current = requested if canonical is None else canonical / component
+                if requested == path and protected_root_descriptor is not None:
                     borrowed_descriptor = os.dup(protected_root_descriptor)
                     handle = msvcrt.get_osfhandle(borrowed_descriptor)
                 else:
                     handle = _open_windows_directory(
                         current,
-                        lock_delete=current == path,
-                        list_entries=current == path,
+                        lock_delete=requested == path,
+                        list_entries=requested == path,
                     )
                     handles.append(handle)
                 actual = _windows_handle_path(handle)
-                if not _paths_match(current, actual):
+                if not (_paths_match(current, actual) or os.path.samefile(current, actual)):
                     raise OSError("project root component changed while opening")
+                canonical = actual
             opened = path.stat(follow_symlinks=False)
             if _source_root_identity(opened) != expected_identity:
                 raise OSError("project root changed while opening")
@@ -786,10 +795,10 @@ def _open_child_directory(
             os.close(descriptor)
         return
 
-    handle = _open_windows_directory(path)
+    handle = _open_windows_directory(wanted_path)
     try:
         actual = _windows_handle_path(handle)
-        after_open = path.stat(follow_symlinks=False)
+        after_open = wanted_path.stat(follow_symlinks=False)
         if not _same_entry_observation(
             expected, after_open, expected_inode, False
         ) or not _paths_match(wanted_path, actual):
@@ -831,7 +840,7 @@ def _open_source_descriptor(parent: _SourceDirectory, name: str, path: Path) -> 
         flags = os.O_RDONLY | int(getattr(os, "O_CLOEXEC", 0))
         flags |= int(getattr(os, "O_NOFOLLOW", 0))
         return os.open(name, flags, dir_fd=parent.descriptor)
-    return _open_windows_source(path)
+    return _open_windows_source(parent.expected_path / name)
 
 
 def _opened_file_path(file_descriptor: int) -> Path:
@@ -856,7 +865,7 @@ def _open_windows_directory(
     lock_delete: bool = True,
     list_entries: bool = True,
 ) -> int:
-    cwd_outside = not Path.cwd().is_relative_to(path)
+    cwd_outside = not _windows_directory_contains_cwd(path)
     access = 0x00010080 if lock_delete and cwd_outside else 0x00000080
     if list_entries:
         access |= 0x00000001
@@ -872,7 +881,22 @@ def _open_windows_directory(
     return handle
 
 
+def _windows_directory_contains_cwd(path: Path) -> bool:
+    cwd = Path.cwd()
+    if cwd.is_relative_to(path):
+        return True
+    for candidate in (cwd, *cwd.parents):
+        try:
+            if os.path.samefile(candidate, path):
+                return True
+        except OSError:
+            continue
+    return False
+
+
 def _open_windows_source(path: Path) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import msvcrt
 
     handle = _open_windows_handle(path, 0x80010000, 0x00200000 | 0x08000000)
@@ -898,6 +922,8 @@ def _open_windows_handle(
     *,
     share: int = 0x1 | 0x2,
 ) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -920,6 +946,8 @@ def _open_windows_handle(
 
 
 def _windows_directory_entry_ids(handle: int) -> dict[str, int]:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     class FileIdBothDirectoryInfo(ctypes.Structure):
@@ -982,6 +1010,8 @@ def _windows_directory_entry_ids(handle: int) -> dict[str, int]:
 
 
 def _windows_handle_attributes(handle: int) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     class FileAttributeTagInfo(ctypes.Structure):
@@ -998,6 +1028,8 @@ def _windows_handle_attributes(handle: int) -> int:
 
 
 def _windows_handle_file_id(handle: int) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     class ByHandleFileInformation(ctypes.Structure):
@@ -1028,6 +1060,8 @@ def _windows_handle_file_id(handle: int) -> int:
 
 
 def _windows_handle_path(handle: int) -> Path:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -1058,6 +1092,8 @@ def _windows_handle_path(handle: int) -> Path:
 
 
 def _windows_opened_file_path(file_descriptor: int) -> Path:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import msvcrt
 
     return _windows_handle_path(msvcrt.get_osfhandle(file_descriptor))
@@ -1077,6 +1113,8 @@ def _normalized_windows_relative(path: str) -> str:
 
 
 def _close_windows_handle(handle: int) -> None:
+    if sys.platform != "win32":
+        raise OSError("Windows source handles are unavailable")
     import ctypes
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
