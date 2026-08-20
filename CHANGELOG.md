@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-08-21
+
 ### Fixed
 
 - Point vulnerability and conduct reports to working private GitHub channels (#196).
@@ -19,10 +21,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Preserve absolute and relative imports when a project's real top-level package is named `src`
   (#201).
 - Reject indexes built by older graph algorithms and tell users to run `sb init` (#202).
-- Make the frozen scope evaluator runnable from a clean clone with pinned corpus setup and clear
-  missing-input errors (#204).
 - Include every repository asset linked from the packaged README files in the source distribution
   (#203).
+- Make the frozen scope evaluator runnable from a clean clone with pinned corpus setup and clear
+  missing-input errors (#204).
+- Resume a recognized partial state after an interrupted `sb setup`, while leaving unknown or
+  invalid entries untouched (#214).
+- Restore cross-platform release checks by detecting rapid Linux approval-state replacements,
+  serializing empty Windows config-lock initialization, and accepting stable Windows workspace
+  drive aliases for source and output paths (#216).
+
+### Security
+
+- Require `EXPOSE` when an approved source excerpt includes a boundary identifier in its body or
+  complete definition header, including deferred annotations.
+- Escape terminal control characters in untrusted values before displaying them.
+- Keep the project root, local state, configuration, current index, approved source snapshot, and
+  output destination bound to the identities opened for review, and stop if any binding changes.
+- Serialize boundary and state updates, using handle-relative traversal and identity checks to
+  reject root, parent-directory, and entry replacement.
+- Create state and brief files without replacing existing entries, keep each created file bound
+  through publication, and remove only the owned file if publication fails.
 
 ## [1.0.4] - 2026-08-19
 

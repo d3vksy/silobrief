@@ -59,6 +59,12 @@ class IndexEdge:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundaryDisclosure:
+    node_id: str
+    placeholder: BoundaryPlaceholder
+
+
+@dataclass(frozen=True, slots=True)
 class IndexData:
     config_digest: str
     edges: tuple[IndexEdge, ...]
@@ -66,6 +72,7 @@ class IndexData:
     nodes: tuple[IndexNode, ...]
     source_digest: str
     stale: bool
+    boundary_disclosures: tuple[BoundaryDisclosure, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,12 +159,27 @@ def build_index(
             global_targets.setdefault(f"{context.module_name}.{qualified_name}", node_id)
 
     edges: set[IndexEdge] = set()
+    boundary_disclosures: set[BoundaryDisclosure] = set()
     for path in sorted(contexts):
         context = contexts[path]
         _add_containment_edges(edges, context)
         _add_import_edges(edges, context, global_targets)
-        _add_use_edges(edges, context, context.structure.calls, "call", global_targets)
-        _add_use_edges(edges, context, context.structure.references, "reference", global_targets)
+        _add_use_edges(
+            edges,
+            boundary_disclosures,
+            context,
+            context.structure.calls,
+            "call",
+            global_targets,
+        )
+        _add_use_edges(
+            edges,
+            boundary_disclosures,
+            context,
+            context.structure.references,
+            "reference",
+            global_targets,
+        )
 
     return IndexData(
         config_digest=config_digest(config),
@@ -166,6 +188,7 @@ def build_index(
         nodes=tuple(sorted(all_nodes, key=_node_key)),
         source_digest=snapshot.digest,
         stale=False,
+        boundary_disclosures=tuple(sorted(boundary_disclosures, key=_disclosure_key)),
     )
 
 
@@ -173,6 +196,9 @@ def render_index_json(index: IndexData) -> bytes:
     if not is_current_index_version(index.index_version):
         raise IndexBuildError("index does not use the current version")
     value: dict[str, object] = {
+        "boundary_disclosures": [
+            _boundary_disclosure_value(disclosure) for disclosure in index.boundary_disclosures
+        ],
         "config_digest": index.config_digest,
         "edges": [_edge_value(edge) for edge in index.edges],
         "index_version": INDEX_VERSION,
@@ -260,14 +286,17 @@ def _module_node(context: _ModuleContext) -> IndexNode:
 
 
 def _add_containment_edges(edges: set[IndexEdge], context: _ModuleContext) -> None:
-    for node in context.definition_nodes:
-        parent_name, separator, _ = node.qualified_name.rpartition(".")
-        source_id = (
-            context.context_ids.get(parent_name, context.module_id)
-            if separator
-            else context.module_id
+    for definition in context.structure.definitions:
+        node_id = stable_node_id(
+            context.structure.path,
+            definition.kind,
+            definition.qualified_name,
         )
-        edges.add(IndexEdge(source_id, "contains", node.qualified_name, node.id))
+        parent_name, separator, _ = definition.qualified_name.rpartition(".")
+        source_id = (
+            _context_id(context, parent_name, definition.line) if separator else context.module_id
+        )
+        edges.add(IndexEdge(source_id, "contains", definition.qualified_name, node_id))
 
 
 def _add_import_edges(
@@ -276,7 +305,7 @@ def _add_import_edges(
     global_targets: dict[str, str],
 ) -> None:
     for imported in context.structure.imports:
-        source_id = _context_id(context, imported.context)
+        source_id = _context_id(context, imported.context, imported.line)
         placeholder = context.boundary_matcher.match_import(imported)
         if placeholder is not None:
             target: str | BoundaryPlaceholder = placeholder
@@ -294,13 +323,14 @@ def _add_import_edges(
 
 def _add_use_edges(
     edges: set[IndexEdge],
+    boundary_disclosures: set[BoundaryDisclosure],
     context: _ModuleContext,
     uses: tuple[SymbolUse, ...],
     kind: Literal["call", "reference"],
     global_targets: dict[str, str],
 ) -> None:
     for use in uses:
-        source_id = _context_id(context, use.context)
+        source_id = _context_id(context, use.context, use.line)
         target, target_id = _resolve_use_target(
             context,
             use.context,
@@ -312,7 +342,12 @@ def _add_use_edges(
             use.lookup_limit,
             global_targets,
         )
+        if use.boundary_only and not isinstance(target, BoundaryPlaceholder):
+            continue
         edges.add(IndexEdge(source_id, kind, target, target_id))
+        if use.disclosure_context is not None and isinstance(target, BoundaryPlaceholder):
+            disclosure_id = _context_id(context, use.disclosure_context, use.line)
+            boundary_disclosures.add(BoundaryDisclosure(disclosure_id, target))
 
 
 def _resolve_use_target(
@@ -616,13 +651,13 @@ def _inside_definition(definition: Definition | None, line: int) -> bool:
     return definition is None or definition.start_line <= line <= definition.end_line
 
 
-def _context_id(context: _ModuleContext, qualified_name: str | None) -> str:
+def _context_id(context: _ModuleContext, qualified_name: str | None, line: int) -> str:
     if qualified_name is None:
         return context.module_id
-    try:
-        return context.context_ids[qualified_name]
-    except KeyError as error:
-        raise IndexBuildError(f"unknown source context: {qualified_name}") from error
+    definition = _definition_at(context, qualified_name, line)
+    if definition is None:
+        raise IndexBuildError(f"unknown source context: {qualified_name}")
+    return stable_node_id(context.structure.path, definition.kind, qualified_name)
 
 
 def _module_name(path: str, *, src_is_package: bool) -> str:
@@ -839,6 +874,13 @@ def _edge_value(edge: IndexEdge) -> dict[str, object]:
     }
 
 
+def _boundary_disclosure_value(disclosure: BoundaryDisclosure) -> dict[str, object]:
+    return {
+        "node_id": disclosure.node_id,
+        "placeholder": _edge_target_value(disclosure.placeholder),
+    }
+
+
 def _edge_target_value(target: str | BoundaryPlaceholder) -> object:
     if isinstance(target, str):
         return target
@@ -860,6 +902,14 @@ def _edge_key(edge: IndexEdge) -> tuple[str, str, str, str]:
     else:
         target = f"boundary:{edge.target.alias}:{edge.target.description}"
     return edge.source_id, edge.kind, target, edge.target_id or ""
+
+
+def _disclosure_key(disclosure: BoundaryDisclosure) -> tuple[str, str, str]:
+    return (
+        disclosure.node_id,
+        disclosure.placeholder.alias,
+        disclosure.placeholder.description,
+    )
 
 
 def _validate_relative_path(path: str) -> None:

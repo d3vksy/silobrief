@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.4"><img src="https://img.shields.io/badge/release-v1.0.4-4f46e5" alt="Release v1.0.4"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.5"><img src="https://img.shields.io/badge/release-v1.0.5-4f46e5" alt="Release v1.0.5"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -34,6 +34,10 @@ not a generated code change.
 - Runtime dependencies: none
 - Network access: none
 
+If you use WSL, keep the project in the WSL Linux filesystem. For a project under `/mnt/c` or
+another Windows-mounted path, run `sb` from native Windows. `sb setup` stops if the mount cannot
+create state files without overwriting an existing entry.
+
 ## Quick start
 
 ### Install
@@ -48,7 +52,7 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 1.0.4
+siloBrief 1.0.5
 ```
 
 ### Practice project
@@ -75,6 +79,10 @@ sb brief "Append an optional separator to format_label. Preserve positional call
 `setup` prepares local state, and `init` indexes the Python files. `log` records approved project
 context. `search` shows ranked candidates, and `brief` starts the review that produces the Markdown
 file.
+
+If `setup` is interrupted, run it again. It resumes only when every existing state entry exactly
+matches a generated default. Unknown or modified entries are left untouched, and setup stops with
+an error.
 
 ## How it works
 
@@ -125,7 +133,8 @@ During `brief`:
    approves none.
 3. Review each proposed project field.
 4. Choose whether to include the displayed source code. The default answer is no.
-5. If the source reveals an excluded boundary identifier, type `EXPOSE` after reviewing it.
+5. If a boundary identifier appears in an approved excerpt body or definition header, type `EXPOSE`
+   after reviewing it.
 6. Review the complete brief.
 7. Type `WRITE` to create the file.
 
@@ -185,14 +194,25 @@ siloBrief does not read registered excluded paths or follow symbolic links while
 References to excluded code use the public label you approved. Before it writes a brief, you review
 the complete output and choose which source excerpts to include.
 
+Source and state access stays bound to the project root and directory entries that were originally
+opened. During review and output, siloBrief also rechecks the configuration, current index, approved
+source snapshot, and destination. If their contents or filesystem identities change, it stops. It
+creates state and output files without replacing an existing entry and escapes terminal control
+characters from untrusted text before displaying it.
+
 It does not detect secrets in allowed files or text entered with `sb log`. Approved source code may
 contain comments, docstrings, strings, and internal identifiers. siloBrief is not a security scanner
 or an export-approval system for a closed environment. Review every generated file under your
 organization's disclosure rules before sharing it.
 
+On Ubuntu, secure brief output requires the destination filesystem to support `O_TMPFILE` and allow
+links through `/proc/self/fd`. If either feature is unavailable, siloBrief stops without creating the
+requested file. For a project under WSL's `/mnt/c`, run the native Windows `sb` command or move the
+project and output location to the WSL Linux filesystem.
+
 ## Validation status
 
-The latest public release is v1.0.4 and follows the supported 1.x compatibility contract. In the
+The latest public release is v1.0.5 and follows the supported 1.x compatibility contract. In the
 frozen retrieval benchmark, `sb search` reaches an expected symbol for 11 of 12 tasks, with a mean
 reciprocal rank of 72.2%. Candidate search is lexical and advisory. When it misses, use the exact
 indexed Python file path during review.

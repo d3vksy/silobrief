@@ -546,10 +546,65 @@ class PythonStructureTests(unittest.TestCase):
             },
         )
         self.assertEqual(len(module.calls), len(contexts))
+        disclosure_contexts = {
+            call.target: call.disclosure_context
+            for call in module.calls
+            if call.disclosure_context is not None
+        }
+        self.assertEqual(
+            disclosure_contexts,
+            {
+                "decorate": "outer.inner",
+                "factory": "outer.inner",
+                "default": "outer.inner",
+                "result_type": "outer.inner",
+                "class_decorator": "outer.Child",
+                "class_factory": "outer.Child",
+                "base_factory": "outer.Child",
+                "meta_factory": "outer.Child",
+                "async_default": "outer.async_inner",
+            },
+        )
         self.assertIn(
-            SymbolUse("outer", "Value", 3, 22, lookup_limit=(3, 5)),
+            SymbolUse(
+                "outer",
+                "Value",
+                3,
+                22,
+                lookup_limit=(3, 5),
+                disclosure_context="outer.inner",
+            ),
             module.references,
         )
+
+    def test_marks_deferred_header_annotations_as_boundary_only_uses(self) -> None:
+        source = source_file(
+            "annotations.py",
+            (
+                b"def quoted(value: '(alias := SecretType)') -> 'tuple[SecretType, ...]':\n"
+                b"    return value\n"
+                b"def commented(\n"
+                b"    value,  # type: SecretType\n"
+                b"):\n"
+                b"    # type: (SecretType) -> SecretType\n"
+                b"    return value\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+
+        deferred = tuple(use for use in module.references if use.boundary_only)
+        self.assertEqual({use.target for use in deferred}, {"SecretType", "tuple"})
+        self.assertEqual(
+            {use.disclosure_context for use in deferred},
+            {"quoted", "commented"},
+        )
+        self.assertTrue(all(use.context is None for use in deferred))
+        self.assertTrue(all(use.lookup_limit is not None for use in deferred))
+        self.assertTrue(
+            all(not use.boundary_only for use in module.references if use.target == "value")
+        )
+        self.assertNotIn("alias", {binding.name for binding in module.store_bindings})
 
     def test_omits_source_text_comments_docstrings_and_string_literals(self) -> None:
         source = source_file(

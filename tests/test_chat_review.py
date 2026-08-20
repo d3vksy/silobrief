@@ -2,19 +2,41 @@ from __future__ import annotations
 
 import hashlib
 import io
+import re
 import unittest
 from dataclasses import replace
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
+from silobrief.candidate_search import render_candidate_results
 from silobrief.chat_review import (
     ChatReviewError,
+    _boundaries,
     _public_imports,
+    _show_related_candidates,
+    _show_selected_context,
+    _show_symbol_options,
     _source_context_ids,
     review_brief,
 )
-from silobrief.index import IndexData, IndexEdge, IndexNode, NodeKind, NodeTokens, build_index
+from silobrief.index import (
+    BoundaryDisclosure,
+    IndexData,
+    IndexEdge,
+    IndexNode,
+    NodeKind,
+    NodeTokens,
+    build_index,
+)
 from silobrief.python_structure import extract_structures
-from silobrief.renderer import RenderedBrief
+from silobrief.ranking import RankEvidence
+from silobrief.renderer import ApprovedBoundary, RenderedBrief
+from silobrief.review import (
+    CandidateOption,
+    DisclosureChoices,
+    ReviewNode,
+    ReviewSelection,
+    SymbolOption,
+)
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import (
     DEFAULT_EXCLUDES,
@@ -156,6 +178,91 @@ def disclosure_counts(rendered: RenderedBrief) -> tuple[int, int, int, int, int]
 
 
 class ChatReviewTests(unittest.TestCase):
+    def test_boundary_fields_include_definition_header_disclosures(self) -> None:
+        placeholder = BoundaryPlaceholder("private-service", "Approved private service")
+        value = IndexData(
+            config_digest="a" * 64,
+            edges=(),
+            index_version=1,
+            nodes=(node("run", "service.py", "function", "run"),),
+            source_digest="b" * 64,
+            stale=False,
+            boundary_disclosures=(BoundaryDisclosure("run", placeholder),),
+        )
+
+        self.assertEqual(
+            _boundaries(value, {"run"}),
+            (ApprovedBoundary("private-service", "Approved private service"),),
+        )
+        self.assertEqual(_boundaries(value, set()), ())
+
+    def test_terminal_lists_escape_untrusted_candidate_and_related_values(self) -> None:
+        osc = "\x1b]52;c;Y2xpcGJvYXJk\x07"
+        csi = "\x1b[2J"
+        unsafe = ReviewNode(
+            "unsafe",
+            f"src/{csi}\r\nforged.py",
+            "function",
+            "run",
+            f"Service.{osc}run",
+            ("calls",),
+        )
+        evidence = RankEvidence(
+            path_matches=(f"path{osc}",),
+            symbol_matches=(),
+            import_matches=(),
+            docstring_matches=(),
+            comment_matches=(),
+            note_matches=("메모\x9b31m\x7f",),
+            connected_nodes=1,
+        )
+
+        for color in (False, True):
+            with self.subTest(color=color):
+                visible = render_candidate_results(
+                    (CandidateOption(1, unsafe, 9, evidence),),
+                    color=color,
+                )
+                self.assertNotIn(osc, visible)
+                self.assertNotIn(csi, visible)
+                self.assertNotIn("\r\nforged.py", visible)
+                self.assertIn("\\x1b]52;c;Y2xpcGJvYXJk\\x07", visible)
+                self.assertIn("\\x1b[2J\\r\\nforged.py", visible)
+                self.assertIn("메모\\x9b31m\\x7f", visible)
+                self.assertEqual("\x1b[1m" in visible, color)
+                without_application_styles = re.sub(r"\x1b\[[0-9;]*m", "", visible)
+                self.assertFalse(
+                    any(
+                        ord(character) < 0x20
+                        and character != "\n"
+                        or 0x7F <= ord(character) <= 0x9F
+                        for character in without_application_styles
+                    )
+                )
+
+        related_output = TtyBuffer()
+        _show_related_candidates((unsafe,), related_output, "en")
+        _show_selected_context(
+            ReviewSelection(
+                (unsafe,),
+                (),
+                DisclosureChoices(False, False, False, False, False),
+            ),
+            related_output,
+            "en",
+        )
+        _show_symbol_options(
+            f"src/{osc}\nforged.py",
+            (SymbolOption(1, unsafe),),
+            related_output,
+            "en",
+        )
+        related_visible = related_output.getvalue()
+        self.assertNotIn(osc, related_visible)
+        self.assertNotIn(csi, related_visible)
+        self.assertIn("\\x1b]52;c;Y2xpcGJvYXJk\\x07", related_visible)
+        self.assertIn("\\x1b[2J\\r\\nforged.py", related_visible)
+
     def test_selected_function_includes_only_its_used_module_import(self) -> None:
         index = parsed_source_index()
 

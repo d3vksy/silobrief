@@ -94,6 +94,8 @@ class SymbolUse:
     skip_class_scope: bool = False
     synthetic_local: bool = False
     lookup_limit: tuple[int, int] | None = None
+    disclosure_context: str | None = None
+    boundary_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,7 +127,7 @@ def extract_structures(snapshot: SourceSnapshot) -> tuple[ModuleStructure, ...]:
 
 def extract_module_structure(source: SourceFile) -> ModuleStructure:
     try:
-        tree = ast.parse(source.content, filename=source.path, mode="exec")
+        tree = ast.parse(source.content, filename=source.path, mode="exec", type_comments=True)
         encoding, _ = tokenize.detect_encoding(io.BytesIO(source.content).readline)
         symbols = _scope_symbol_table(source.content.decode(encoding), source.path)
     except SyntaxError as error:
@@ -224,6 +226,10 @@ class _StructureVisitor(ast.NodeVisitor):
         self._suppress_store_bindings = 0
         self._store_position_overrides: list[tuple[int, int]] = []
         self._lookup_limit: tuple[int, int] | None = None
+        self._disclosure_context: str | None = None
+        self._annotation_depth = 0
+        self._boundary_only_uses = 0
+        self._deferred_annotation_stack: list[str] = []
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self._visit_definition(node, "class", is_async=False)
@@ -298,6 +304,16 @@ class _StructureVisitor(ast.NodeVisitor):
         if isinstance(node.ctx, ast.Load):
             line, column = _location(node)
             self.references.append(self._symbol_use(node.id, line, column))
+
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if self._annotation_depth and isinstance(node.value, str):
+            self._visit_deferred_annotation(node.value, node, mode="eval")
+
+    def visit_arg(self, node: ast.arg) -> None:
+        if node.annotation is not None:
+            self._visit_annotation(node.annotation)
+        if node.type_comment is not None:
+            self._visit_deferred_annotation(node.type_comment, node, mode="eval")
 
     def visit_Assign(self, node: ast.Assign) -> None:
         self.visit(node.value)
@@ -474,11 +490,14 @@ class _StructureVisitor(ast.NodeVisitor):
             )
         )
         previous_limit = self._lookup_limit
+        previous_disclosure_context = self._disclosure_context
         self._lookup_limit = (line, column)
+        self._disclosure_context = qualified_name
         try:
             self._visit_definition_header(node)
         finally:
             self._lookup_limit = previous_limit
+            self._disclosure_context = previous_disclosure_context
         self._contexts.append(qualified_name)
         self._context_kinds.append(kind)
         self._context_conditionals.append(self._conditional_depth > 0)
@@ -504,11 +523,52 @@ class _StructureVisitor(ast.NodeVisitor):
             if field == "body":
                 continue
             if isinstance(value, ast.AST):
-                self.visit(value)
+                if field == "returns":
+                    self._visit_annotation(value)
+                else:
+                    self.visit(value)
             elif isinstance(value, list):
                 for item in value:
                     if isinstance(item, ast.AST):
-                        self.visit(item)
+                        if field == "type_params":
+                            self._visit_annotation(item)
+                        else:
+                            self.visit(item)
+            elif field == "type_comment" and isinstance(value, str):
+                self._visit_deferred_annotation(value, node, mode="func_type")
+
+    def _visit_annotation(self, node: ast.AST) -> None:
+        self._annotation_depth += 1
+        try:
+            self.visit(node)
+        finally:
+            self._annotation_depth -= 1
+
+    def _visit_deferred_annotation(
+        self,
+        value: str,
+        origin: ast.AST,
+        *,
+        mode: Literal["eval", "func_type"],
+    ) -> None:
+        if value in self._deferred_annotation_stack:
+            return
+        try:
+            parsed = ast.parse(value, filename="<annotation>", mode=mode)
+        except SyntaxError:
+            return
+        ast.increment_lineno(parsed, getattr(origin, "lineno", 1) - 1)
+        self._deferred_annotation_stack.append(value)
+        self._annotation_depth += 1
+        self._boundary_only_uses += 1
+        self._suppress_store_bindings += 1
+        try:
+            self.visit(parsed)
+        finally:
+            self._suppress_store_bindings -= 1
+            self._boundary_only_uses -= 1
+            self._annotation_depth -= 1
+            self._deferred_annotation_stack.pop()
 
     def _record_declarations(
         self,
@@ -568,6 +628,8 @@ class _StructureVisitor(ast.NodeVisitor):
             skip_class_scope=bool(self._synthetic_scopes),
             synthetic_local=any(root in scope for scope in reversed(self._synthetic_scopes)),
             lookup_limit=self._lookup_limit,
+            disclosure_context=self._disclosure_context,
+            boundary_only=bool(self._boundary_only_uses),
         )
 
     def _visit_synthetic(

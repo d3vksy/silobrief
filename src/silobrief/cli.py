@@ -5,7 +5,7 @@ import sys
 import unicodedata
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TextIO
+from typing import NoReturn, TextIO
 
 from silobrief import __version__
 from silobrief.boundaries import register_boundary, unregister_boundary
@@ -15,7 +15,11 @@ from silobrief.candidate_search import (
     search_candidates,
 )
 from silobrief.chat_review import ChatReviewError, review_brief
-from silobrief.current_index import CurrentIndexError, load_current_index
+from silobrief.current_index import (
+    CurrentIndexError,
+    load_current_index,
+    load_current_index_for_approval,
+)
 from silobrief.example_project import ExampleProjectError, create_example_project
 from silobrief.initialization import (
     IndexingError,
@@ -37,7 +41,7 @@ from silobrief.state import (
     setup_project,
 )
 from silobrief.stored_index import StoredIndexError
-from silobrief.terminal import supports_color
+from silobrief.terminal import escape_terminal_line, supports_color
 
 _SOURCE_DISCLOSURE_WARNING_EN = (
     "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
@@ -53,6 +57,11 @@ _SOURCE_DISCLOSURE_WARNING_KO = (
 )
 
 _INIT_PROGRESS_WIDTH = 20
+
+
+class _TerminalArgumentParser(argparse.ArgumentParser):
+    def error(self, message: str) -> NoReturn:
+        super().error(escape_terminal_line(message))
 
 
 class _InitProgressBar:
@@ -122,7 +131,7 @@ def _init_progress_label(progress: InitProgress, language: Language) -> str:
 
 
 def _build_parser(language: Language = "en") -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _TerminalArgumentParser(
         prog="sb",
         description=localized(
             language,
@@ -232,8 +241,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             localized(
                 cli_language,
-                f"created example project with {file_count} files at {project}",
-                f"{project}에 파일 {file_count}개로 예제 프로젝트를 만들었습니다",
+                f"created example project with {file_count} files at {_terminal_value(project)}",
+                f"{_terminal_value(project)}에 파일 {file_count}개로 예제 프로젝트를 만들었습니다",
             )
         )
         print(
@@ -311,13 +320,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         except SetupError as error:
             parser.error(str(error))
         boundary = registration.boundary
+        boundary_alias = _terminal_value(boundary["alias"])
+        boundary_path = _terminal_value(boundary["path"])
         if registration.changed:
             print(
                 localized(
                     cli_language,
-                    f"registered boundary {boundary['alias']} for {boundary['path']}; "
+                    f"registered boundary {boundary_alias} for {boundary_path}; "
                     "updated .silobrief/config.json",
-                    f"{boundary['path']}에 경계 {boundary['alias']}를 등록하고 "
+                    f"{boundary_path}에 경계 {boundary_alias}를 등록하고 "
                     ".silobrief/config.json을 갱신했습니다",
                 )
             )
@@ -325,8 +336,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(
                 localized(
                     cli_language,
-                    f"boundary {boundary['alias']} for {boundary['path']} is already registered",
-                    f"{boundary['path']}의 경계 {boundary['alias']}는 이미 등록되어 있습니다",
+                    f"boundary {boundary_alias} for {boundary_path} is already registered",
+                    f"{boundary_path}의 경계 {boundary_alias}는 이미 등록되어 있습니다",
                 )
             )
 
@@ -344,12 +355,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             boundary = unregister_boundary(selector, start=Path.cwd())
         except SetupError as error:
             parser.error(str(error))
+        boundary_alias = _terminal_value(boundary["alias"])
+        boundary_path = _terminal_value(boundary["path"])
         print(
             localized(
                 cli_language,
-                f"removed boundary {boundary['alias']} for {boundary['path']}; "
+                f"removed boundary {boundary_alias} for {boundary_path}; "
                 "run sb init before sb brief",
-                f"{boundary['path']}의 경계 {boundary['alias']}를 제거했습니다. "
+                f"{boundary_path}의 경계 {boundary_alias}를 제거했습니다. "
                 "sb brief 전에 sb init을 실행하세요",
             )
         )
@@ -368,16 +381,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         except IndexingError as error:
             if progress_bar is not None:
                 progress_bar.finish()
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 3
         except SourceChangedError as error:
             if progress_bar is not None:
                 progress_bar.finish()
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 4
         for warning in warnings:
             print(
-                f"{localized(cli_language, 'warning', '경고')}: {warning.path}: {warning.reason}",
+                f"{localized(cli_language, 'warning', '경고')}: "
+                f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
                 file=sys.stderr,
             )
         print(
@@ -417,12 +437,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             note = add_note(path_text, comment, start=Path.cwd())
         except SetupError as error:
             parser.error(str(error))
+        note_id = _terminal_value(note["id"])
+        note_path = _terminal_value(note["path"])
         print(
             localized(
                 cli_language,
-                f"recorded note {note['id']} for {note['path']}; updated .silobrief/notes.json",
-                f"{note['path']}에 메모 {note['id']}를 기록하고 "
-                ".silobrief/notes.json을 갱신했습니다",
+                f"recorded note {note_id} for {note_path}; updated .silobrief/notes.json",
+                f"{note_path}에 메모 {note_id}를 기록하고 .silobrief/notes.json을 갱신했습니다",
             )
         )
 
@@ -478,20 +499,30 @@ def main(argv: Sequence[str] | None = None) -> int:
                 color=supports_color(sys.stdout),
             )
         except IndexStateError as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 3
         except SetupError as error:
             parser.error(str(error))
         except StoredIndexError as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 3
         except (CurrentIndexError, SourceCollectionError, CandidateSearchError) as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 4
 
         for warning in snapshot.warnings:
             print(
-                f"{localized(cli_language, 'warning', '경고')}: {warning.path}: {warning.reason}",
+                f"{localized(cli_language, 'warning', '경고')}: "
+                f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
                 file=sys.stderr,
             )
         print(search_output, end="")
@@ -524,28 +555,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         start = Path.cwd()
         try:
             root = find_project_root(start)
-            index, snapshot = load_current_index(root)
-            notes = load_notes(root)
-            settings = load_language_settings(root)
-            cli_language = settings["cli_language"]
+            index, snapshot, approval_state = load_current_index_for_approval(root)
         except IndexStateError as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 3
         except SetupError as error:
             parser.error(str(error))
         except StoredIndexError as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
-            return 3
-        except (CurrentIndexError, SourceCollectionError) as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
-            return 4
-
-        for warning in snapshot.warnings:
             print(
-                f"{localized(cli_language, 'warning', '경고')}: {warning.path}: {warning.reason}",
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
                 file=sys.stderr,
             )
+            return 3
+        except (CurrentIndexError, SourceCollectionError) as error:
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
+            return 4
         try:
+            notes = load_notes(root)
+            settings = load_language_settings(root)
+            cli_language = settings["cli_language"]
+            for warning in snapshot.warnings:
+                print(
+                    f"{localized(cli_language, 'warning', '경고')}: "
+                    f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
+                    file=sys.stderr,
+                )
             rendered = review_brief(
                 prompt,
                 index,
@@ -564,13 +604,25 @@ def main(argv: Sequence[str] | None = None) -> int:
                 input_stream=sys.stdin,
                 output_stream=sys.stdout,
                 source_snapshot=snapshot,
+                approval_state=approval_state,
                 language=cli_language,
             )
+        except SetupError as error:
+            parser.error(str(error))
         except (ChatReviewError, OutputBlockedError) as error:
-            print(f"sb: {localized(cli_language, 'error', '오류')}: {error}", file=sys.stderr)
+            print(
+                f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
+                file=sys.stderr,
+            )
             return 4
+        finally:
+            approval_state.close()
         print(
-            localized(cli_language, f"\nwrote {output_text}", f"\n{output_text}을(를) 작성했습니다")
+            localized(
+                cli_language,
+                f"\nwrote {_terminal_value(output_text)}",
+                f"\n{_terminal_value(output_text)}을(를) 작성했습니다",
+            )
         )
 
     return 0
@@ -582,3 +634,7 @@ def _detect_cli_language(start: Path) -> Language:
         return load_language_settings(root)["cli_language"]
     except SetupError:
         return "en"
+
+
+def _terminal_value(value: object) -> str:
+    return escape_terminal_line(str(value))

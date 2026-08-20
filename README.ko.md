@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.4"><img src="https://img.shields.io/badge/release-v1.0.4-4f46e5" alt="릴리스 v1.0.4"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.5"><img src="https://img.shields.io/badge/release-v1.0.5-4f46e5" alt="릴리스 v1.0.5"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -34,6 +34,10 @@ siloBrief는 허용된 Python 프로젝트 맥락을 정리해 외부 AI에 전�
 - 런타임 외부 의존성: 없음
 - 네트워크 사용: 없음
 
+WSL에서 실행할 때는 프로젝트를 WSL의 Linux 파일시스템에 두세요. `/mnt/c` 같은 Windows
+마운트 경로의 프로젝트는 Windows에서 `sb`를 실행해야 합니다. 기존 항목을 덮어쓰지 않고 상태
+파일을 만들 수 없는 마운트에서는 `sb setup`이 중단됩니다.
+
 ## 빠른 시작
 
 ### 설치
@@ -48,7 +52,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 1.0.4
+siloBrief 1.0.5
 ```
 
 ### 실습 예제
@@ -76,6 +80,10 @@ sb brief "Append an optional separator to format_label. Preserve positional call
 `setup`은 작업 공간을 준비하고, `init`은 Python 파일을 분석합니다. `log`는 공개를 승인한
 프로젝트 정보를 기록합니다. `search`는 관련 코드 후보를 보여 주고, `brief`는 검토를 시작해
 Markdown 파일을 만듭니다.
+
+`setup` 도중 작업이 끊겼다면 같은 명령을 다시 실행하세요. 이미 생긴 상태 항목이 프로그램이
+만드는 기본값과 정확히 같을 때만 나머지를 이어서 만듭니다. 알 수 없는 항목이나 수정된 항목이
+있으면 그대로 두고 오류로 중단합니다.
 
 ## 작동 방식
 
@@ -126,7 +134,8 @@ sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified d
    승인하지 않습니다.
 3. 브리프에 넣을 프로젝트 정보를 하나씩 검토합니다.
 4. 화면에 표시된 소스 코드를 포함할지 선택합니다. 기본값은 `아니요`입니다.
-5. 제외 영역의 실제 식별자가 노출될 때는 내용을 확인한 뒤 `EXPOSE`를 입력합니다.
+5. 승인할 소스의 본문이나 정의 헤더에 제외 영역의 실제 식별자가 드러나면 내용을 확인한 뒤
+   `EXPOSE`를 입력합니다.
 6. 완성된 브리프 전체를 미리 확인합니다.
 7. 문제가 없으면 `WRITE`를 입력해 파일을 만듭니다.
 
@@ -184,14 +193,24 @@ siloBrief는 등록된 제외 경로를 읽지 않고, 색인을 만들 때 심�
 제외된 코드에 대한 참조에는 사용자가 승인한 공개용 이름을 씁니다. 브리프를 쓰기 전에는 전체
 내용을 미리 확인하고 포함할 소스를 직접 선택합니다.
 
+소스와 상태 파일은 처음 연 프로젝트 루트와 디렉터리 항목에 묶어서 읽고 씁니다. 검토를 시작한
+뒤에도 설정, 현재 색인, 승인한 소스 스냅샷, 출력 위치가 같은지 계속 확인합니다. 내용이나
+파일시스템 항목이 바뀌면 작업을 중단합니다. 상태 파일과 출력 파일은 기존 항목을 덮어쓰지 않고
+만들며, 신뢰할 수 없는 문자를 터미널에 표시할 때는 제어 문자를 이스케이프합니다.
+
 다만 허용된 파일이나 `sb log` 메모에 들어 있는 비밀정보까지 찾아 주지는 않습니다. 승인한 소스
 코드에는 주석, docstring, 문자열, 내부 식별자가 포함될 수 있습니다. siloBrief는 보안 검사기나
 폐쇄 환경의 반출 승인 시스템이 아닙니다. 생성된 파일은 조직의 반출 규정에 따라 공유하기 전에
 직접 검토하세요.
 
+Ubuntu에서 브리프를 안전하게 저장하려면 출력 파일시스템이 `O_TMPFILE`을 지원하고
+`/proc/self/fd` 링크를 사용할 수 있어야 합니다. 둘 중 하나라도 사용할 수 없으면 요청한 파일을
+만들지 않고 중단합니다. WSL에서 `/mnt/c` 아래 프로젝트를 다룬다면 Windows용 `sb`를 실행하거나
+프로젝트와 출력 위치를 WSL의 Linux 파일시스템으로 옮기세요.
+
 ## 검증 현황
 
-최신 공개 버전은 v1.0.4이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
+최신 공개 버전은 v1.0.5이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
 12개 과제 중 11개의 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다. 후보 검색은 단어 기반
 제안입니다. 원하는 코드를 찾지 못하면 검토 중 정확한 Python 파일 상대 경로를 입력할 수
 있습니다.

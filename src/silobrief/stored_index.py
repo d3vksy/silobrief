@@ -7,6 +7,7 @@ from typing import cast
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
 from silobrief.index import (
+    BoundaryDisclosure,
     EdgeKind,
     IndexBuildError,
     IndexData,
@@ -41,8 +42,15 @@ def load_stored_index(root: Path) -> IndexData:
         raise StoredIndexError("index.json must be a real file; run sb init")
     try:
         content = path.read_bytes()
+    except OSError as error:
+        raise StoredIndexError("cannot read index.json") from error
+    return parse_stored_index(content)
+
+
+def parse_stored_index(content: bytes) -> IndexData:
+    try:
         value: object = json.loads(content)
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    except (UnicodeError, json.JSONDecodeError) as error:
         raise StoredIndexError("cannot read index.json") from error
     index = _index(value)
     if render_index_json(index) != content:
@@ -51,20 +59,34 @@ def load_stored_index(root: Path) -> IndexData:
 
 
 def _index(value: object) -> IndexData:
-    data = _object(
-        value,
-        {"config_digest", "edges", "index_version", "nodes", "source_digest", "stale"},
-    )
-    index_version = data["index_version"]
+    if not isinstance(value, dict):
+        raise StoredIndexError("index.json object schema is invalid")
+    unvalidated = cast(dict[str, object], value)
+    index_version = unvalidated.get("index_version")
     if is_rebuildable_index_version(index_version) and not is_current_index_version(index_version):
         raise StoredIndexError("index.json uses an outdated version; run sb init")
     if not is_current_index_version(index_version):
         raise StoredIndexError("index.json has an unsupported version")
+    data = _object(
+        value,
+        {
+            "boundary_disclosures",
+            "config_digest",
+            "edges",
+            "index_version",
+            "nodes",
+            "source_digest",
+            "stale",
+        },
+    )
     if type(data["stale"]) is not bool:
         raise StoredIndexError("index.json stale flag is invalid")
     nodes = tuple(_node(item) for item in _array(data["nodes"]))
     edges = tuple(_edge(item) for item in _array(data["edges"]))
-    _validate_graph(nodes, edges)
+    boundary_disclosures = tuple(
+        _boundary_disclosure(item) for item in _array(data["boundary_disclosures"])
+    )
+    _validate_graph(nodes, edges, boundary_disclosures)
     return IndexData(
         config_digest=_digest(data["config_digest"]),
         edges=edges,
@@ -72,6 +94,7 @@ def _index(value: object) -> IndexData:
         nodes=nodes,
         source_digest=_digest(data["source_digest"]),
         stale=data["stale"],
+        boundary_disclosures=boundary_disclosures,
     )
 
 
@@ -113,16 +136,7 @@ def _edge(value: object) -> IndexEdge:
     if isinstance(target_value, str):
         target: str | BoundaryPlaceholder = _text(target_value)
     else:
-        placeholder = _object(target_value, {"alias", "description", "kind"})
-        if placeholder["kind"] != "boundary-placeholder":
-            raise StoredIndexError("index.json boundary placeholder is invalid")
-        alias = _text(placeholder["alias"])
-        if not is_valid_boundary_alias(alias):
-            raise StoredIndexError("index.json boundary alias is invalid")
-        target = BoundaryPlaceholder(
-            alias=alias,
-            description=_text(placeholder["description"]),
-        )
+        target = _placeholder(target_value)
     target_id_value = data["target_id"]
     target_id = None if target_id_value is None else _text(target_id_value)
     if isinstance(target, BoundaryPlaceholder) and target_id is not None:
@@ -135,17 +149,66 @@ def _edge(value: object) -> IndexEdge:
     )
 
 
-def _validate_graph(nodes: tuple[IndexNode, ...], edges: tuple[IndexEdge, ...]) -> None:
+def _boundary_disclosure(value: object) -> BoundaryDisclosure:
+    data = _object(value, {"node_id", "placeholder"})
+    return BoundaryDisclosure(
+        node_id=_text(data["node_id"]),
+        placeholder=_placeholder(data["placeholder"]),
+    )
+
+
+def _placeholder(value: object) -> BoundaryPlaceholder:
+    placeholder = _object(value, {"alias", "description", "kind"})
+    if placeholder["kind"] != "boundary-placeholder":
+        raise StoredIndexError("index.json boundary placeholder is invalid")
+    alias = _text(placeholder["alias"])
+    if not is_valid_boundary_alias(alias):
+        raise StoredIndexError("index.json boundary alias is invalid")
+    return BoundaryPlaceholder(
+        alias=alias,
+        description=_text(placeholder["description"]),
+    )
+
+
+def _validate_graph(
+    nodes: tuple[IndexNode, ...],
+    edges: tuple[IndexEdge, ...],
+    boundary_disclosures: tuple[BoundaryDisclosure, ...],
+) -> None:
     node_ids = {node.id for node in nodes}
+    node_kinds = {node.id: node.kind for node in nodes}
     if len(node_ids) != len(nodes) or nodes != tuple(sorted(nodes, key=_node_key)):
         raise StoredIndexError("index.json nodes are duplicated or unordered")
     if len(set(edges)) != len(edges) or edges != tuple(sorted(edges, key=_edge_key)):
         raise StoredIndexError("index.json edges are duplicated or unordered")
+    if len(set(boundary_disclosures)) != len(boundary_disclosures) or boundary_disclosures != tuple(
+        sorted(boundary_disclosures, key=_disclosure_key)
+    ):
+        raise StoredIndexError("index.json boundary disclosures are duplicated or unordered")
     for edge in edges:
         if edge.source_id not in node_ids or (
             edge.target_id is not None and edge.target_id not in node_ids
         ):
             raise StoredIndexError("index.json edge references an unknown node")
+    parents = {
+        edge.target_id: edge.source_id
+        for edge in edges
+        if edge.kind == "contains" and edge.target_id is not None
+    }
+    boundary_sources: dict[BoundaryPlaceholder, set[str]] = {}
+    for edge in edges:
+        if isinstance(edge.target, BoundaryPlaceholder):
+            boundary_sources.setdefault(edge.target, set()).add(edge.source_id)
+    for disclosure in boundary_disclosures:
+        if node_kinds.get(disclosure.node_id) not in {"class", "function"}:
+            raise StoredIndexError("index.json boundary disclosure references an unknown node")
+        ancestors: set[str] = set()
+        current = disclosure.node_id
+        while current in parents and current not in ancestors:
+            current = parents[current]
+            ancestors.add(current)
+        if ancestors.isdisjoint(boundary_sources.get(disclosure.placeholder, set())):
+            raise StoredIndexError("index.json boundary disclosure has no enclosing edge")
 
 
 def _object(value: object, keys: set[str]) -> dict[str, object]:
@@ -198,3 +261,11 @@ def _edge_key(edge: IndexEdge) -> tuple[str, str, str, str]:
         else f"boundary:{edge.target.alias}:{edge.target.description}"
     )
     return edge.source_id, edge.kind, target, edge.target_id or ""
+
+
+def _disclosure_key(disclosure: BoundaryDisclosure) -> tuple[str, str, str]:
+    return (
+        disclosure.node_id,
+        disclosure.placeholder.alias,
+        disclosure.placeholder.description,
+    )

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -10,11 +12,16 @@ from unittest import mock
 
 from silobrief import current_index
 from silobrief.boundaries import register_boundary
-from silobrief.current_index import CurrentIndexError, load_current_index
+from silobrief.current_index import (
+    CurrentIndexError,
+    load_current_index,
+    load_current_index_for_approval,
+    revalidate_current_index_approval,
+)
 from silobrief.index import config_digest
 from silobrief.initialization import initialize_index
 from silobrief.sources import SourceCollectionError, SourceWarning, snapshot_sources
-from silobrief.state import SetupError, load_config, setup_project
+from silobrief.state import STATE_DIRECTORY, SetupError, load_config, setup_project
 from silobrief.stored_index import StoredIndexError, load_stored_index
 
 V1_0_4_INDEX = Path(__file__).with_name("fixtures") / "index-v1.0.4-minimal.json"
@@ -98,6 +105,164 @@ class CurrentIndexTests(unittest.TestCase):
             self.assertEqual(current_snapshot, replace(snapshot, warnings=(warning,)))
             self.assertEqual(file_state(project), before)
 
+    @unittest.skipIf(os.name == "nt", "Windows holds approval files open")
+    def test_approval_rejects_a_policy_change_without_source_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            create_project(project)
+            (project / "empty_private_zone").mkdir()
+            _, snapshot, approval = load_current_index_for_approval(project)
+            try:
+                revalidate_current_index_approval(project, approval)
+                register_boundary(
+                    "empty_private_zone",
+                    "Private zone",
+                    "private-zone",
+                    start=project,
+                )
+
+                self.assertEqual(
+                    snapshot_sources(
+                        project,
+                        load_config(project),
+                        protected_root_descriptor=approval._resources.root_fd,
+                    ).digest,
+                    snapshot.digest,
+                )
+                with self.assertRaisesRegex(CurrentIndexError, "settings changed during approval"):
+                    revalidate_current_index_approval(project, approval)
+            finally:
+                approval.close()
+
+    @unittest.skipUnless(os.name == "nt", "Windows approval handle test")
+    def test_approval_holds_policy_files_until_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            create_project(project)
+            (project / "empty_private_zone").mkdir()
+            state = project / ".silobrief"
+            config_path = state / "config.json"
+            index_path = state / "index.json"
+
+            def stored_state(path: Path) -> tuple[bytes, int, int, int, int]:
+                metadata = path.stat()
+                return (
+                    path.read_bytes(),
+                    metadata.st_dev,
+                    metadata.st_ino,
+                    metadata.st_size,
+                    metadata.st_mtime_ns,
+                )
+
+            config_before = stored_state(config_path)
+            index_before = stored_state(index_path)
+            _, _, approval = load_current_index_for_approval(project)
+            try:
+                with self.assertRaises(OSError):
+                    config_path.rename(state / "config-moved.json")
+                revalidate_current_index_approval(project, approval)
+                with self.assertRaises(SetupError):
+                    register_boundary(
+                        "empty_private_zone",
+                        "Private zone",
+                        "private-zone",
+                        start=project,
+                    )
+                self.assertEqual(stored_state(config_path), config_before)
+                self.assertEqual(stored_state(index_path), index_before)
+                self.assertEqual(list(state.glob(".*.tmp")), [])
+            finally:
+                approval.close()
+
+            result = register_boundary(
+                "empty_private_zone",
+                "Private zone",
+                "private-zone",
+                start=project,
+            )
+            self.assertTrue(result.changed)
+            self.assertNotEqual(config_path.read_bytes(), config_before[0])
+            self.assertTrue(load_stored_index(project).stale)
+
+    @unittest.skipUnless(sys.platform == "linux", "inotify requires Linux")
+    def test_approval_watch_remembers_rapid_root_and_state_replacements(self) -> None:
+        original_generation = current_index._file_generation
+        for target_name in ("root", "state"):
+            with self.subTest(target=target_name), tempfile.TemporaryDirectory() as directory:
+                base = Path(directory)
+                project = base / "project"
+                project.mkdir()
+                create_project(project)
+                target = project if target_name == "root" else project / STATE_DIRECTORY
+                backup = base / f"{target.name}-backup"
+                replacement = base / f"{target.name}-replacement"
+                replacement.mkdir()
+
+                def coarse_generation(
+                    metadata: os.stat_result,
+                ) -> current_index._FileGeneration:
+                    return replace(
+                        original_generation(metadata),
+                        modified_time_ns=0,
+                        changed_time_ns=0,
+                    )
+
+                with mock.patch.object(
+                    current_index,
+                    "_file_generation",
+                    side_effect=coarse_generation,
+                ):
+                    _, _, approval = load_current_index_for_approval(project)
+                    try:
+                        target.rename(backup)
+                        replacement.rename(target)
+                        target.rename(replacement)
+                        backup.rename(target)
+                        for _ in range(2):
+                            with self.assertRaisesRegex(
+                                CurrentIndexError,
+                                "settings changed during approval",
+                            ):
+                                revalidate_current_index_approval(project, approval)
+                    finally:
+                        approval.close()
+
+    @unittest.skipUnless(sys.platform == "linux", "inotify requires Linux")
+    def test_approval_watch_covers_state_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            project.mkdir()
+            create_project(project)
+            state = project / STATE_DIRECTORY
+            backup = project / f"{STATE_DIRECTORY}-backup"
+            replacement = project / f"{STATE_DIRECTORY}-replacement"
+            replacement.mkdir()
+            original_open = current_index._open_entry
+
+            def open_then_replace(
+                path: Path,
+                name: str,
+                parent_descriptor: int | None,
+                is_directory: bool,
+            ) -> tuple[int, current_index._FileGeneration]:
+                opened = original_open(path, name, parent_descriptor, is_directory)
+                if name == STATE_DIRECTORY:
+                    state.rename(backup)
+                    replacement.rename(state)
+                    state.rename(replacement)
+                    backup.rename(state)
+                return opened
+
+            with (
+                mock.patch.object(
+                    current_index,
+                    "_open_entry",
+                    side_effect=open_then_replace,
+                ),
+                self.assertRaisesRegex(CurrentIndexError, "settings changed during approval"),
+            ):
+                load_current_index_for_approval(project)
+
     def test_v1_0_4_index_requires_init_before_it_can_be_used(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -132,13 +297,13 @@ class CurrentIndexTests(unittest.TestCase):
             self.assertEqual(index_path.read_bytes(), legacy_bytes)
 
             initialize_index(project)
-            self.assertEqual(
-                index_path.read_bytes(),
-                legacy_bytes.replace(b'"index_version": 1', b'"index_version": 2'),
-            )
+            rebuilt_index = object_file(index_path)
+            self.assertEqual(rebuilt_index["index_version"], 3)
+            self.assertEqual(rebuilt_index["config_digest"], legacy_index["config_digest"])
+            self.assertEqual(rebuilt_index["source_digest"], legacy_index["source_digest"])
             loaded, snapshot = load_current_index(project)
 
-            self.assertEqual(loaded.index_version, 2)
+            self.assertEqual(loaded.index_version, 3)
             self.assertEqual(loaded.source_digest, snapshot.digest)
             self.assertEqual((state / "config.json").read_bytes(), config_bytes)
             self.assertEqual((state / "notes.json").read_bytes(), notes_bytes)
@@ -157,7 +322,7 @@ class CurrentIndexTests(unittest.TestCase):
             write_object(index_path, index)
 
             with (
-                mock.patch.object(current_index, "load_config") as load_current_config,
+                mock.patch.object(current_index, "load_source_config") as load_current_config,
                 mock.patch.object(current_index, "snapshot_sources") as collect_sources,
             ):
                 self.assert_current_error(project, "stale")

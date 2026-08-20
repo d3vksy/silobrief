@@ -20,7 +20,7 @@ def create_index(project: Path) -> None:
     package.mkdir()
     private.mkdir()
     (package / "service.py").write_text(
-        "from private.secret import send\n\n\ndef run():\n    send()\n",
+        "from private.secret import decorate, send\n\n\n@decorate\ndef run():\n    send()\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -79,7 +79,7 @@ def invalidate_version(value: dict[str, object]) -> None:
 
 
 def use_future_version(value: dict[str, object]) -> None:
-    value["index_version"] = 3
+    value["index_version"] = 4
 
 
 def invalidate_digest(value: dict[str, object]) -> None:
@@ -104,6 +104,26 @@ def invalidate_edge_source(value: dict[str, object]) -> None:
 def invalidate_edge_target(value: dict[str, object]) -> None:
     edge = object_value(array_value(value["edges"])[0])
     edge["target_id"] = "node-missing"
+
+
+def invalidate_disclosure_node(value: dict[str, object]) -> None:
+    disclosure = object_value(array_value(value["boundary_disclosures"])[0])
+    disclosure["node_id"] = "node-missing"
+
+
+def duplicate_disclosure(value: dict[str, object]) -> None:
+    disclosures = array_value(value["boundary_disclosures"])
+    disclosures.append(disclosures[0])
+
+
+def expose_disclosure_name(value: dict[str, object]) -> None:
+    disclosure = object_value(array_value(value["boundary_disclosures"])[0])
+    object_value(disclosure["placeholder"])["real_name"] = "private.secret"
+
+
+def disconnect_disclosure(value: dict[str, object]) -> None:
+    disclosure = object_value(array_value(value["boundary_disclosures"])[0])
+    object_value(disclosure["placeholder"])["alias"] = "different-boundary"
 
 
 def reverse_nodes(value: dict[str, object]) -> None:
@@ -143,6 +163,18 @@ class StoredIndexTests(unittest.TestCase):
             )
             self.assertEqual(file_state(project), before)
 
+    def test_rejects_v2_as_outdated_before_reading_its_old_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            state = project / ".silobrief"
+            state.mkdir()
+            index = state / "index.json"
+            index.write_text('{"index_version": 2}\n', encoding="utf-8", newline="\n")
+
+            message = self.assert_index_error(project, "outdated")
+
+            self.assertIn("run sb init", message)
+
     def test_rejects_schema_and_canonical_encoding_changes(self) -> None:
         mutations: tuple[tuple[str, Callable[[dict[str, object]], None]], ...] = (
             ("unknown key", add_unknown_key),
@@ -153,6 +185,10 @@ class StoredIndexTests(unittest.TestCase):
             ("tokens", invalidate_tokens),
             ("edge", invalidate_edge_source),
             ("edge target", invalidate_edge_target),
+            ("disclosure node", invalidate_disclosure_node),
+            ("duplicate disclosure", duplicate_disclosure),
+            ("disclosure placeholder", expose_disclosure_name),
+            ("disclosure edge", disconnect_disclosure),
             ("node order", reverse_nodes),
             ("placeholder", expose_placeholder_name),
         )

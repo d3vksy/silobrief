@@ -54,6 +54,7 @@ BRIEF_REVIEW_EXPECTATIONS = {
         "acceptance criteria",
         "`sb log`",
         "EXPOSE",
+        "definition header",
         "WRITE",
         "included verbatim",
     ),
@@ -63,17 +64,32 @@ BRIEF_REVIEW_EXPECTATIONS = {
         "완료 조건",
         "`sb log`",
         "EXPOSE",
+        "정의 헤더",
         "WRITE",
         "원문 그대로 포함",
     ),
 }
 SAFETY_EXPECTATIONS = {
-    "README.md": ("excluded paths", "symbolic links", "not a security scanner"),
-    "README.ko.md": ("제외 경로", "심볼릭 링크", "보안 검사기"),
+    "README.md": (
+        "excluded paths",
+        "symbolic links",
+        "not a security scanner",
+        "`/mnt/c`",
+        "native Windows",
+        "WSL Linux filesystem",
+    ),
+    "README.ko.md": (
+        "제외 경로",
+        "심볼릭 링크",
+        "보안 검사기",
+        "`/mnt/c`",
+        "Windows에서 `sb`",
+        "WSL의 Linux 파일시스템",
+    ),
 }
 VALIDATION_EXPECTATIONS = {
-    "README.md": ("v1.0.4", "1.x", "11 of 12", "72.2%"),
-    "README.ko.md": ("v1.0.4", "1.x", "12개 과제 중 11개", "72.2%"),
+    "README.md": ("v1.0.5", "1.x", "11 of 12", "72.2%"),
+    "README.ko.md": ("v1.0.5", "1.x", "12개 과제 중 11개", "72.2%"),
 }
 VALIDATION_PROJECTS = ("Django Ninja", "pytest", "Jinja")
 VALIDATION_LINKS = (
@@ -162,6 +178,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.0.5] - 2026-08-21", changelog)
         self.assertIn("## [1.0.4] - 2026-08-19", changelog)
         self.assertIn("## [1.0.3] - 2026-08-18", changelog)
         self.assertIn("## [1.0.2] - 2026-08-17", changelog)
@@ -200,8 +217,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertNotIn("public GitHub profile", conduct)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "1.0.4"'), 1)
-        self.assertEqual(version("silobrief"), "1.0.4")
+        self.assertEqual(pyproject.count('version = "1.0.5"'), 1)
+        self.assertEqual(version("silobrief"), "1.0.5")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

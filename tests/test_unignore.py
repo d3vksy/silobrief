@@ -6,14 +6,18 @@ import json
 import os
 import stat
 import tempfile
+import threading
 import unittest
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import cast
 from unittest import mock
 
+import silobrief.boundaries as boundary_commands
+import silobrief.state as state_module
 from silobrief.cli import main
-from silobrief.state import BoundaryData, SetupError
+from silobrief.state import BoundaryData, ConfigData, SetupError
 
 
 @contextlib.contextmanager
@@ -228,16 +232,45 @@ class UnignoreCommandTests(unittest.TestCase):
                 )
                 self.assertEqual(run_silently(["init"]), 0)
                 before = state_snapshot(project)
-                for function in ("mark_index_stale", "save_config"):
-                    with (
-                        self.subTest(function=function),
-                        mock.patch(
-                            f"silobrief.boundaries.{function}",
-                            side_effect=SetupError("write failed"),
-                        ),
-                    ):
-                        self.assert_unignore_error("private-boundary")
-                        self.assertEqual(state_snapshot(project), before)
+                with (
+                    self.subTest(function="mark_index_stale"),
+                    mock.patch.object(
+                        state_module,
+                        "_mark_index_stale_in_state",
+                        side_effect=SetupError("write failed"),
+                    ),
+                ):
+                    self.assert_unignore_error("private-boundary")
+                    self.assertEqual(state_snapshot(project), before)
+
+                original_write = state_module._write_bytes_in_state
+
+                def fail_config_write(
+                    path: Path,
+                    content: bytes,
+                    state_descriptor: int | None,
+                    *,
+                    expected_current: state_module._FileVersion | None = None,
+                ) -> tuple[int, int]:
+                    if path.name == "config.json":
+                        raise SetupError("write failed")
+                    return original_write(
+                        path,
+                        content,
+                        state_descriptor,
+                        expected_current=expected_current,
+                    )
+
+                with (
+                    self.subTest(function="save_config"),
+                    mock.patch.object(
+                        state_module,
+                        "_write_bytes_in_state",
+                        side_effect=fail_config_write,
+                    ),
+                ):
+                    self.assert_unignore_error("private-boundary")
+                    self.assertEqual(state_snapshot(project), before)
 
     def test_same_state_produces_identical_config_bytes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -273,3 +306,63 @@ class UnignoreCommandTests(unittest.TestCase):
             with working_directory(project):
                 message = self.assert_unignore_error("private-boundary")
             self.assertIn("run sb setup first", message)
+
+    def test_parallel_registration_and_removal_use_the_latest_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            for name in ("first.py", "second.py"):
+                (project / name).write_text("PRIVATE = True\n", encoding="utf-8")
+            self.assertEqual(run_silently(["setup", str(project)]), 0)
+            boundary_commands.register_boundary(
+                "first.py",
+                "First",
+                "first-boundary",
+                start=project,
+            )
+            original_load = state_module._load_config_for_update
+            both_loaded = threading.Barrier(2)
+
+            def coordinated_load(
+                state: Path,
+                state_descriptor: int | None,
+            ) -> tuple[ConfigData, state_module._FileSnapshot]:
+                loaded = original_load(state, state_descriptor)
+                try:
+                    both_loaded.wait(timeout=0.25)
+                except threading.BrokenBarrierError:
+                    pass
+                return loaded
+
+            with (
+                mock.patch.object(
+                    state_module,
+                    "_load_config_for_update",
+                    side_effect=coordinated_load,
+                ),
+                ThreadPoolExecutor(max_workers=2) as executor,
+            ):
+                add = executor.submit(
+                    boundary_commands.register_boundary,
+                    "second.py",
+                    "Second",
+                    "second-boundary",
+                    start=project,
+                )
+                remove = executor.submit(
+                    boundary_commands.unregister_boundary,
+                    "first-boundary",
+                    start=project,
+                )
+                self.assertTrue(add.result(timeout=5).changed)
+                self.assertEqual(remove.result(timeout=5)["alias"], "first-boundary")
+
+            self.assertEqual(
+                boundaries(project),
+                [
+                    {
+                        "alias": "second-boundary",
+                        "description": "Second",
+                        "path": "second.py",
+                    }
+                ],
+            )

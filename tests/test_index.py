@@ -1164,9 +1164,17 @@ class DeterministicIndexTests(unittest.TestCase):
         parsed = json.loads(first_json)
         self.assertEqual(
             set(parsed),
-            {"config_digest", "edges", "index_version", "nodes", "source_digest", "stale"},
+            {
+                "boundary_disclosures",
+                "config_digest",
+                "edges",
+                "index_version",
+                "nodes",
+                "source_digest",
+                "stale",
+            },
         )
-        self.assertEqual(parsed["index_version"], 2)
+        self.assertEqual(parsed["index_version"], 3)
         self.assertIs(parsed["stale"], False)
 
         with self.assertRaisesRegex(IndexBuildError, "current version"):

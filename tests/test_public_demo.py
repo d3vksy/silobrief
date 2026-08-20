@@ -21,7 +21,7 @@ from silobrief.cli import main
 FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "examples" / "parcel-sync-fixture"
 OUTPUT_PATH = ".silobrief/exports/retry-brief.md"
 REVIEW_INPUT = "y\n1\n\n\ny\ny\ny\ny\ny\ny\nEXPOSE\nWRITE\n"
-INDEX_SHA256 = "69a477a6abaf7c1b0d60efaa80cf02dfc1e567278c28b2bbfe462a32217517c3"
+INDEX_SHA256 = "8624bee83bace0537d86aa5e59d489ddaf0e546bacc6184892a1de8b3be6767c"
 BRIEF_SHA256 = "f4403caa6c83ed619bc3783f1d3931d8fc4ff2fd000e28666b6da2152ad4d82c"
 PUBLIC_CANARIES = (
     "PUBLIC_SOURCE_BODY_CANARY",
@@ -108,7 +108,11 @@ def run_demo(project: Path) -> DemoResult:
             "_read_regular_source",
             wraps=sources._read_regular_source,
         ) as read_source,
-        mock.patch("silobrief.sources.os.scandir", wraps=os.scandir) as scan_directory,
+        mock.patch.object(
+            sources,
+            "_scan_directory",
+            wraps=sources._scan_directory,
+        ) as scan_directory,
         mock.patch.object(sys, "stdin", input_stream),
         contextlib.redirect_stdout(stdout),
         contextlib.redirect_stderr(stderr),
@@ -150,9 +154,8 @@ def run_demo(project: Path) -> DemoResult:
     scanned = tuple(
         sorted(
             {
-                Path(cast(str | os.PathLike[str], call.args[0]))
-                .resolve()
-                .relative_to(resolved_project)
+                cast(sources._SourceDirectory, call.args[0])
+                .expected_path.relative_to(resolved_project)
                 .as_posix()
                 or "."
                 for call in scan_directory.call_args_list

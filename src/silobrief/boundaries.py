@@ -1,21 +1,24 @@
 from __future__ import annotations
 
+import importlib
 import os
 import stat
+import sys
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
+from typing import Protocol, cast
 
 from silobrief.path_safety import has_link_like_component, is_link_like
 from silobrief.state import (
-    STATE_DIRECTORY,
     BoundaryData,
     ConfigData,
     SetupError,
     find_project_root,
     is_valid_boundary_alias,
-    load_config,
-    mark_index_stale,
-    save_config,
+    update_config_with_stale_index,
 )
 
 
@@ -25,13 +28,15 @@ class RegistrationResult:
     changed: bool
 
 
-@dataclass(frozen=True, slots=True)
-class _FileSnapshot:
-    path: Path
-    content: bytes
-    access_time_ns: int
-    modified_time_ns: int
-    mode: int
+class _FileLockModule(Protocol):
+    LOCK_EX: int
+    LOCK_UN: int
+
+    def flock(self, descriptor: int, operation: int) -> None: ...
+
+
+_LOCK_RETRY_SECONDS = 0.05
+_LOCK_TIMEOUT_SECONDS = 30.0
 
 
 def register_boundary(
@@ -48,32 +53,34 @@ def register_boundary(
 
     root = find_project_root(start)
     relative_path = _boundary_path(root, start, path_text)
-    config = load_config(root)
-    boundaries = config["boundaries"]
 
-    existing = next((item for item in boundaries if item["path"] == relative_path), None)
-    if existing is not None:
-        expected_alias = existing["alias"] if alias is None else alias
-        if existing["description"] == description and existing["alias"] == expected_alias:
-            return RegistrationResult(boundary=existing, changed=False)
-        raise SetupError("boundary path is already registered with different values")
+    def update(config: ConfigData) -> tuple[ConfigData | None, RegistrationResult]:
+        boundaries = config["boundaries"]
 
-    assigned_alias = alias or _automatic_alias(boundaries)
-    if any(item["alias"] == assigned_alias for item in boundaries):
-        raise SetupError("boundary alias is already registered")
+        existing = next((item for item in boundaries if item["path"] == relative_path), None)
+        if existing is not None:
+            expected_alias = existing["alias"] if alias is None else alias
+            if existing["description"] == description and existing["alias"] == expected_alias:
+                return None, RegistrationResult(boundary=existing, changed=False)
+            raise SetupError("boundary path is already registered with different values")
 
-    boundary = BoundaryData(
-        alias=assigned_alias,
-        description=description,
-        path=relative_path,
-    )
-    updated = ConfigData(
-        boundaries=[*boundaries, boundary],
-        default_excludes=list(config["default_excludes"]),
-        schema_version=1,
-    )
-    _save_config_with_stale_index(root, updated)
-    return RegistrationResult(boundary=boundary, changed=True)
+        assigned_alias = alias or _automatic_alias(boundaries)
+        if any(item["alias"] == assigned_alias for item in boundaries):
+            raise SetupError("boundary alias is already registered")
+
+        boundary = BoundaryData(
+            alias=assigned_alias,
+            description=description,
+            path=relative_path,
+        )
+        updated = ConfigData(
+            boundaries=[*boundaries, boundary],
+            default_excludes=list(config["default_excludes"]),
+            schema_version=1,
+        )
+        return updated, RegistrationResult(boundary=boundary, changed=True)
+
+    return update_config_with_stale_index(root, update, lock=_config_update_lock)
 
 
 def unregister_boundary(selector: str, *, start: Path) -> BoundaryData:
@@ -81,36 +88,131 @@ def unregister_boundary(selector: str, *, start: Path) -> BoundaryData:
         raise SetupError("boundary selector must not be empty")
 
     root = find_project_root(start)
-    config = load_config(root)
-    boundaries = config["boundaries"]
-    matches = [
-        boundary
-        for boundary in boundaries
-        if selector == boundary["path"] or selector == boundary["alias"]
-    ]
-    if not matches:
-        raise SetupError("boundary selector is not registered")
-    if len(matches) > 1:
-        raise SetupError("boundary selector matches more than one registered boundary")
 
-    boundary = matches[0]
-    updated = ConfigData(
-        boundaries=[item for item in boundaries if item != boundary],
-        default_excludes=list(config["default_excludes"]),
-        schema_version=1,
-    )
-    _save_config_with_stale_index(root, updated)
-    return boundary
+    def update(config: ConfigData) -> tuple[ConfigData | None, BoundaryData]:
+        boundaries = config["boundaries"]
+        matches = [
+            boundary
+            for boundary in boundaries
+            if selector == boundary["path"] or selector == boundary["alias"]
+        ]
+        if not matches:
+            raise SetupError("boundary selector is not registered")
+        if len(matches) > 1:
+            raise SetupError("boundary selector matches more than one registered boundary")
+
+        boundary = matches[0]
+        updated = ConfigData(
+            boundaries=[item for item in boundaries if item != boundary],
+            default_excludes=list(config["default_excludes"]),
+            schema_version=1,
+        )
+        return updated, boundary
+
+    return update_config_with_stale_index(root, update, lock=_config_update_lock)
 
 
-def _save_config_with_stale_index(root: Path, config: ConfigData) -> None:
-    index_snapshot = _snapshot_index(root)
+@contextmanager
+def _config_update_lock(state: Path, state_descriptor: int | None) -> Iterator[None]:
+    if sys.platform != "win32":
+        if state_descriptor is None:
+            raise SetupError("state directory descriptor is unavailable")
+        _lock_descriptor(state_descriptor)
+        try:
+            yield
+        finally:
+            _unlock_descriptor(state_descriptor)
+        return
+
+    path = state / ".config.lock"
+    if is_link_like(path):
+        raise SetupError("config lock must be a real file")
+    flags = os.O_CREAT | os.O_RDWR | int(getattr(os, "O_NOFOLLOW", 0))
     try:
-        mark_index_stale(root)
-        save_config(root, config)
-    except SetupError:
-        _restore_snapshot(index_snapshot)
-        raise
+        descriptor = os.open(path, flags, 0o600)
+    except OSError as error:
+        raise SetupError(f"cannot open config lock: {error}") from error
+    acquired = False
+    try:
+        try:
+            metadata = os.fstat(descriptor)
+            current = path.stat(follow_symlinks=False)
+        except OSError as error:
+            raise SetupError(f"cannot validate config lock: {error}") from error
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or metadata.st_nlink != 1
+            or not os.path.samestat(metadata, current)
+        ):
+            raise SetupError("config lock must be a real file")
+        _lock_descriptor(descriptor)
+        acquired = True
+        _ensure_lock_byte(descriptor)
+        try:
+            current = path.stat(follow_symlinks=False)
+        except OSError as error:
+            raise SetupError(f"cannot revalidate config lock: {error}") from error
+        if is_link_like(path) or not os.path.samestat(os.fstat(descriptor), current):
+            raise SetupError("config lock changed while it was acquired")
+        yield
+    finally:
+        try:
+            if acquired:
+                _unlock_descriptor(descriptor)
+        finally:
+            os.close(descriptor)
+
+
+def _ensure_lock_byte(descriptor: int) -> None:
+    if os.fstat(descriptor).st_size:
+        return
+    try:
+        position = os.lseek(descriptor, 0, os.SEEK_CUR)
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        if os.write(descriptor, b"\0") != 1:
+            raise OSError("short write while initializing the lock")
+        os.lseek(descriptor, position, os.SEEK_SET)
+    except OSError as error:
+        raise SetupError(f"cannot initialize config lock: {error}") from error
+
+
+def _lock_descriptor(descriptor: int) -> None:
+    if sys.platform != "win32":
+        file_locks = cast(_FileLockModule, importlib.import_module("fcntl"))
+
+        try:
+            file_locks.flock(descriptor, file_locks.LOCK_EX)
+        except OSError as error:
+            raise SetupError(f"cannot acquire config lock: {error}") from error
+        return
+
+    import msvcrt
+
+    deadline = time.monotonic() + _LOCK_TIMEOUT_SECONDS
+    while True:
+        try:
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+            return
+        except OSError as error:
+            if time.monotonic() >= deadline:
+                raise SetupError("timed out waiting for config lock") from error
+            time.sleep(_LOCK_RETRY_SECONDS)
+
+
+def _unlock_descriptor(descriptor: int) -> None:
+    try:
+        if sys.platform == "win32":
+            import msvcrt
+
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+        else:
+            file_locks = cast(_FileLockModule, importlib.import_module("fcntl"))
+
+            file_locks.flock(descriptor, file_locks.LOCK_UN)
+    except OSError as error:
+        raise SetupError(f"cannot release config lock: {error}") from error
 
 
 def _boundary_path(root: Path, start: Path, path_text: str) -> str:
@@ -155,36 +257,3 @@ def _automatic_alias(boundaries: list[BoundaryData]) -> str:
     while f"boundary-{number}" in aliases:
         number += 1
     return f"boundary-{number}"
-
-
-def _snapshot_index(root: Path) -> _FileSnapshot | None:
-    path = root / STATE_DIRECTORY / "index.json"
-    if not path.is_file():
-        return None
-    content = path.read_bytes()
-    metadata = path.stat()
-    return _FileSnapshot(
-        path=path,
-        content=content,
-        access_time_ns=metadata.st_atime_ns,
-        modified_time_ns=metadata.st_mtime_ns,
-        mode=stat.S_IMODE(metadata.st_mode),
-    )
-
-
-def _restore_snapshot(snapshot: _FileSnapshot | None) -> None:
-    if snapshot is None:
-        return
-    current = snapshot.path.read_bytes()
-    metadata = snapshot.path.stat()
-    if current == snapshot.content and metadata.st_mtime_ns == snapshot.modified_time_ns:
-        return
-    try:
-        snapshot.path.write_bytes(snapshot.content)
-        os.chmod(snapshot.path, snapshot.mode)
-        os.utime(
-            snapshot.path,
-            ns=(snapshot.access_time_ns, snapshot.modified_time_ns),
-        )
-    except OSError as error:
-        raise SetupError(f"cannot restore {snapshot.path.name}: {error}") from error

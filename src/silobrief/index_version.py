@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-INDEX_VERSION = 2
+INDEX_VERSION = 3
 _OLDEST_REBUILDABLE_INDEX_VERSION = 1
 
 

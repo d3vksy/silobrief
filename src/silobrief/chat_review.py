@@ -35,7 +35,7 @@ from silobrief.source_review import (
 )
 from silobrief.sources import SourceSnapshot
 from silobrief.state import NotesData
-from silobrief.terminal import styled, supports_color
+from silobrief.terminal import escape_terminal_line, styled, supports_color
 
 
 class ChatReviewError(ValueError):
@@ -353,12 +353,13 @@ def _show_symbol_options(
     output: TextIO,
     language: Language,
 ) -> None:
+    visible_path = escape_terminal_line(path)
     _write(
         output,
         localized(
             language,
-            f"Functions and classes in `{path}`:\n",
-            f"`{path}`에서 선택할 함수와 클래스:\n",
+            f"Functions and classes in `{visible_path}`:\n",
+            f"`{visible_path}`에서 선택할 함수와 클래스:\n",
         ),
     )
     if not options:
@@ -367,7 +368,7 @@ def _show_symbol_options(
         _write(
             output,
             f"{option.number}. {_kind_label(option.node.kind, language)} "
-            f"{option.node.qualified_name}\n",
+            f"{escape_terminal_line(option.node.qualified_name)}\n",
         )
 
 
@@ -438,12 +439,13 @@ def _show_related_candidates(
         styled(
             localized(
                 language,
-                "Other code connected to your selection (optional):\n",
-                "함께 확인할 코드 (선택 사항):\n",
+                "Other code connected to your selection (optional):",
+                "함께 확인할 코드 (선택 사항):",
             ),
             "1;36",
             enabled=color,
-        ),
+        )
+        + "\n",
     )
     if not related:
         _write(
@@ -472,7 +474,8 @@ def _show_related_candidates(
             f"{styled(f'[r{number}]', '1;32', enabled=color)} "
             f"{_kind_label(node.kind, language)} "
             f"{styled(node.qualified_name, '1', enabled=color)}\n"
-            f"     {localized(language, 'File', '파일')}: {node.path}\n"
+            f"     {localized(language, 'File', '파일')}: "
+            f"{escape_terminal_line(node.path)}\n"
             f"     {localized(language, 'Relationship', '선택한 코드와의 관계')}: "
             f"{_relation_labels(node.relations, node.kind, language)}\n\n",
         )
@@ -483,7 +486,9 @@ def _show_selected_context(selection: ReviewSelection, output: TextIO, language:
     for node in selection.selected:
         _write(
             output,
-            f"- {_kind_label(node.kind, language)} {node.qualified_name} ({node.path})\n",
+            f"- {_kind_label(node.kind, language)} "
+            f"{escape_terminal_line(node.qualified_name)} "
+            f"({escape_terminal_line(node.path)})\n",
         )
 
 
@@ -747,8 +752,14 @@ def _human_notes(notes: NotesData, paths: set[str]) -> tuple[str, ...]:
 
 
 def _boundaries(index: IndexData, node_ids: set[str]) -> tuple[ApprovedBoundary, ...]:
-    return tuple(
-        ApprovedBoundary(edge.target.alias, edge.target.description)
+    values = {
+        (edge.target.alias, edge.target.description)
         for edge in index.edges
         if edge.source_id in node_ids and isinstance(edge.target, BoundaryPlaceholder)
+    }
+    values.update(
+        (disclosure.placeholder.alias, disclosure.placeholder.description)
+        for disclosure in index.boundary_disclosures
+        if disclosure.node_id in node_ids
     )
+    return tuple(ApprovedBoundary(alias, description) for alias, description in sorted(values))
