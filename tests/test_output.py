@@ -36,7 +36,7 @@ from silobrief.sources import (
     snapshot_sources,
 )
 from silobrief.state import ConfigData, SetupError, load_config, mark_index_stale, setup_project
-from tests.windows_junctions import directory_junction
+from tests.windows_junctions import directory_junction, short_windows_path, substituted_drive
 
 
 class TtyBuffer(io.StringIO):
@@ -443,7 +443,7 @@ class ApprovedOutputTests(unittest.TestCase):
 
             def write_then_change_policy(descriptor: int, content: bytes) -> None:
                 original_write(descriptor, content)
-                mark_index_stale(project)
+                mark_index_stale(project.resolve(strict=True))
 
             _, snapshot, approval_state = load_current_index_for_approval(project)
             try:
@@ -939,6 +939,48 @@ class ApprovedOutputTests(unittest.TestCase):
 
             self.assertTrue(swap_blocked)
             self.assertTrue((parent / "result.md").is_file())
+
+    @unittest.skipUnless(os.name == "nt", "substituted drives require Windows")
+    def test_accepts_a_stable_substituted_output_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            project = project_in(str(workspace))
+            outside = workspace / "external"
+            outside.mkdir()
+
+            with substituted_drive(workspace) as drive:
+                approve_and_write(
+                    project,
+                    str(drive / outside.name / "result.md"),
+                    rendered_brief(),
+                    start=project,
+                    input_stream=TtyBuffer("WRITE\n"),
+                    output_stream=TtyBuffer(),
+                )
+
+            self.assertTrue((outside / "result.md").is_file())
+
+    @unittest.skipUnless(os.name == "nt", "short paths require Windows")
+    def test_accepts_a_stable_short_output_parent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            project = project_in(str(workspace))
+            outside = workspace / "External Output With A Long Name"
+            outside.mkdir()
+            short_outside = short_windows_path(outside)
+            if os.path.normcase(str(short_outside)) == os.path.normcase(str(outside)):
+                self.skipTest("8.3 path aliases are disabled on this volume")
+
+            approve_and_write(
+                project,
+                str(short_outside / "result.md"),
+                rendered_brief(),
+                start=project,
+                input_stream=TtyBuffer("WRITE\n"),
+                output_stream=TtyBuffer(),
+            )
+
+            self.assertTrue((outside / "result.md").is_file())
 
     @unittest.skipIf(os.name == "nt", "POSIX permits renaming an open directory")
     def test_rejects_a_real_parent_replacement_after_protection(self) -> None:

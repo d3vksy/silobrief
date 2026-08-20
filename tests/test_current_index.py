@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import tempfile
 import unittest
 from dataclasses import replace
@@ -20,7 +21,7 @@ from silobrief.current_index import (
 from silobrief.index import config_digest
 from silobrief.initialization import initialize_index
 from silobrief.sources import SourceCollectionError, SourceWarning, snapshot_sources
-from silobrief.state import SetupError, load_config, setup_project
+from silobrief.state import STATE_DIRECTORY, SetupError, load_config, setup_project
 from silobrief.stored_index import StoredIndexError, load_stored_index
 
 V1_0_4_INDEX = Path(__file__).with_name("fixtures") / "index-v1.0.4-minimal.json"
@@ -182,6 +183,85 @@ class CurrentIndexTests(unittest.TestCase):
             self.assertTrue(result.changed)
             self.assertNotEqual(config_path.read_bytes(), config_before[0])
             self.assertTrue(load_stored_index(project).stale)
+
+    @unittest.skipUnless(sys.platform == "linux", "inotify requires Linux")
+    def test_approval_watch_remembers_rapid_root_and_state_replacements(self) -> None:
+        original_generation = current_index._file_generation
+        for target_name in ("root", "state"):
+            with self.subTest(target=target_name), tempfile.TemporaryDirectory() as directory:
+                base = Path(directory)
+                project = base / "project"
+                project.mkdir()
+                create_project(project)
+                target = project if target_name == "root" else project / STATE_DIRECTORY
+                backup = base / f"{target.name}-backup"
+                replacement = base / f"{target.name}-replacement"
+                replacement.mkdir()
+
+                def coarse_generation(
+                    metadata: os.stat_result,
+                ) -> current_index._FileGeneration:
+                    return replace(
+                        original_generation(metadata),
+                        modified_time_ns=0,
+                        changed_time_ns=0,
+                    )
+
+                with mock.patch.object(
+                    current_index,
+                    "_file_generation",
+                    side_effect=coarse_generation,
+                ):
+                    _, _, approval = load_current_index_for_approval(project)
+                    try:
+                        target.rename(backup)
+                        replacement.rename(target)
+                        target.rename(replacement)
+                        backup.rename(target)
+                        for _ in range(2):
+                            with self.assertRaisesRegex(
+                                CurrentIndexError,
+                                "settings changed during approval",
+                            ):
+                                revalidate_current_index_approval(project, approval)
+                    finally:
+                        approval.close()
+
+    @unittest.skipUnless(sys.platform == "linux", "inotify requires Linux")
+    def test_approval_watch_covers_state_binding(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory) / "project"
+            project.mkdir()
+            create_project(project)
+            state = project / STATE_DIRECTORY
+            backup = project / f"{STATE_DIRECTORY}-backup"
+            replacement = project / f"{STATE_DIRECTORY}-replacement"
+            replacement.mkdir()
+            original_open = current_index._open_entry
+
+            def open_then_replace(
+                path: Path,
+                name: str,
+                parent_descriptor: int | None,
+                is_directory: bool,
+            ) -> tuple[int, current_index._FileGeneration]:
+                opened = original_open(path, name, parent_descriptor, is_directory)
+                if name == STATE_DIRECTORY:
+                    state.rename(backup)
+                    replacement.rename(state)
+                    state.rename(replacement)
+                    backup.rename(state)
+                return opened
+
+            with (
+                mock.patch.object(
+                    current_index,
+                    "_open_entry",
+                    side_effect=open_then_replace,
+                ),
+                self.assertRaisesRegex(CurrentIndexError, "settings changed during approval"),
+            ):
+                load_current_index_for_approval(project)
 
     def test_v1_0_4_index_requires_init_before_it_can_be_used(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

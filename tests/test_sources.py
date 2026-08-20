@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 import tempfile
 import unittest
 from collections.abc import Iterator
@@ -20,7 +21,7 @@ from silobrief.sources import (
     snapshot_sources,
 )
 from silobrief.state import ConfigData, load_config, setup_project
-from tests.windows_junctions import directory_junction
+from tests.windows_junctions import directory_junction, short_windows_path, substituted_drive
 
 
 def file_digest(path: Path) -> str:
@@ -303,7 +304,7 @@ class SourceSnapshotTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "directory junctions require Windows")
     def test_snapshot_rejects_a_directory_replaced_during_scan(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
+            root = Path(directory).resolve(strict=True)
             project = root / "project"
             project.mkdir()
             package = project / "package"
@@ -525,7 +526,7 @@ class SourceSnapshotTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows boundary handles are required")
     def test_snapshot_binds_every_boundary_before_opening_the_first_handle(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve(strict=True)
             first = project / "boundary-a"
             first.mkdir()
             (first / "first.py").write_bytes(b"FIRST_BOUNDARY\n")
@@ -655,7 +656,7 @@ class SourceSnapshotTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows boundary handles are required")
     def test_snapshot_binds_nested_boundary_ancestors_before_handles(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve(strict=True)
             private = project / "private"
             nested = private / "nested"
             nested.mkdir(parents=True)
@@ -978,7 +979,7 @@ class SourceSnapshotTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows boundary handles are required")
     def test_snapshot_rejects_a_boundary_swap_while_binding_its_handle(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve(strict=True)
             package = project / "package"
             package.mkdir()
             (package / "safe.py").write_bytes(b"SAFE_SOURCE\n")
@@ -1040,7 +1041,7 @@ class SourceSnapshotTests(unittest.TestCase):
     @unittest.skipUnless(os.name == "nt", "Windows boundary handles are required")
     def test_snapshot_rejects_a_boundary_removed_before_its_handle_opens(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            project = Path(directory)
+            project = Path(directory).resolve(strict=True)
             package = project / "package"
             package.mkdir()
             (package / "safe.py").write_bytes(b"SAFE_SOURCE\n")
@@ -1121,6 +1122,8 @@ class SourceSnapshotTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "nt", "Windows handles are required")
     def test_windows_entry_enumeration_does_not_leak_handles(self) -> None:
+        if sys.platform != "win32":
+            return
         import ctypes
 
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
@@ -1180,6 +1183,54 @@ class SourceSnapshotTests(unittest.TestCase):
             snapshot = snapshot_sources(extended_project, config)
 
             self.assertEqual([source.path for source in snapshot.files], ["visible.py"])
+
+    @unittest.skipUnless(os.name == "nt", "substituted drives require Windows")
+    def test_snapshot_accepts_a_stable_substituted_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            project = workspace / "project"
+            project.mkdir()
+            private = project / "private"
+            private.mkdir()
+            (private / "secret.py").write_bytes(b"BOUNDARY_CANARY\n")
+            (project / "visible.py").write_bytes(b"VISIBLE\n")
+            setup_project(project)
+            register_boundary("private", "Private implementation", "private", start=project)
+            config = load_config(project)
+
+            with substituted_drive(workspace) as drive:
+                drive_snapshot = snapshot_sources(drive / project.name, config)
+
+            self.assertEqual([source.path for source in drive_snapshot.files], ["visible.py"])
+
+    @unittest.skipUnless(os.name == "nt", "short paths require Windows")
+    def test_snapshot_accepts_a_stable_short_project_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory)
+            project = workspace / "Project With A Long Name"
+            project.mkdir()
+            package = project / "package"
+            package.mkdir()
+            (package / "visible.py").write_bytes(b"VISIBLE\n")
+            setup_project(project)
+            config = load_config(project)
+            short_project = short_windows_path(project)
+            if os.path.normcase(str(short_project)) == os.path.normcase(str(project)):
+                self.skipTest("8.3 path aliases are disabled on this volume")
+
+            short_snapshot = snapshot_sources(short_project, config)
+            previous = Path.cwd()
+            os.chdir(short_project / package.name)
+            try:
+                cwd_snapshot = snapshot_sources(project.resolve(strict=True), config)
+            finally:
+                os.chdir(previous)
+
+            for snapshot in (short_snapshot, cwd_snapshot):
+                self.assertEqual(
+                    [source.path for source in snapshot.files],
+                    ["package/visible.py"],
+                )
 
     @unittest.skipUnless(os.name == "nt", "Windows UNC paths are required")
     def test_snapshot_accepts_an_extended_unc_project_path(self) -> None:

@@ -7,7 +7,7 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-## [1.0.5] - 2026-08-19
+## [1.0.5] - 2026-08-21
 
 ### Fixed
 
@@ -27,6 +27,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   missing-input errors (#204).
 - Resume a recognized partial state after an interrupted `sb setup`, while leaving unknown or
   invalid entries untouched (#214).
+- Restore cross-platform release checks by detecting rapid Linux approval-state replacements,
+  serializing empty Windows config-lock initialization, and accepting stable Windows workspace
+  drive aliases for source and output paths (#216).
 
 ### Security
 

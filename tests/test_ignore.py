@@ -5,6 +5,7 @@ import hashlib
 import io
 import json
 import os
+import sys
 import tempfile
 import threading
 import unittest
@@ -510,6 +511,8 @@ class IgnoreCommandTests(unittest.TestCase):
             replacement.mkdir()
             self.assertTrue(state_module.setup_project(project))
             self.assertTrue(state_module.setup_project(replacement))
+            project = project.resolve(strict=True)
+            replacement = replacement.resolve(strict=True)
             state = project / ".silobrief"
             original_state = state.resolve(strict=True)
             replacement_state = replacement / ".silobrief"
@@ -614,6 +617,7 @@ class IgnoreCommandTests(unittest.TestCase):
             project = root / "project"
             project.mkdir()
             self.assertTrue(state_module.setup_project(project))
+            project = project.resolve(strict=True)
             target = project / ".silobrief" / "config.json"
             before = target.read_bytes()
             canary = root / "outside.json"
@@ -704,6 +708,7 @@ class IgnoreCommandTests(unittest.TestCase):
                 project = root / "project"
                 project.mkdir()
                 self.assertTrue(state_module.setup_project(project))
+                project = project.resolve(strict=True)
                 original_replace = state_module._replace_temporary_entry
                 mutation_kept_identity = False
 
@@ -917,6 +922,70 @@ class IgnoreCommandTests(unittest.TestCase):
                 {item["alias"] for item in items},
                 {"boundary-1", "boundary-2"},
             )
+
+    @unittest.skipUnless(os.name == "nt", "Windows byte-range lock test")
+    def test_initializes_an_empty_config_lock_only_after_acquiring_it(self) -> None:
+        if sys.platform != "win32":
+            return
+        import msvcrt
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            self.assertEqual(main(["setup", str(project)]), 0)
+            state = project / ".silobrief"
+            lock_path = state / ".config.lock"
+            lock_path.touch()
+            blocker = os.open(lock_path, os.O_RDWR)
+            lock_attempted = threading.Event()
+            initialized = threading.Event()
+            original_lock = boundary_commands._lock_descriptor
+            original_initialize = boundary_commands._ensure_lock_byte
+
+            def observed_lock(descriptor: int) -> None:
+                lock_attempted.set()
+                original_lock(descriptor)
+
+            def observed_initialize(descriptor: int) -> None:
+                initialized.set()
+                original_initialize(descriptor)
+
+            def acquire_lock() -> None:
+                with boundary_commands._config_update_lock(state, None):
+                    pass
+
+            os.lseek(blocker, 0, os.SEEK_SET)
+            msvcrt.locking(blocker, msvcrt.LK_NBLCK, 1)
+            locked = True
+            try:
+                with (
+                    mock.patch.object(
+                        boundary_commands,
+                        "_lock_descriptor",
+                        side_effect=observed_lock,
+                    ),
+                    mock.patch.object(
+                        boundary_commands,
+                        "_ensure_lock_byte",
+                        side_effect=observed_initialize,
+                    ),
+                    ThreadPoolExecutor(max_workers=1) as executor,
+                ):
+                    future = executor.submit(acquire_lock)
+                    reached_lock = lock_attempted.wait(timeout=2)
+                    initialized_while_locked = initialized.wait(timeout=0.1)
+                    os.lseek(blocker, 0, os.SEEK_SET)
+                    msvcrt.locking(blocker, msvcrt.LK_UNLCK, 1)
+                    locked = False
+                    future.result(timeout=5)
+                self.assertTrue(reached_lock)
+                self.assertFalse(initialized_while_locked)
+                self.assertTrue(initialized.is_set())
+                self.assertEqual(lock_path.read_bytes(), b"\0")
+            finally:
+                if locked:
+                    os.lseek(blocker, 0, os.SEEK_SET)
+                    msvcrt.locking(blocker, msvcrt.LK_UNLCK, 1)
+                os.close(blocker)
 
     @unittest.skipIf(os.name == "nt", "Windows prevents renaming an open lock file")
     def test_replacing_the_lock_file_does_not_bypass_posix_serialization(self) -> None:

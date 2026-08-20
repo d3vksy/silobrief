@@ -6,6 +6,7 @@ import os
 import re
 import secrets
 import stat
+import sys
 import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
@@ -1069,6 +1070,8 @@ def _open_windows_handle(
     share_mode: int,
     flags: int,
 ) -> int:
+    if sys.platform != "win32":
+        raise OSError("Windows state handles are unavailable")
     import ctypes
     import msvcrt
 

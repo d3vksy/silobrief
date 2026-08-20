@@ -178,7 +178,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
-        self.assertIn("## [1.0.5] - 2026-08-19", changelog)
+        self.assertIn("## [1.0.5] - 2026-08-21", changelog)
         self.assertIn("## [1.0.4] - 2026-08-19", changelog)
         self.assertIn("## [1.0.3] - 2026-08-18", changelog)
         self.assertIn("## [1.0.2] - 2026-08-17", changelog)
