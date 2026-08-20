@@ -11,7 +11,14 @@ from silobrief.boundary_placeholders import (
     BoundaryPlaceholder,
     import_target,
 )
-from silobrief.python_structure import Definition, ImportEntry, ModuleStructure, SymbolUse
+from silobrief.index_version import INDEX_VERSION, is_current_index_version
+from silobrief.python_structure import (
+    Definition,
+    ImportEntry,
+    ModuleStructure,
+    StoreBinding,
+    SymbolUse,
+)
 from silobrief.search_tokens import extract_scoped_source_text_tokens, normalize_search_tokens
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import BoundaryData, ConfigData
@@ -52,6 +59,12 @@ class IndexEdge:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundaryDisclosure:
+    node_id: str
+    placeholder: BoundaryPlaceholder
+
+
+@dataclass(frozen=True, slots=True)
 class IndexData:
     config_digest: str
     edges: tuple[IndexEdge, ...]
@@ -59,6 +72,7 @@ class IndexData:
     nodes: tuple[IndexNode, ...]
     source_digest: str
     stale: bool
+    boundary_disclosures: tuple[BoundaryDisclosure, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +83,17 @@ class _ImportBinding:
     line: int
     column: int
     conditional: bool
+    deferred: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _StoreBinding:
+    context: str | None
+    name: str
+    line: int
+    column: int
+    conditional: bool
+    runtime: bool
     deferred: bool = False
 
 
@@ -88,6 +113,7 @@ class _ModuleContext:
     definition_nodes: tuple[IndexNode, ...]
     context_ids: dict[str, str]
     import_bindings: tuple[_ImportBinding, ...]
+    store_bindings: tuple[_StoreBinding, ...]
     path_tokens: tuple[str, ...]
     import_tokens: tuple[str, ...]
     comment_tokens: tuple[str, ...]
@@ -116,11 +142,13 @@ def build_index(
     contexts: dict[str, _ModuleContext] = {}
     all_nodes: list[IndexNode] = []
     global_targets: dict[str, str] = {}
+    src_is_package = "src/__init__.py" in sources
     for path in sorted(sources):
         context = _build_module_context(
             sources[path],
             modules[path],
             tuple(config["boundaries"]),
+            src_is_package=src_is_package,
         )
         contexts[path] = context
         module_node = _module_node(context)
@@ -131,28 +159,49 @@ def build_index(
             global_targets.setdefault(f"{context.module_name}.{qualified_name}", node_id)
 
     edges: set[IndexEdge] = set()
+    boundary_disclosures: set[BoundaryDisclosure] = set()
     for path in sorted(contexts):
         context = contexts[path]
         _add_containment_edges(edges, context)
         _add_import_edges(edges, context, global_targets)
-        _add_use_edges(edges, context, context.structure.calls, "call", global_targets)
-        _add_use_edges(edges, context, context.structure.references, "reference", global_targets)
+        _add_use_edges(
+            edges,
+            boundary_disclosures,
+            context,
+            context.structure.calls,
+            "call",
+            global_targets,
+        )
+        _add_use_edges(
+            edges,
+            boundary_disclosures,
+            context,
+            context.structure.references,
+            "reference",
+            global_targets,
+        )
 
     return IndexData(
         config_digest=config_digest(config),
         edges=tuple(sorted(edges, key=_edge_key)),
-        index_version=1,
+        index_version=INDEX_VERSION,
         nodes=tuple(sorted(all_nodes, key=_node_key)),
         source_digest=snapshot.digest,
         stale=False,
+        boundary_disclosures=tuple(sorted(boundary_disclosures, key=_disclosure_key)),
     )
 
 
 def render_index_json(index: IndexData) -> bytes:
+    if not is_current_index_version(index.index_version):
+        raise IndexBuildError("index does not use the current version")
     value: dict[str, object] = {
+        "boundary_disclosures": [
+            _boundary_disclosure_value(disclosure) for disclosure in index.boundary_disclosures
+        ],
         "config_digest": index.config_digest,
         "edges": [_edge_value(edge) for edge in index.edges],
-        "index_version": index.index_version,
+        "index_version": INDEX_VERSION,
         "nodes": [_node_value(node) for node in index.nodes],
         "source_digest": index.source_digest,
         "stale": index.stale,
@@ -164,8 +213,10 @@ def _build_module_context(
     source: SourceFile,
     structure: ModuleStructure,
     boundaries: tuple[BoundaryData, ...],
+    *,
+    src_is_package: bool,
 ) -> _ModuleContext:
-    module_name = _module_name(source.path)
+    module_name = _module_name(source.path, src_is_package=src_is_package)
     module_id = stable_node_id(source.path, "module", module_name)
     text_tokens = extract_scoped_source_text_tokens(source, structure.definitions)
     definition_tokens = dict(text_tokens.definitions)
@@ -208,6 +259,7 @@ def _build_module_context(
         definition_nodes=tuple(definition_nodes),
         context_ids=context_ids,
         import_bindings=_import_bindings(module_name, source.path, structure.imports),
+        store_bindings=_store_bindings(structure.store_bindings),
         path_tokens=path_tokens,
         import_tokens=import_tokens,
         comment_tokens=text_tokens.module.comments,
@@ -234,14 +286,17 @@ def _module_node(context: _ModuleContext) -> IndexNode:
 
 
 def _add_containment_edges(edges: set[IndexEdge], context: _ModuleContext) -> None:
-    for node in context.definition_nodes:
-        parent_name, separator, _ = node.qualified_name.rpartition(".")
-        source_id = (
-            context.context_ids.get(parent_name, context.module_id)
-            if separator
-            else context.module_id
+    for definition in context.structure.definitions:
+        node_id = stable_node_id(
+            context.structure.path,
+            definition.kind,
+            definition.qualified_name,
         )
-        edges.add(IndexEdge(source_id, "contains", node.qualified_name, node.id))
+        parent_name, separator, _ = definition.qualified_name.rpartition(".")
+        source_id = (
+            _context_id(context, parent_name, definition.line) if separator else context.module_id
+        )
+        edges.add(IndexEdge(source_id, "contains", definition.qualified_name, node_id))
 
 
 def _add_import_edges(
@@ -250,7 +305,7 @@ def _add_import_edges(
     global_targets: dict[str, str],
 ) -> None:
     for imported in context.structure.imports:
-        source_id = _context_id(context, imported.context)
+        source_id = _context_id(context, imported.context, imported.line)
         placeholder = context.boundary_matcher.match_import(imported)
         if placeholder is not None:
             target: str | BoundaryPlaceholder = placeholder
@@ -268,13 +323,14 @@ def _add_import_edges(
 
 def _add_use_edges(
     edges: set[IndexEdge],
+    boundary_disclosures: set[BoundaryDisclosure],
     context: _ModuleContext,
     uses: tuple[SymbolUse, ...],
     kind: Literal["call", "reference"],
     global_targets: dict[str, str],
 ) -> None:
     for use in uses:
-        source_id = _context_id(context, use.context)
+        source_id = _context_id(context, use.context, use.line)
         target, target_id = _resolve_use_target(
             context,
             use.context,
@@ -286,7 +342,12 @@ def _add_use_edges(
             use.lookup_limit,
             global_targets,
         )
+        if use.boundary_only and not isinstance(target, BoundaryPlaceholder):
+            continue
         edges.add(IndexEdge(source_id, kind, target, target_id))
+        if use.disclosure_context is not None and isinstance(target, BoundaryPlaceholder):
+            disclosure_id = _context_id(context, use.disclosure_context, use.line)
+            boundary_disclosures.add(BoundaryDisclosure(disclosure_id, target))
 
 
 def _resolve_use_target(
@@ -302,7 +363,7 @@ def _resolve_use_target(
 ) -> tuple[str | BoundaryPlaceholder, str | None]:
     if synthetic_local:
         return target, None
-    use_position = (*lookup_limit, -1) if lookup_limit is not None else (line, column, 2)
+    use_position = (line, column, 3)
     possible: list[_ScopeBinding] = []
     saw_binding = False
     for scope in _lexical_scopes(context, source_context, target, line, skip_class_scope):
@@ -313,6 +374,7 @@ def _resolve_use_target(
             target,
             line,
             use_position,
+            lookup_limit,
         )
         if bindings is None:
             continue
@@ -374,6 +436,7 @@ def _resolve_scope_bindings(
     target: str,
     line: int,
     use_position: tuple[int, int, int],
+    definition_under_construction: tuple[int, int] | None,
 ) -> tuple[_ScopeBinding, ...] | None:
     root = target.split(".", 1)[0]
     scope_definition = _definition_at(context, scope, line) if scope is not None else None
@@ -384,6 +447,8 @@ def _resolve_scope_bindings(
             _structural_parent(candidate_definition.qualified_name) != scope
             or candidate_definition.name != root
             or not _inside_definition(scope_definition, candidate_definition.line)
+            or definition_under_construction
+            == (candidate_definition.line, candidate_definition.column)
         ):
             continue
         suffix = target[len(root) :]
@@ -421,12 +486,40 @@ def _resolve_scope_bindings(
             deferred_bindings.append(candidate[1])
         else:
             candidates.append(candidate)
+    for store_binding in context.store_bindings:
+        if (
+            not store_binding.runtime
+            or store_binding.context != scope
+            or store_binding.name != root
+            or not _inside_definition(scope_definition, store_binding.line)
+        ):
+            continue
+        candidate = (
+            (store_binding.line, store_binding.column, 2),
+            _ScopeBinding(unknown=True),
+            store_binding.conditional,
+        )
+        if store_binding.deferred:
+            deferred_bindings.append(candidate[1])
+        else:
+            candidates.append(candidate)
     if (parameter := _parameter_binding(context, scope, target, line)) is not None:
         candidates.append(((0, 0, 0), parameter, False))
 
     direct_scope = scope == source_context
     declared = _has_declaration(context, scope, line, root, "global") or _has_declaration(
         context, scope, line, root, "nonlocal"
+    )
+    static_local = (
+        not declared
+        and scope_definition is not None
+        and scope_definition.kind == "function"
+        and any(
+            item.context == scope
+            and item.name == root
+            and _inside_definition(scope_definition, item.line)
+            for item in context.store_bindings
+        )
     )
     falls_through = declared or (
         direct_scope and scope_definition is not None and scope_definition.kind == "class"
@@ -451,11 +544,13 @@ def _resolve_scope_bindings(
 
     if (
         direct_scope
-        and candidates
+        and (candidates or static_local)
         and not declared
         and (scope is None or scope_definition is not None and scope_definition.kind == "function")
     ):
         return tuple(dict.fromkeys([_ScopeBinding(), *deferred_bindings]))
+    if static_local:
+        return tuple(dict.fromkeys([_ScopeBinding(unknown=True), *deferred_bindings]))
     if deferred_bindings:
         return tuple(dict.fromkeys([_ScopeBinding(falls_through=True), *deferred_bindings]))
     return None
@@ -489,7 +584,9 @@ def _binding_result(
     if len(concrete) != 1 or concrete[0].unknown:
         return target, None
     if concrete[0].imported_target is not None:
-        return target, global_targets.get(concrete[0].imported_target)
+        imported_target = concrete[0].imported_target
+        target_id = global_targets.get(imported_target)
+        return (target, target_id) if target_id is not None else (imported_target, None)
     return target, concrete[0].target_id
 
 
@@ -554,19 +651,19 @@ def _inside_definition(definition: Definition | None, line: int) -> bool:
     return definition is None or definition.start_line <= line <= definition.end_line
 
 
-def _context_id(context: _ModuleContext, qualified_name: str | None) -> str:
+def _context_id(context: _ModuleContext, qualified_name: str | None, line: int) -> str:
     if qualified_name is None:
         return context.module_id
-    try:
-        return context.context_ids[qualified_name]
-    except KeyError as error:
-        raise IndexBuildError(f"unknown source context: {qualified_name}") from error
+    definition = _definition_at(context, qualified_name, line)
+    if definition is None:
+        raise IndexBuildError(f"unknown source context: {qualified_name}")
+    return stable_node_id(context.structure.path, definition.kind, qualified_name)
 
 
-def _module_name(path: str) -> str:
+def _module_name(path: str, *, src_is_package: bool) -> str:
     _validate_relative_path(path)
     parts = list(PurePosixPath(path).parts)
-    if len(parts) > 1 and parts[0] == "src" and parts[1] != "__init__.py":
+    if not src_is_package and len(parts) > 1 and parts[0] == "src" and parts[1] != "__init__.py":
         parts.pop(0)
     filename = parts[-1]
     if filename == "__init__.py" and len(parts) > 1:
@@ -604,6 +701,31 @@ def _import_bindings(
                     imported.line,
                     imported.column,
                     conditional,
+                    deferred,
+                )
+            )
+    return tuple(result)
+
+
+def _store_bindings(bindings: tuple[StoreBinding, ...]) -> tuple[_StoreBinding, ...]:
+    result: list[_StoreBinding] = []
+    for binding in bindings:
+        scopes = (
+            (binding.context, binding.conditional, False),
+            *(
+                (item.context, item.conditional, item.deferred)
+                for item in binding.projected_binding_scopes
+            ),
+        )
+        for scope, conditional, deferred in scopes:
+            result.append(
+                _StoreBinding(
+                    scope,
+                    binding.name,
+                    binding.line,
+                    binding.column,
+                    conditional,
+                    binding.runtime,
                     deferred,
                 )
             )
@@ -752,6 +874,13 @@ def _edge_value(edge: IndexEdge) -> dict[str, object]:
     }
 
 
+def _boundary_disclosure_value(disclosure: BoundaryDisclosure) -> dict[str, object]:
+    return {
+        "node_id": disclosure.node_id,
+        "placeholder": _edge_target_value(disclosure.placeholder),
+    }
+
+
 def _edge_target_value(target: str | BoundaryPlaceholder) -> object:
     if isinstance(target, str):
         return target
@@ -773,6 +902,14 @@ def _edge_key(edge: IndexEdge) -> tuple[str, str, str, str]:
     else:
         target = f"boundary:{edge.target.alias}:{edge.target.description}"
     return edge.source_id, edge.kind, target, edge.target_id or ""
+
+
+def _disclosure_key(disclosure: BoundaryDisclosure) -> tuple[str, str, str]:
+    return (
+        disclosure.node_id,
+        disclosure.placeholder.alias,
+        disclosure.placeholder.description,
+    )
 
 
 def _validate_relative_path(path: str) -> None:

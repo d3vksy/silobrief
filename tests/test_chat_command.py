@@ -6,10 +6,11 @@ import os
 import sys
 import tempfile
 import unittest
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from unittest import mock
 
+from silobrief.boundaries import register_boundary
 from silobrief.cli import main
 
 
@@ -23,11 +24,19 @@ class TtyBuffer(io.StringIO):
 
 
 class ScriptedInput:
-    def __init__(self, value: str, target: Path, *, tty: bool = True) -> None:
+    def __init__(
+        self,
+        value: str,
+        target: Path,
+        *,
+        tty: bool = True,
+        on_write: Callable[[], None] | None = None,
+    ) -> None:
         self._stream = io.StringIO(value)
         self.target = target
         self.source_target = target.with_name(f"{target.stem}.sources.md")
         self.tty = tty
+        self.on_write = on_write
         self.output_absent_before_write: bool | None = None
         self.source_output_absent_before_write: bool | None = None
 
@@ -37,6 +46,8 @@ class ScriptedInput:
     def readline(self, size: int = -1) -> str:
         value = self._stream.readline(size)
         if value.rstrip("\r\n") == "WRITE":
+            if self.on_write is not None:
+                self.on_write()
             self.output_absent_before_write = not self.target.exists()
             self.source_output_absent_before_write = not self.source_target.exists()
         return value
@@ -66,12 +77,13 @@ def prepare_project(project: Path) -> Path:
     private.mkdir()
     service = package / "service.py"
     service.write_text(
-        "import urllib3\n"
+        "import urllib3 as http\n"
+        "import json\n"
         "from private.secret import send\n\n"
         "SOURCE_CANARY = 'allowed-source-canary'\n\n"
         "def run():\n"
         "    send()\n"
-        "    return urllib3\n",
+        "    return http\n",
         encoding="utf-8",
         newline="\n",
     )
@@ -119,8 +131,9 @@ def run_chat(
     *,
     tty: bool = True,
     command: str = "brief",
+    on_write: Callable[[], None] | None = None,
 ) -> tuple[int, ScriptedInput, str, str]:
-    input_stream = ScriptedInput(input_text, project / output, tty=tty)
+    input_stream = ScriptedInput(input_text, project / output, tty=tty, on_write=on_write)
     stdout = TtyBuffer()
     stderr = io.StringIO()
     with (
@@ -192,6 +205,32 @@ class ChatCommandTests(unittest.TestCase):
             ):
                 self.assertNotIn(hidden, stdout + markdown)
 
+    def test_boundary_registered_during_write_approval_blocks_output(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            (project / "late_private").mkdir()
+            output = ".silobrief/exports/config-changed.md"
+
+            def change_policy() -> None:
+                register_boundary(
+                    "late_private",
+                    "Late private boundary",
+                    "late-private",
+                    start=project,
+                )
+
+            result, _, _, stderr = run_chat(
+                project,
+                output,
+                NO_SOURCE_REVIEW_INPUT + "WRITE\n",
+                on_write=change_policy,
+            )
+
+            self.assertEqual(result, 4)
+            self.assertIn("settings changed during approval", stderr)
+            self.assertFalse((project / output).exists())
+
     def test_writes_only_the_main_brief_when_source_is_declined(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
@@ -209,7 +248,10 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(stderr, "")
             self.assertTrue(destination.is_file())
             self.assertFalse(destination.with_name("context-only.sources.md").exists())
-            self.assertIn("source_delivery: none", destination.read_text(encoding="utf-8"))
+            markdown = destination.read_text(encoding="utf-8")
+            self.assertIn("source_delivery: none", markdown)
+            self.assertIn("urllib3", markdown)
+            self.assertNotIn("json", markdown)
 
     def test_src_layout_boundary_is_redacted_in_exact_path_brief(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -362,7 +404,7 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(result, 3)
             self.assertIn("cannot read index.json", stderr_text)
 
-            index.write_text('{"index_version": 2}\n', encoding="utf-8", newline="\n")
+            index.write_text('{"index_version": 4}\n', encoding="utf-8", newline="\n")
             result, _, _, stderr_text = run_chat(project, ".silobrief/exports/incompatible.md", "")
             self.assertEqual(result, 3)
             self.assertIn("not compatible", stderr_text)
@@ -375,6 +417,35 @@ class ChatCommandTests(unittest.TestCase):
             self.assertEqual(result, 4)
             self.assertIn("sources changed", stderr_text)
             self.assertFalse((project / ".silobrief/exports/changed.md").exists())
+
+    def test_search_and_brief_reject_v2_index_with_rebuild_guidance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            prepare_project(project)
+            index = project / ".silobrief" / "index.json"
+            current = index.read_bytes()
+            legacy = current.replace(b'"index_version": 3', b'"index_version": 2')
+            self.assertNotEqual(legacy, current)
+            index.write_bytes(legacy)
+
+            search_stderr = io.StringIO()
+            with working_directory(project), contextlib.redirect_stderr(search_stderr):
+                search_result = main(["search", "run"])
+
+            brief_result, _, _, brief_stderr = run_chat(
+                project,
+                ".silobrief/exports/outdated.md",
+                "",
+            )
+
+            self.assertEqual(search_result, 3)
+            self.assertIn("outdated", search_stderr.getvalue())
+            self.assertIn("run sb init", search_stderr.getvalue())
+            self.assertEqual(brief_result, 3)
+            self.assertIn("outdated", brief_stderr)
+            self.assertIn("run sb init", brief_stderr)
+            self.assertFalse((project / ".silobrief/exports/outdated.md").exists())
+            self.assertEqual(index.read_bytes(), legacy)
 
     def test_blocks_non_tty_refusal_and_existing_output(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

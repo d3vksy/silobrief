@@ -1,0 +1,52 @@
+{
+  "config_digest": "1f2cea43ad63fc817972f18ff298ad9e53bf99e2dfd3406dbd27f3db13f8d072",
+  "edges": [
+    {
+      "kind": "contains",
+      "source_id": "node-0a79429d9bc295cd8c473dbf67725be366c8ac8406fdbbf8d72eda56717429d2",
+      "target": "run",
+      "target_id": "node-305953ad8765d5941e4285c77f6a00ae0e67ae175757c3cdca8eb1e46c29c04f"
+    }
+  ],
+  "index_version": 1,
+  "nodes": [
+    {
+      "id": "node-0a79429d9bc295cd8c473dbf67725be366c8ac8406fdbbf8d72eda56717429d2",
+      "kind": "module",
+      "name": "service",
+      "path": "service.py",
+      "qualified_name": "service",
+      "tokens": {
+        "comments": [],
+        "docstrings": [],
+        "imports": [],
+        "path": [
+          "service"
+        ],
+        "symbol": [
+          "service"
+        ]
+      }
+    },
+    {
+      "id": "node-305953ad8765d5941e4285c77f6a00ae0e67ae175757c3cdca8eb1e46c29c04f",
+      "kind": "function",
+      "name": "run",
+      "path": "service.py",
+      "qualified_name": "run",
+      "tokens": {
+        "comments": [],
+        "docstrings": [],
+        "imports": [],
+        "path": [
+          "service"
+        ],
+        "symbol": [
+          "run"
+        ]
+      }
+    }
+  ],
+  "source_digest": "554875b6f8efcea50960fd5c6936b27af8396dd83f43192d696ec082f5d4ac7b",
+  "stale": false
+}

@@ -9,7 +9,7 @@ from silobrief import sources
 from silobrief.index import IndexBuildError, build_index, render_index_json
 from silobrief.python_structure import PythonParseError, extract_structures
 from silobrief.sources import SourceChanges, SourceCollectionError, SourceWarning
-from silobrief.state import SetupError, find_project_root, load_config, save_index
+from silobrief.state import SetupError, find_project_root, save_index
 
 
 class IndexingError(Exception):
@@ -48,17 +48,25 @@ def initialize_index(
     progress: InitProgressCallback | None = None,
 ) -> tuple[SourceWarning, ...]:
     root = find_project_root(start)
-    config = load_config(root)
     try:
+        config, root_identity = sources.load_source_config(root)
         _report_progress(progress, "collecting", 0)
-        before = sources.snapshot_sources(root, config)
+        before = sources.snapshot_sources(
+            root,
+            config,
+            expected_root_identity=root_identity,
+        )
         source_files = len(before.files)
         _report_progress(progress, "analyzing", 1, source_files)
         structures = extract_structures(before)
         _report_progress(progress, "building", 2, source_files)
         index = build_index(before, structures, config)
         _report_progress(progress, "verifying", 3, source_files)
-        after = sources.snapshot_sources(root, config)
+        after = sources.snapshot_sources(
+            root,
+            config,
+            expected_root_identity=root_identity,
+        )
     except (SourceCollectionError, PythonParseError, IndexBuildError) as error:
         raise IndexingError(str(error)) from error
 

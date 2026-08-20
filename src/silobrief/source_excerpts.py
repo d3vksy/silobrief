@@ -71,7 +71,10 @@ def extract_source_excerpts(
         raise ValueError("source excerpt limits cannot be negative")
 
     sources = {source.path: source for source in snapshot.files}
-    definitions: dict[str, dict[tuple[DefinitionKind, str], Definition]] = {}
+    definitions: dict[
+        str,
+        dict[tuple[DefinitionKind, str], tuple[Definition, ...]],
+    ] = {}
     decoded: dict[str, str] = {}
     excerpts: list[SourceExcerpt] = []
 
@@ -87,13 +90,18 @@ def extract_source_excerpts(
         if selection.path not in definitions:
             definitions[selection.path] = _definition_map(source)
             decoded[selection.path] = _decode_source(source)
-        definition = definitions[selection.path].get((selection.kind, selection.qualified_name))
-        if definition is None:
+        matching_definitions = definitions[selection.path].get(
+            (selection.kind, selection.qualified_name)
+        )
+        if matching_definitions is None:
             raise SourceExcerptError(
                 "source definition is not in the current snapshot: "
                 f"{selection.path} {selection.qualified_name}"
             )
-        excerpts.append(_excerpt(selection, definition, decoded[selection.path]))
+        excerpts.extend(
+            _excerpt(selection, definition, decoded[selection.path])
+            for definition in matching_definitions
+        )
 
     return prepare_source_excerpts(
         excerpts,
@@ -106,12 +114,18 @@ def extract_source_excerpt(
     snapshot: SourceSnapshot,
     selection: SourceSelection,
 ) -> SourceExcerpt:
-    return extract_source_excerpts(
+    excerpts = extract_source_excerpts(
         snapshot,
         (selection,),
         max_lines=sys.maxsize,
         max_utf8_bytes=sys.maxsize,
-    )[0]
+    )
+    if len(excerpts) != 1:
+        raise SourceExcerptError(
+            "source selection resolves to multiple definitions: "
+            f"{selection.path} {selection.qualified_name}"
+        )
+    return excerpts[0]
 
 
 def prepare_source_excerpts(
@@ -130,15 +144,17 @@ def prepare_source_excerpts(
     return result
 
 
-def _definition_map(source: SourceFile) -> dict[tuple[DefinitionKind, str], Definition]:
+def _definition_map(
+    source: SourceFile,
+) -> dict[tuple[DefinitionKind, str], tuple[Definition, ...]]:
     try:
         structure = extract_module_structure(source)
     except PythonParseError as error:
         raise SourceExcerptError(str(error)) from error
-    return {
-        (definition.kind, definition.qualified_name): definition
-        for definition in structure.definitions
-    }
+    definitions: dict[tuple[DefinitionKind, str], list[Definition]] = {}
+    for definition in structure.definitions:
+        definitions.setdefault((definition.kind, definition.qualified_name), []).append(definition)
+    return {key: tuple(values) for key, values in definitions.items()}
 
 
 def _decode_source(source: SourceFile) -> str:

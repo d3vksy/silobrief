@@ -14,10 +14,11 @@ from silobrief.source_excerpts import (
     SourceExcerptError,
     SourceExcerptLimitError,
     SourceSelection,
-    extract_source_excerpt,
+    extract_source_excerpts,
     prepare_source_excerpts,
 )
 from silobrief.sources import SourceSnapshot
+from silobrief.terminal import escape_terminal_line, escape_terminal_preview
 
 
 class SourceReviewError(ValueError):
@@ -69,19 +70,24 @@ def review_source_disclosure(
     candidates: list[SourceExcerpt] = []
     for node in sorted(selected_nodes.values(), key=_node_key):
         try:
-            candidates.append(
-                extract_source_excerpt(
+            candidates.extend(
+                extract_source_excerpts(
                     snapshot,
-                    SourceSelection(node.path, node.kind, node.qualified_name),
+                    (SourceSelection(node.path, node.kind, node.qualified_name),),
+                    max_lines=sys.maxsize,
+                    max_utf8_bytes=sys.maxsize,
                 )
             )
         except SourceExcerptError as error:
+            path = escape_terminal_line(node.path)
+            qualified_name = escape_terminal_line(node.qualified_name)
+            reason = escape_terminal_line(str(error))
             _write(
                 output_stream,
                 localized(
                     language,
-                    f"Source excerpt unavailable: {node.path} {node.qualified_name}: {error}\n",
-                    f"소스 발췌를 사용할 수 없음: {node.path} {node.qualified_name}: {error}\n",
+                    f"Source excerpt unavailable: {path} {qualified_name}: {reason}\n",
+                    f"소스 발췌를 사용할 수 없음: {path} {qualified_name}: {reason}\n",
                 ),
             )
 
@@ -137,12 +143,13 @@ def review_source_disclosure(
         try:
             approved = prepare_source_excerpts((*approved, candidate))
         except SourceExcerptLimitError as error:
+            reason = escape_terminal_line(str(error))
             _write(
                 output_stream,
                 localized(
                     language,
-                    f"Source excerpt skipped: {error}\n",
-                    f"소스 발췌를 건너뜀: {error}\n",
+                    f"Source excerpt skipped: {reason}\n",
+                    f"소스 발췌를 건너뜀: {reason}\n",
                 ),
             )
 
@@ -150,12 +157,13 @@ def review_source_disclosure(
         sorted({alias for excerpt in approved for alias in aliases[_excerpt_key(excerpt)]})
     )
     if exposed:
+        visible_aliases = ", ".join(escape_terminal_line(alias) for alias in exposed)
         _write(
             output_stream,
             localized(
                 language,
-                f"Boundary aliases exposed in approved source: {', '.join(exposed)}\n",
-                f"승인한 소스에 노출되는 경계 alias: {', '.join(exposed)}\n",
+                f"Boundary aliases exposed in approved source: {visible_aliases}\n",
+                f"승인한 소스에 노출되는 경계 alias: {visible_aliases}\n",
             ),
         )
         if (
@@ -208,6 +216,11 @@ def _boundary_aliases(index: IndexData, node_id: str) -> tuple[str, ...]:
                 for edge in index.edges
                 if edge.source_id in included and isinstance(edge.target, BoundaryPlaceholder)
             }
+            | {
+                disclosure.placeholder.alias
+                for disclosure in index.boundary_disclosures
+                if disclosure.node_id in included
+            }
         )
     )
 
@@ -218,21 +231,24 @@ def _show_candidate(
     output: TextIO,
     language: Language,
 ) -> None:
+    path = escape_terminal_line(excerpt.path)
+    qualified_name = escape_terminal_line(excerpt.qualified_name)
+    visible_aliases = ", ".join(escape_terminal_line(alias) for alias in aliases)
     _write(
         output,
         localized(
             language,
-            f"Source candidate: {excerpt.path} | {excerpt.kind} {excerpt.qualified_name} | "
+            f"Source candidate: {path} | {excerpt.kind} {qualified_name} | "
             f"lines {excerpt.start_line}-{excerpt.end_line}\n"
-            f"Boundary aliases: {', '.join(aliases) if aliases else 'none'}\n"
+            f"Boundary aliases: {visible_aliases if aliases else 'none'}\n"
             "```python\n",
-            f"소스 후보: {excerpt.path} | {excerpt.kind} {excerpt.qualified_name} | "
+            f"소스 후보: {path} | {excerpt.kind} {qualified_name} | "
             f"{excerpt.start_line}-{excerpt.end_line}행\n"
-            f"경계 alias: {', '.join(aliases) if aliases else '없음'}\n"
+            f"경계 alias: {visible_aliases if aliases else '없음'}\n"
             "```python\n",
         ),
     )
-    _write(output, excerpt.content)
+    _write(output, escape_terminal_preview(excerpt.content))
     if not excerpt.content.endswith("\n"):
         _write(output, "\n")
     _write(output, "```\n")

@@ -5,10 +5,20 @@ import io
 import unittest
 
 from silobrief.boundary_placeholders import BoundaryPlaceholder
-from silobrief.index import IndexData, IndexEdge, IndexNode, NodeKind, NodeTokens, build_index
+from silobrief.index import (
+    BoundaryDisclosure,
+    IndexData,
+    IndexEdge,
+    IndexNode,
+    NodeKind,
+    NodeTokens,
+    build_index,
+    render_index_json,
+)
 from silobrief.python_structure import extract_structures
 from silobrief.review import DisclosureChoices, ReviewNode, ReviewSelection
-from silobrief.source_review import SourceReviewError, review_source_disclosure
+from silobrief.source_excerpts import SourceExcerpt
+from silobrief.source_review import SourceReviewError, _show_candidate, review_source_disclosure
 from silobrief.sources import SourceFile, SourceSnapshot
 from silobrief.state import DEFAULT_EXCLUDES, BoundaryData, ConfigData
 
@@ -54,6 +64,29 @@ def index(*nodes: IndexNode, edges: tuple[IndexEdge, ...] = ()) -> IndexData:
 
 
 class SourceReviewTests(unittest.TestCase):
+    def test_source_preview_escapes_controls_without_changing_layout(self) -> None:
+        osc = "\x1b]52;c;Y2xpcGJvYXJk\x07"
+        csi = "\x1b[2J"
+        excerpt = SourceExcerpt(
+            path=f"src/{osc}\nforged.py",
+            kind="function",
+            qualified_name=f"run{csi}",
+            start_line=1,
+            end_line=3,
+            content=(f'def run():\n\t# clipboard {osc}\n\treturn "cursor {csi}\x9b31m\x7f"\n'),
+        )
+        output = TtyBuffer()
+
+        _show_candidate(excerpt, (f"alias{osc}",), output, "en")
+
+        visible = output.getvalue()
+        self.assertNotIn(osc, visible)
+        self.assertNotIn(csi, visible)
+        self.assertIn("src/\\x1b]52;c;Y2xpcGJvYXJk\\x07\\nforged.py", visible)
+        self.assertIn("def run():\n\t# clipboard ", visible)
+        self.assertIn("\\x1b[2J\\x9b31m\\x7f", visible)
+        self.assertIn(osc, excerpt.content)
+
     def test_reviews_only_explicit_function_and_defaults_to_no(self) -> None:
         module = node("module", "service.py", "module", "service")
         selected = node("run", "service.py", "function", "run")
@@ -118,6 +151,354 @@ class SourceReviewTests(unittest.TestCase):
         self.assertEqual(approved[0].boundary_aliases, ("delivery-boundary",))
         self.assertIn("deliver_internal", approved[0].content)
 
+    def test_requires_expose_for_boundary_names_in_definition_headers(self) -> None:
+        content = (
+            b"from private_zone import decorate, SecretType, make_default, Base, meta\n"
+            b"@decorate\n"
+            b"def run(value: SecretType = make_default()) -> SecretType:\n"
+            b"    return value\n"
+            b"@decorate\n"
+            b"class Service(Base, metaclass=meta):\n"
+            b"    pass\n"
+            b"class Outer:\n"
+            b"    @decorate\n"
+            b"    def method(self, value: SecretType = make_default()) -> SecretType:\n"
+            b"        return value\n"
+            b"    def host(self):\n"
+            b"        @decorate\n"
+            b"        def inner(value: SecretType = make_default()):\n"
+            b"            return value\n"
+            b"        return inner()\n"
+        )
+        source = snapshot(source_file("service.py", content))
+        source_index = build_index(
+            source,
+            extract_structures(source),
+            ConfigData(
+                boundaries=[
+                    BoundaryData(
+                        alias="private-service",
+                        description="Approved private service",
+                        path="private_zone.py",
+                    )
+                ],
+                default_excludes=list(DEFAULT_EXCLUDES),
+                schema_version=1,
+            ),
+        )
+        nodes = {node.qualified_name: node for node in source_index.nodes}
+        placeholder = BoundaryPlaceholder("private-service", "Approved private service")
+
+        self.assertEqual(
+            set(source_index.boundary_disclosures),
+            {
+                BoundaryDisclosure(nodes["Service"].id, placeholder),
+                BoundaryDisclosure(nodes["Outer.host.inner"].id, placeholder),
+                BoundaryDisclosure(nodes["Outer.method"].id, placeholder),
+                BoundaryDisclosure(nodes["run"].id, placeholder),
+            },
+        )
+        module = next(node for node in source_index.nodes if node.kind == "module")
+        self.assertTrue(
+            any(
+                edge.source_id == module.id and isinstance(edge.target, BoundaryPlaceholder)
+                for edge in source_index.edges
+            )
+        )
+        self.assertFalse(
+            any(
+                edge.source_id in {nodes["run"].id, nodes["Service"].id}
+                and isinstance(edge.target, BoundaryPlaceholder)
+                for edge in source_index.edges
+            )
+        )
+        encoded = render_index_json(source_index)
+        for private_name in (b"private_zone", b"SecretType", b"make_default"):
+            self.assertNotIn(private_name, encoded)
+
+        for qualified_name in ("run", "Service", "Outer.method", "Outer.host.inner"):
+            with self.subTest(qualified_name=qualified_name):
+                selection = ReviewSelection((review_node(nodes[qualified_name]),), (), FIELDS)
+                output = TtyBuffer()
+                declined = review_source_disclosure(
+                    source_index,
+                    source,
+                    selection,
+                    input_stream=TtyBuffer("y\nnot-expose\n"),
+                    output_stream=output,
+                )
+                approved = review_source_disclosure(
+                    source_index,
+                    source,
+                    selection,
+                    input_stream=TtyBuffer("y\nEXPOSE\n"),
+                    output_stream=TtyBuffer(),
+                )
+
+                self.assertEqual(declined, ())
+                self.assertIn("Boundary aliases: private-service", output.getvalue())
+                self.assertIn("Type exactly EXPOSE", output.getvalue())
+                self.assertEqual(len(approved), 1)
+                self.assertEqual(approved[0].boundary_aliases, ("private-service",))
+
+    def test_requires_expose_for_deferred_header_annotations(self) -> None:
+        content = (
+            b"from private_zone import SecretType\n"
+            b"def quoted(value: 'SecretType') -> 'list[SecretType]':\n"
+            b"    return value\n"
+            b"def commented(\n"
+            b"    value,  # type: SecretType\n"
+            b"):\n"
+            b"    # type: (SecretType) -> SecretType\n"
+            b"    return value\n"
+            b"def public(value: 'PublicType') -> 'PublicType':\n"
+            b"    return value\n"
+        )
+        source = snapshot(source_file("service.py", content))
+        source_index = build_index(
+            source,
+            extract_structures(source),
+            ConfigData(
+                boundaries=[
+                    BoundaryData(
+                        alias="private-service",
+                        description="Approved private service",
+                        path="private_zone.py",
+                    )
+                ],
+                default_excludes=list(DEFAULT_EXCLUDES),
+                schema_version=1,
+            ),
+        )
+        nodes = {node.qualified_name: node for node in source_index.nodes}
+        placeholder = BoundaryPlaceholder("private-service", "Approved private service")
+
+        self.assertEqual(
+            set(source_index.boundary_disclosures),
+            {
+                BoundaryDisclosure(nodes["quoted"].id, placeholder),
+                BoundaryDisclosure(nodes["commented"].id, placeholder),
+            },
+        )
+        self.assertFalse(any(edge.target == "PublicType" for edge in source_index.edges))
+        encoded = render_index_json(source_index)
+        for private_name in (b"private_zone", b"SecretType"):
+            self.assertNotIn(private_name, encoded)
+
+        for qualified_name in ("quoted", "commented"):
+            with self.subTest(qualified_name=qualified_name):
+                output = TtyBuffer()
+                declined = review_source_disclosure(
+                    source_index,
+                    source,
+                    ReviewSelection((review_node(nodes[qualified_name]),), (), FIELDS),
+                    input_stream=TtyBuffer("y\nnot-expose\n"),
+                    output_stream=output,
+                )
+                approved = review_source_disclosure(
+                    source_index,
+                    source,
+                    ReviewSelection((review_node(nodes[qualified_name]),), (), FIELDS),
+                    input_stream=TtyBuffer("y\nEXPOSE\n"),
+                    output_stream=TtyBuffer(),
+                )
+
+                self.assertEqual(declined, ())
+                self.assertIn("Boundary aliases: private-service", output.getvalue())
+                self.assertIn("Type exactly EXPOSE", output.getvalue())
+                self.assertEqual(len(approved), 1)
+                self.assertEqual(approved[0].boundary_aliases, ("private-service",))
+
+        output = TtyBuffer()
+        approved = review_source_disclosure(
+            source_index,
+            source,
+            ReviewSelection((review_node(nodes["public"]),), (), FIELDS),
+            input_stream=TtyBuffer("y\n"),
+            output_stream=output,
+        )
+
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0].boundary_aliases, ())
+        self.assertNotIn("Type exactly EXPOSE", output.getvalue())
+
+    def test_distinguishes_class_and_function_header_owners_with_the_same_name(self) -> None:
+        content = (
+            b"from private_zone import decorate\n"
+            b"class Header:\n"
+            b"    pass\n"
+            b"@decorate\n"
+            b"def Header():\n"
+            b"    return 1\n"
+            b"def Reverse():\n"
+            b"    return 2\n"
+            b"@decorate\n"
+            b"class Reverse:\n"
+            b"    pass\n"
+            b"class Outer:\n"
+            b"    pass\n"
+            b"def Outer():\n"
+            b"    @decorate\n"
+            b"    def inner():\n"
+            b"        return 3\n"
+            b"    return inner\n"
+            b"def ClassOuter():\n"
+            b"    return 4\n"
+            b"class ClassOuter:\n"
+            b"    @decorate\n"
+            b"    def inner(self):\n"
+            b"        return 5\n"
+        )
+        source = snapshot(source_file("service.py", content))
+        source_index = build_index(
+            source,
+            extract_structures(source),
+            ConfigData(
+                boundaries=[
+                    BoundaryData(
+                        alias="private-service",
+                        description="Approved private service",
+                        path="private_zone.py",
+                    )
+                ],
+                default_excludes=list(DEFAULT_EXCLUDES),
+                schema_version=1,
+            ),
+        )
+        nodes = {(node.kind, node.qualified_name): node for node in source_index.nodes}
+        placeholder = BoundaryPlaceholder("private-service", "Approved private service")
+
+        self.assertEqual(
+            set(source_index.boundary_disclosures),
+            {
+                BoundaryDisclosure(nodes[("function", "Header")].id, placeholder),
+                BoundaryDisclosure(nodes[("class", "Reverse")].id, placeholder),
+                BoundaryDisclosure(nodes[("function", "Outer.inner")].id, placeholder),
+                BoundaryDisclosure(nodes[("function", "ClassOuter.inner")].id, placeholder),
+            },
+        )
+        module = next(node for node in source_index.nodes if node.kind == "module")
+        self.assertEqual(
+            {edge.source_id for edge in source_index.edges if edge.target == placeholder},
+            {
+                module.id,
+                nodes[("function", "Outer")].id,
+                nodes[("class", "ClassOuter")].id,
+            },
+        )
+        contains = {
+            (edge.source_id, edge.target_id)
+            for edge in source_index.edges
+            if edge.kind == "contains"
+        }
+        self.assertIn(
+            (nodes[("function", "Outer")].id, nodes[("function", "Outer.inner")].id),
+            contains,
+        )
+        self.assertIn(
+            (
+                nodes[("class", "ClassOuter")].id,
+                nodes[("function", "ClassOuter.inner")].id,
+            ),
+            contains,
+        )
+        self.assertNotIn(
+            (nodes[("class", "Outer")].id, nodes[("function", "Outer.inner")].id),
+            contains,
+        )
+        self.assertNotIn(
+            (
+                nodes[("function", "ClassOuter")].id,
+                nodes[("function", "ClassOuter.inner")].id,
+            ),
+            contains,
+        )
+        encoded = render_index_json(source_index)
+        for private_name in (b"private_zone", b"decorate"):
+            self.assertNotIn(private_name, encoded)
+
+        protected = (
+            nodes[("function", "Header")],
+            nodes[("class", "Reverse")],
+            nodes[("function", "Outer")],
+            nodes[("class", "ClassOuter")],
+        )
+        for selected in protected:
+            with self.subTest(protected=(selected.kind, selected.qualified_name)):
+                output = TtyBuffer()
+                approved = review_source_disclosure(
+                    source_index,
+                    source,
+                    ReviewSelection((review_node(selected),), (), FIELDS),
+                    input_stream=TtyBuffer("y\nnot-expose\n"),
+                    output_stream=output,
+                )
+
+                self.assertEqual(approved, ())
+                self.assertIn("Type exactly EXPOSE", output.getvalue())
+
+        safe = (
+            nodes[("class", "Header")],
+            nodes[("function", "Reverse")],
+            nodes[("class", "Outer")],
+            nodes[("function", "ClassOuter")],
+        )
+        for selected in safe:
+            with self.subTest(safe=(selected.kind, selected.qualified_name)):
+                output = TtyBuffer()
+                approved = review_source_disclosure(
+                    source_index,
+                    source,
+                    ReviewSelection((review_node(selected),), (), FIELDS),
+                    input_stream=TtyBuffer("y\n"),
+                    output_stream=output,
+                )
+
+                self.assertEqual(len(approved), 1)
+                self.assertEqual(approved[0].boundary_aliases, ())
+                self.assertNotIn("Type exactly EXPOSE", output.getvalue())
+
+    def test_does_not_apply_unrelated_header_disclosure_to_another_function(self) -> None:
+        content = (
+            b"from private_zone import decorate\n"
+            b"@decorate\n"
+            b"def protected():\n"
+            b"    return 1\n"
+            b"def public():\n"
+            b"    return 2\n"
+        )
+        source = snapshot(source_file("service.py", content))
+        source_index = build_index(
+            source,
+            extract_structures(source),
+            ConfigData(
+                boundaries=[
+                    BoundaryData(
+                        alias="private-service",
+                        description="Approved private service",
+                        path="private_zone.py",
+                    )
+                ],
+                default_excludes=list(DEFAULT_EXCLUDES),
+                schema_version=1,
+            ),
+        )
+        public = next(node for node in source_index.nodes if node.qualified_name == "public")
+        output = TtyBuffer()
+
+        approved = review_source_disclosure(
+            source_index,
+            source,
+            ReviewSelection((review_node(public),), (), FIELDS),
+            input_stream=TtyBuffer("y\n"),
+            output_stream=output,
+        )
+
+        self.assertEqual(len(approved), 1)
+        self.assertEqual(approved[0].boundary_aliases, ())
+        self.assertIn("Boundary aliases: none", output.getvalue())
+        self.assertNotIn("Type exactly EXPOSE", output.getvalue())
+
     def test_class_approval_absorbs_method_and_its_boundary_alias(self) -> None:
         owner = node("owner", "service.py", "class", "Service")
         method = node("method", "service.py", "function", "Service.run")
@@ -149,6 +530,38 @@ class SourceReviewTests(unittest.TestCase):
         self.assertEqual(len(approved), 1)
         self.assertEqual(approved[0].qualified_name, "Service")
         self.assertEqual(approved[0].boundary_aliases, ("delivery-boundary",))
+
+    def test_reviews_every_span_for_a_repeated_definition(self) -> None:
+        value = node("value", "models.py", "function", "Item.value")
+        source = snapshot(
+            source_file(
+                "models.py",
+                (
+                    b"class Item:\n"
+                    b"    @property\n"
+                    b"    def value(self):\n"
+                    b"        return self._value\n"
+                    b"\n"
+                    b"    @value.setter\n"
+                    b"    def value(self, new):\n"
+                    b"        self._value = new\n"
+                ),
+            )
+        )
+        output = TtyBuffer()
+
+        approved = review_source_disclosure(
+            index(value),
+            source,
+            ReviewSelection((review_node(value),), (), FIELDS),
+            input_stream=TtyBuffer("y\ny\n"),
+            output_stream=output,
+        )
+
+        self.assertEqual(len(approved), 2)
+        self.assertIn("@property", approved[0].content)
+        self.assertIn("@value.setter", approved[1].content)
+        self.assertEqual(output.getvalue().count("Source candidate:"), 2)
 
     def test_deferred_boundary_binding_requires_expose(self) -> None:
         source = snapshot(

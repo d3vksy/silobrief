@@ -249,6 +249,85 @@ class PythonStructureTests(unittest.TestCase):
             ),
         )
 
+    def test_extracts_local_store_bindings_without_inferring_values(self) -> None:
+        source = source_file(
+            "bindings.py",
+            (
+                b"def bind(items, manager, error, value):\n"
+                b"    assigned = 1\n"
+                b"    augmented += 1\n"
+                b"    annotated: int\n"
+                b"    valued: int = 2\n"
+                b"    for looped in items:\n"
+                b"        pass\n"
+                b"    with manager() as managed:\n"
+                b"        pass\n"
+                b"    try:\n"
+                b"        raise error\n"
+                b"    except error as caught:\n"
+                b"        pass\n"
+                b"    match value:\n"
+                b"        case {'item': captured, **rest}:\n"
+                b"            pass\n"
+                b"    if named := value:\n"
+                b"        pass\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+        bindings = {
+            item.name: (item.context, item.conditional, item.runtime)
+            for item in module.store_bindings
+        }
+
+        self.assertEqual(
+            bindings,
+            {
+                "annotated": ("bind", False, False),
+                "assigned": ("bind", False, True),
+                "augmented": ("bind", False, True),
+                "caught": ("bind", True, True),
+                "captured": ("bind", True, True),
+                "looped": ("bind", True, True),
+                "managed": ("bind", True, True),
+                "named": ("bind", True, True),
+                "rest": ("bind", True, True),
+                "valued": ("bind", False, True),
+            },
+        )
+        self.assertTrue(all(not item.projected_binding_scopes for item in module.store_bindings))
+
+    def test_projects_global_and_nonlocal_store_bindings_to_their_owners(self) -> None:
+        source = source_file(
+            "projected_stores.py",
+            (
+                b"module_value = 0\n"
+                b"def outer():\n"
+                b"    local_value = 0\n"
+                b"    def mutate():\n"
+                b"        global module_value\n"
+                b"        nonlocal local_value\n"
+                b"        module_value = 1\n"
+                b"        local_value = 2\n"
+                b"    return mutate\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+        projected = {
+            item.name: item.projected_binding_scopes
+            for item in module.store_bindings
+            if item.context == "outer.mutate"
+        }
+
+        self.assertEqual(
+            projected,
+            {
+                "local_value": (ImportBindingScope("outer", conditional=True, deferred=True),),
+                "module_value": (ImportBindingScope(None, conditional=True, deferred=True),),
+            },
+        )
+
     def test_projects_class_imports_to_declared_binding_scopes(self) -> None:
         source = source_file(
             "class_bindings.py",
@@ -413,6 +492,7 @@ class PythonStructureTests(unittest.TestCase):
                 b"class Worker:\n"
                 b"    lambda_value = (lambda local: local())(None)\n"
                 b"    values = [item() for item in items()]\n"
+                b"    chained = [value for value in sources() for later in later()]\n"
             ),
         )
 
@@ -425,6 +505,9 @@ class PythonStructureTests(unittest.TestCase):
         self.assertFalse(calls["items"].synthetic_local)
         self.assertTrue(calls["item"].skip_class_scope)
         self.assertTrue(calls["item"].synthetic_local)
+        self.assertFalse(calls["sources"].synthetic_local)
+        self.assertTrue(calls["later"].skip_class_scope)
+        self.assertTrue(calls["later"].synthetic_local)
 
     def test_attributes_definition_header_calls_to_the_enclosing_context(self) -> None:
         source = source_file(
@@ -463,10 +546,65 @@ class PythonStructureTests(unittest.TestCase):
             },
         )
         self.assertEqual(len(module.calls), len(contexts))
+        disclosure_contexts = {
+            call.target: call.disclosure_context
+            for call in module.calls
+            if call.disclosure_context is not None
+        }
+        self.assertEqual(
+            disclosure_contexts,
+            {
+                "decorate": "outer.inner",
+                "factory": "outer.inner",
+                "default": "outer.inner",
+                "result_type": "outer.inner",
+                "class_decorator": "outer.Child",
+                "class_factory": "outer.Child",
+                "base_factory": "outer.Child",
+                "meta_factory": "outer.Child",
+                "async_default": "outer.async_inner",
+            },
+        )
         self.assertIn(
-            SymbolUse("outer", "Value", 3, 22, lookup_limit=(3, 5)),
+            SymbolUse(
+                "outer",
+                "Value",
+                3,
+                22,
+                lookup_limit=(3, 5),
+                disclosure_context="outer.inner",
+            ),
             module.references,
         )
+
+    def test_marks_deferred_header_annotations_as_boundary_only_uses(self) -> None:
+        source = source_file(
+            "annotations.py",
+            (
+                b"def quoted(value: '(alias := SecretType)') -> 'tuple[SecretType, ...]':\n"
+                b"    return value\n"
+                b"def commented(\n"
+                b"    value,  # type: SecretType\n"
+                b"):\n"
+                b"    # type: (SecretType) -> SecretType\n"
+                b"    return value\n"
+            ),
+        )
+
+        (module,) = extract_structures(source_snapshot(source))
+
+        deferred = tuple(use for use in module.references if use.boundary_only)
+        self.assertEqual({use.target for use in deferred}, {"SecretType", "tuple"})
+        self.assertEqual(
+            {use.disclosure_context for use in deferred},
+            {"quoted", "commented"},
+        )
+        self.assertTrue(all(use.context is None for use in deferred))
+        self.assertTrue(all(use.lookup_limit is not None for use in deferred))
+        self.assertTrue(
+            all(not use.boundary_only for use in module.references if use.target == "value")
+        )
+        self.assertNotIn("alias", {binding.name for binding in module.store_bindings})
 
     def test_omits_source_text_comments_docstrings_and_string_literals(self) -> None:
         source = source_file(

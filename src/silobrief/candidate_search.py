@@ -5,7 +5,7 @@ from silobrief.language import Language, localized
 from silobrief.ranking import RankEvidence, rank_candidates
 from silobrief.review import CandidateOption, ReviewError, candidate_options
 from silobrief.state import NotesData
-from silobrief.terminal import styled
+from silobrief.terminal import escape_terminal_line, styled
 
 
 class CandidateSearchError(ValueError):
@@ -73,7 +73,9 @@ def render_candidate_results(
             f"{_render_kind(node.kind, language=language)} "
             f"{styled(node.qualified_name, '1', enabled=color)}"
         )
-        lines.append(f"    {localized(language, 'File', '파일')}: {node.path}")
+        lines.append(
+            f"    {localized(language, 'File', '파일')}: {escape_terminal_line(node.path)}"
+        )
         lines.append(
             f"    {localized(language, 'Why it matched', '찾은 이유')}: "
             f"{_render_matches(option.evidence, language=language)}"
@@ -106,8 +108,8 @@ def _render_matches(evidence: RankEvidence, *, language: Language) -> str:
         localized(
             language,
             f"{_english_join(labels)} {'contains' if len(labels) == 1 else 'contain'} "
-            f'"{", ".join(tokens)}"',
-            f'{", ".join(labels)}에서 "{", ".join(tokens)}" 일치',
+            f'"{_render_tokens(tokens)}"',
+            f'{", ".join(labels)}에서 "{_render_tokens(tokens)}" 일치',
         )
         for tokens, labels in grouped.items()
     ]
@@ -120,6 +122,10 @@ def _english_join(values: list[str]) -> str:
     if len(values) == 2:
         return " and ".join(values)
     return f"{', '.join(values[:-1])}, and {values[-1]}"
+
+
+def _render_tokens(tokens: tuple[str, ...]) -> str:
+    return ", ".join(escape_terminal_line(token) for token in tokens)
 
 
 def _render_kind(kind: str, *, language: Language) -> str:

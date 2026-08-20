@@ -35,7 +35,7 @@ from silobrief.source_review import (
 )
 from silobrief.sources import SourceSnapshot
 from silobrief.state import NotesData
-from silobrief.terminal import styled, supports_color
+from silobrief.terminal import escape_terminal_line, styled, supports_color
 
 
 class ChatReviewError(ValueError):
@@ -353,12 +353,13 @@ def _show_symbol_options(
     output: TextIO,
     language: Language,
 ) -> None:
+    visible_path = escape_terminal_line(path)
     _write(
         output,
         localized(
             language,
-            f"Functions and classes in `{path}`:\n",
-            f"`{path}`에서 선택할 함수와 클래스:\n",
+            f"Functions and classes in `{visible_path}`:\n",
+            f"`{visible_path}`에서 선택할 함수와 클래스:\n",
         ),
     )
     if not options:
@@ -367,7 +368,7 @@ def _show_symbol_options(
         _write(
             output,
             f"{option.number}. {_kind_label(option.node.kind, language)} "
-            f"{option.node.qualified_name}\n",
+            f"{escape_terminal_line(option.node.qualified_name)}\n",
         )
 
 
@@ -438,12 +439,13 @@ def _show_related_candidates(
         styled(
             localized(
                 language,
-                "Other code connected to your selection (optional):\n",
-                "함께 확인할 코드 (선택 사항):\n",
+                "Other code connected to your selection (optional):",
+                "함께 확인할 코드 (선택 사항):",
             ),
             "1;36",
             enabled=color,
-        ),
+        )
+        + "\n",
     )
     if not related:
         _write(
@@ -472,7 +474,8 @@ def _show_related_candidates(
             f"{styled(f'[r{number}]', '1;32', enabled=color)} "
             f"{_kind_label(node.kind, language)} "
             f"{styled(node.qualified_name, '1', enabled=color)}\n"
-            f"     {localized(language, 'File', '파일')}: {node.path}\n"
+            f"     {localized(language, 'File', '파일')}: "
+            f"{escape_terminal_line(node.path)}\n"
             f"     {localized(language, 'Relationship', '선택한 코드와의 관계')}: "
             f"{_relation_labels(node.relations, node.kind, language)}\n\n",
         )
@@ -483,7 +486,9 @@ def _show_selected_context(selection: ReviewSelection, output: TextIO, language:
     for node in selection.selected:
         _write(
             output,
-            f"- {_kind_label(node.kind, language)} {node.qualified_name} ({node.path})\n",
+            f"- {_kind_label(node.kind, language)} "
+            f"{escape_terminal_line(node.qualified_name)} "
+            f"({escape_terminal_line(node.path)})\n",
         )
 
 
@@ -655,6 +660,7 @@ def _brief_input(
 ) -> BriefInput:
     nodes = selection.selected
     node_ids = {node.id for node in nodes}
+    included_ids, enclosing_ids = _source_context_ids(index, node_ids)
     paths = {node.path for node in nodes}
     choices = selection.fields
     return BriefInput(
@@ -665,22 +671,72 @@ def _brief_input(
             if choices.symbols
             else ()
         ),
-        public_imports=_public_imports(index, node_ids) if choices.public_libraries else (),
+        public_imports=(
+            _public_imports(index, included_ids, enclosing_ids) if choices.public_libraries else ()
+        ),
         human_notes=_human_notes(notes, paths) if choices.human_notes else (),
-        boundaries=_boundaries(index, node_ids) if choices.boundary_placeholders else (),
+        boundaries=_boundaries(index, included_ids) if choices.boundary_placeholders else (),
         source_excerpts=source_excerpts,
     )
 
 
-def _public_imports(index: IndexData, node_ids: set[str]) -> tuple[str, ...]:
-    return tuple(
+def _source_context_ids(index: IndexData, node_ids: set[str]) -> tuple[set[str], set[str]]:
+    included = set(node_ids)
+    while descendants := {
+        edge.target_id
+        for edge in index.edges
+        if edge.kind == "contains"
+        and edge.source_id in included
+        and edge.target_id is not None
+        and edge.target_id not in included
+    }:
+        included.update(descendants)
+
+    enclosing: set[str] = set()
+    frontier = set(node_ids)
+    while parents := {
+        edge.source_id
+        for edge in index.edges
+        if edge.kind == "contains"
+        and edge.target_id in frontier
+        and edge.source_id not in included
+        and edge.source_id not in enclosing
+    }:
+        enclosing.update(parents)
+        frontier = parents
+    return included, enclosing
+
+
+def _public_imports(
+    index: IndexData,
+    included_ids: set[str],
+    enclosing_ids: set[str],
+) -> tuple[str, ...]:
+    used_targets = {
         edge.target
         for edge in index.edges
-        if edge.source_id in node_ids
-        and edge.kind == "import"
+        if edge.source_id in included_ids
+        and edge.kind in {"call", "reference"}
         and edge.target_id is None
         and isinstance(edge.target, str)
-        and not edge.target.startswith(".")
+    }
+    import_source_ids = included_ids | enclosing_ids
+    return tuple(
+        sorted(
+            {
+                edge.target
+                for edge in index.edges
+                if edge.source_id in import_source_ids
+                and edge.kind == "import"
+                and edge.target_id is None
+                and isinstance(edge.target, str)
+                and not edge.target.startswith(".")
+                and any(
+                    target == edge.target or target.startswith(f"{edge.target}.")
+                    for target in used_targets
+                )
+            }
+        )
     )
 
 
@@ -696,8 +752,14 @@ def _human_notes(notes: NotesData, paths: set[str]) -> tuple[str, ...]:
 
 
 def _boundaries(index: IndexData, node_ids: set[str]) -> tuple[ApprovedBoundary, ...]:
-    return tuple(
-        ApprovedBoundary(edge.target.alias, edge.target.description)
+    values = {
+        (edge.target.alias, edge.target.description)
         for edge in index.edges
         if edge.source_id in node_ids and isinstance(edge.target, BoundaryPlaceholder)
+    }
+    values.update(
+        (disclosure.placeholder.alias, disclosure.placeholder.description)
+        for disclosure in index.boundary_disclosures
+        if disclosure.node_id in node_ids
     )
+    return tuple(ApprovedBoundary(alias, description) for alias, description in sorted(values))
