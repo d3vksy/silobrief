@@ -9,172 +9,165 @@ class ExampleProjectError(Exception):
     pass
 
 
-_TASK_1_LOG = 'sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."'
-_TASK_1_BRIEF = (
-    'sb brief "Append an optional separator to format_label. Preserve positional callers and apply '
-    'uppercase last. Return a readable diff and focused unittests." '
-    "--out .silobrief/exports/task-01-modify.md"
+_BOUNDARY = 'sb ignore internal --as "Private carrier contract rules" --alias carrier-boundary'
+_TASK_LOG = 'sb log pricing.py --comment "Weight is a positive whole number in kilograms."'
+_TASK_PROMPT = (
+    "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the weight "
+    "surcharge. Preserve the Flask response shape and return a readable diff and focused unittests."
 )
-_TASK_2_LOG = (
-    'sb log parcel_practice/pricing.py --comment "Weight is a positive whole number in kg."'
-)
-_TASK_2_BRIEF = (
-    'sb brief "Add delivery_surcharge with the documented weight rules. Return a readable diff and '
-    'focused unittests." --out .silobrief/exports/task-02-add.md'
-)
-_TASK_3_LOG = (
-    'sb log parcel_practice/references.py --comment "New callers provide the primary reference."'
-)
-_TASK_3_BRIEF = (
-    'sb brief "Remove the legacy fallback and all references to it. Preserve stripped primary '
-    'values and ValueError behavior. Return a readable diff and focused unittests." '
-    "--out .silobrief/exports/task-03-remove.md"
-)
+_TASK_SEARCH = f'sb search "{_TASK_PROMPT}"'
+_TASK_BRIEF = f'sb brief "{_TASK_PROMPT}" --out .silobrief/exports/remote-surcharge.md'
 
 _README = f"""# siloBrief guided practice
 
-This synthetic Python project lets you practise the complete siloBrief workflow without using a
-real repository. It contains no organization data, credentials, network calls, or dependencies.
+This synthetic Flask project shows how to prepare a code change without sharing a private module.
+It contains no organization data, credentials, or external API calls.
 
 ## Prepare the project
 
 Run these commands from this directory:
 
 ```console
-sb setup .
-sb init
+python -m pip install -r requirements.txt
 python -m unittest discover -s tests
+sb setup .
+{_BOUNDARY}
+sb init
 ```
 
 The initial tests must pass. The example command only created these files; it did not run siloBrief
-or change the exercises for you.
+or make the change for you. The ignored `internal/` directory still exists so the generated app and
+tests can run, but siloBrief must not read its source during indexing.
 
-For each task:
+## Guided maintenance task
 
-1. Read the task and record its approved fact with `sb log`.
-2. Use `sb search` to inspect candidates.
-3. Use `sb brief` to review source and create a Markdown brief.
-4. Send only the generated brief to an external AI assistant.
-5. Review and apply the proposed code and tests yourself.
-6. Run `python -m unittest discover -s tests`.
-7. Run `sb init` again before starting the next task.
+The Flask endpoint calls `shipping.py`, which uses the public price calculation and a private
+carrier contract adjustment. Add a 1000-unit surcharge for the `remote` zone after the weight
+surcharge. Keep the API response shape unchanged.
 
-## Task 1: Modify label formatting
-
-- Target: `parcel_practice/labels.py`, function `format_label`
-- Goal: append an optional `separator: str = ""` argument and insert it between a non-empty prefix
-  and the reference.
-- Constraints: existing positional callers keep their behavior; uppercase remains the last
-  operation.
-- Expected change: the target function and focused tests only.
+Record the approved weight rule, inspect the candidates, and create one brief:
 
 ```console
-{_TASK_1_LOG}
-{_TASK_1_BRIEF}
+{_TASK_LOG}
+{_TASK_SEARCH}
+{_TASK_BRIEF}
 ```
 
-## Task 2: Add a pricing function
+During review, select `calculate_shipping_price` as source and inspect its related callers and
+tests. Include the public `carrier-boundary` description, but do not approve source that requires
+`EXPOSE`. The final brief should contain the public pricing code and boundary description without
+the ignored file or its identifiers.
 
-- Target: `parcel_practice/pricing.py`
-- Goal: add `delivery_surcharge(weight_kg: int) -> int`.
-- Rules: reject values below 1; return 0 through 5 kg; return 2 units for every kg above 5.
-- Expected change: one new function and focused tests.
-
-```console
-{_TASK_2_LOG}
-{_TASK_2_BRIEF}
-```
-
-## Task 3: Remove the legacy fallback
-
-- Target: `parcel_practice/references.py`, function `choose_reference`
-- Goal: remove `legacy_reference` and the `legacy` argument and branch from `choose_reference`.
-- Rules: return a stripped primary reference or raise `ValueError` when it is missing or blank.
-- Expected change: remove the function and all references to it, then update focused tests.
-
-```console
-{_TASK_3_LOG}
-{_TASK_3_BRIEF}
-```
-
-Review every generated Markdown file before sharing it. This project is an exercise, not a security
-or export-approval test.
+Send only the generated brief to an external AI assistant. Review any proposed patch yourself, run
+the tests, and run `sb init` again after changing the example. This project is an exercise, not a
+security scanner or export-approval tool.
 """
 
 _FILES = (
     ("README.md", _README),
+    ("requirements.txt", "Flask>=3.1,<4\n"),
     (
-        "parcel_practice/__init__.py",
+        "app.py",
         """from __future__ import annotations
 
-from parcel_practice.labels import format_label
-from parcel_practice.pricing import base_price
-from parcel_practice.references import choose_reference
+from flask import Flask, Response, jsonify, request
 
-__all__ = ["base_price", "choose_reference", "format_label"]
+from shipping import quote_shipping
+
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+
+    @app.post("/shipping/quote")
+    def shipping_quote() -> Response | tuple[Response, int]:
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return jsonify({"error": "a JSON object is required"}), 400
+        try:
+            quote = quote_shipping(payload.get("zone"), payload.get("weight_kg"))
+        except (TypeError, ValueError) as error:
+            return jsonify({"error": str(error)}), 400
+        return jsonify(quote)
+
+    return app
 """,
     ),
     (
-        "parcel_practice/labels.py",
+        "shipping.py",
         """from __future__ import annotations
 
+from internal.carrier_contract import apply_contract_adjustment
+from pricing import calculate_shipping_price
 
-def format_label(reference: str, prefix: str = "", uppercase: bool = False) -> str:
-    label = f"{prefix}{reference}"
-    return label.upper() if uppercase else label
+
+def quote_shipping(zone: object, weight_kg: object) -> dict[str, int | str]:
+    if not isinstance(zone, str):
+        raise TypeError("zone must be a string")
+    if type(weight_kg) is not int:
+        raise TypeError("weight_kg must be an integer")
+    public_price = calculate_shipping_price(zone, weight_kg)
+    final_price = apply_contract_adjustment(zone, public_price)
+    return {"zone": zone, "weight_kg": weight_kg, "amount": final_price}
 """,
     ),
     (
-        "parcel_practice/pricing.py",
+        "pricing.py",
         """from __future__ import annotations
 
+_BASE_PRICES = {"local": 5000, "regional": 8000, "remote": 12000}
 
-_BASE_PRICES = {"local": 5, "regional": 8, "remote": 12}
 
-
-def base_price(zone: str) -> int:
+def calculate_shipping_price(zone: str, weight_kg: int) -> int:
+    if weight_kg < 1:
+        raise ValueError("weight_kg must be at least 1")
     try:
-        return _BASE_PRICES[zone]
+        base = _BASE_PRICES[zone]
     except KeyError as error:
-        raise ValueError(f"unknown delivery zone: {zone}") from error
+        raise ValueError(f"unknown zone: {zone}") from error
+    weight_surcharge = max(weight_kg - 5, 0) * 500
+    return base + weight_surcharge
 """,
     ),
+    ("internal/__init__.py", ""),
     (
-        "parcel_practice/references.py",
+        "internal/carrier_contract.py",
         """from __future__ import annotations
 
+# INTERNAL_CONTRACT_CANARY_7F4A
+_CONTRACT_CREDITS = {"regional": 250, "remote": 400}
 
-def legacy_reference(value: str | None) -> str | None:
-    if value is None or not value.strip():
-        return None
-    return value.strip()
-
-
-def choose_reference(primary: str | None, legacy: str | None) -> str:
-    if primary is not None and primary.strip():
-        return primary.strip()
-    fallback = legacy_reference(legacy)
-    if fallback is not None:
-        return fallback
-    raise ValueError("a tracking reference is required")
+def apply_contract_adjustment(zone: str, amount: int) -> int:
+    return max(amount - _CONTRACT_CREDITS.get(zone, 0), 0)
 """,
     ),
     ("tests/__init__.py", ""),
     (
-        "tests/test_labels.py",
+        "tests/test_app.py",
         """from __future__ import annotations
 
 import unittest
 
-from parcel_practice.labels import format_label
+try:
+    from app import create_app
+except ModuleNotFoundError as error:
+    if error.name != "flask":
+        raise
+    create_app = None
 
 
-class FormatLabelTests(unittest.TestCase):
-    def test_joins_prefix_and_reference(self) -> None:
-        self.assertEqual(format_label("123", "PKG-"), "PKG-123")
+@unittest.skipIf(create_app is None, "install requirements.txt to test the Flask endpoint")
+class ShippingApiTests(unittest.TestCase):
+    def test_returns_a_shipping_quote(self) -> None:
+        assert create_app is not None
+        client = create_app().test_client()
 
-    def test_applies_uppercase_last(self) -> None:
-        self.assertEqual(format_label("abc", "pkg-", True), "PKG-ABC")
+        response = client.post("/shipping/quote", json={"zone": "local", "weight_kg": 2})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.get_json(),
+            {"amount": 5000, "weight_kg": 2, "zone": "local"},
+        )
 """,
     ),
     (
@@ -183,37 +176,40 @@ class FormatLabelTests(unittest.TestCase):
 
 import unittest
 
-from parcel_practice.pricing import base_price
+from pricing import calculate_shipping_price
 
 
-class BasePriceTests(unittest.TestCase):
-    def test_returns_known_zone_price(self) -> None:
-        self.assertEqual(base_price("regional"), 8)
+class ShippingPriceTests(unittest.TestCase):
+    def test_returns_the_zone_base_price(self) -> None:
+        self.assertEqual(calculate_shipping_price("local", 2), 5000)
 
-    def test_rejects_unknown_zone(self) -> None:
+    def test_adds_the_weight_surcharge_above_five_kilograms(self) -> None:
+        self.assertEqual(calculate_shipping_price("remote", 7), 13000)
+
+    def test_rejects_an_unknown_zone(self) -> None:
         with self.assertRaises(ValueError):
-            base_price("ocean")
+            calculate_shipping_price("ocean", 2)
 """,
     ),
     (
-        "tests/test_references.py",
+        "tests/test_shipping.py",
         """from __future__ import annotations
 
 import unittest
 
-from parcel_practice.references import choose_reference
+from shipping import quote_shipping
 
 
-class ChooseReferenceTests(unittest.TestCase):
-    def test_prefers_and_strips_primary(self) -> None:
-        self.assertEqual(choose_reference("  new-123  ", "old-123"), "new-123")
+class ShippingQuoteTests(unittest.TestCase):
+    def test_applies_the_private_contract_adjustment_last(self) -> None:
+        self.assertEqual(
+            quote_shipping("regional", 2),
+            {"amount": 7750, "weight_kg": 2, "zone": "regional"},
+        )
 
-    def test_uses_legacy_when_primary_is_blank(self) -> None:
-        self.assertEqual(choose_reference(" ", " old-123 "), "old-123")
-
-    def test_rejects_missing_references(self) -> None:
-        with self.assertRaises(ValueError):
-            choose_reference(None, None)
+    def test_rejects_a_non_integer_weight(self) -> None:
+        with self.assertRaises(TypeError):
+            quote_shipping("local", "2")
 """,
     ),
 )

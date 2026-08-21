@@ -104,13 +104,33 @@ VALIDATION_LINKS = (
 )
 PRACTICE_FLOW_EXPECTATIONS = (
     "sb example ./silobrief-practice",
-    "sb log parcel_practice/labels.py",
-    "Append an optional separator to format_label.",
-    ".silobrief/exports/task-01-modify.md",
+    "sb ignore internal",
+    "sb log pricing.py",
+    "Add a 1000-unit remote-area surcharge",
+    ".silobrief/exports/remote-surcharge.md",
 )
 
 
 class ReleaseDocumentationTests(unittest.TestCase):
+    def test_issue_templates_and_contributing_guide_use_conventional_titles(self) -> None:
+        contributing = (REPOSITORY_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        bug_template = (REPOSITORY_ROOT / ".github/ISSUE_TEMPLATE/bug_report.yml").read_text(
+            encoding="utf-8"
+        )
+        feature_template = (
+            REPOSITORY_ROOT / ".github/ISSUE_TEMPLATE/feature_request.yml"
+        ).read_text(encoding="utf-8")
+        pull_request_template = (REPOSITORY_ROOT / ".github/pull_request_template.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("<type>(<scope>): <imperative description>", contributing)
+        self.assertIn('title: "fix(scope): "', bug_template)
+        self.assertIn('title: "feat(scope): "', feature_template)
+        self.assertNotIn("이번 수정에서 제외할 내용", bug_template)
+        self.assertNotIn("이번 기능에서 제외할 내용", feature_template)
+        self.assertNotIn("제외 범위와 남은 제한", pull_request_template)
+
     def test_readmes_show_the_repository_wordmark(self) -> None:
         wordmark = ".github/assets/silobrief-wordmark.svg"
         self.assertTrue((REPOSITORY_ROOT / wordmark).is_file())

@@ -64,21 +64,24 @@ sb example ./silobrief-practice
 cd silobrief-practice
 ```
 
-The generated `README.md` guides you through one modification, one addition, and one removal task.
+The generated `README.md` guides you through one Flask shipping-price change while keeping a
+private carrier contract module outside the index and brief.
 
-Start the first task from the same directory:
+Start the task from the same directory:
 
 ```console
+python -m pip install -r requirements.txt
 sb setup .
+sb ignore internal --as "Private carrier contract rules" --alias carrier-boundary
 sb init
-sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
-sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
-sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
+sb log pricing.py --comment "Weight is a positive whole number in kilograms."
+sb search "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the weight surcharge."
+sb brief "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the weight surcharge. Preserve the Flask response shape and return a readable diff and focused unittests." --out .silobrief/exports/remote-surcharge.md
 ```
 
-`setup` prepares local state, and `init` indexes the Python files. `log` records approved project
-context. `search` shows ranked candidates, and `brief` starts the review that produces the Markdown
-file.
+`setup` prepares local state, `ignore` registers the private module, and `init` indexes only the
+allowed Python files. `log` records approved project context. `search` shows ranked candidates,
+and `brief` starts the review that produces the Markdown file.
 
 If `setup` is interrupted, run it again. It resumes only when every existing state entry exactly
 matches a generated default. Unknown or modified entries are left untouched, and setup stops with
@@ -169,7 +172,7 @@ acceptance criteria so the receiving assistant can tell when the work is complet
 | Command | What it does |
 |---|---|
 | `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
-| `sb example PATH` | Creates a synthetic project with three guided maintenance tasks. |
+| `sb example PATH` | Creates a small Flask project with one guided boundary-safe task. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |

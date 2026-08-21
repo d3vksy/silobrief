@@ -62,14 +62,16 @@ class ExampleCommandTests(unittest.TestCase):
                 {path for path, _digest in file_manifest(project)},
                 {
                     "README.md",
-                    "parcel_practice/__init__.py",
-                    "parcel_practice/labels.py",
-                    "parcel_practice/pricing.py",
-                    "parcel_practice/references.py",
+                    "app.py",
+                    "internal/__init__.py",
+                    "internal/carrier_contract.py",
+                    "pricing.py",
+                    "requirements.txt",
+                    "shipping.py",
                     "tests/__init__.py",
-                    "tests/test_labels.py",
+                    "tests/test_app.py",
                     "tests/test_pricing.py",
-                    "tests/test_references.py",
+                    "tests/test_shipping.py",
                 },
             )
 
@@ -84,13 +86,16 @@ class ExampleCommandTests(unittest.TestCase):
 
             readme = (project / "README.md").read_text(encoding="utf-8")
             for expected in (
+                "python -m pip install -r requirements.txt",
                 "sb setup .",
+                "sb ignore internal",
                 "sb init",
                 "sb log",
+                "sb search",
                 "sb brief",
-                "Task 1: Modify",
-                "Task 2: Add",
-                "Task 3: Remove",
+                "Guided maintenance task",
+                "1000-unit remote-area surcharge",
+                "carrier-boundary",
                 "python -m unittest discover -s tests",
             ):
                 self.assertIn(expected, readme)
@@ -125,30 +130,55 @@ class ExampleCommandTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertTrue((project / "README.md").is_file())
 
-    def test_first_task_reaches_a_single_brief_through_the_public_workflow(self) -> None:
+    def test_guided_task_reaches_a_boundary_safe_brief_through_the_public_workflow(self) -> None:
         prompt = (
-            "Append an optional separator to format_label. Preserve positional callers and apply "
-            "uppercase last. Return a readable diff and focused unittests."
+            "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the "
+            "weight surcharge. Preserve the Flask response shape and return a readable diff and "
+            "focused unittests."
         )
-        review_input = "y\n\nparcel_practice/labels.py\n1\n\n\ny\ny\ny\ny\ny\ny\nWRITE\n"
+        review_input = "y\n\npricing.py\n1\nr3\n\n\ny\ny\ny\ny\ny\ny\nn\nWRITE\n"
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / "practice"
             self.assertEqual(main(["example", str(project)]), 0)
 
             with working_directory(project):
                 self.assertEqual(main(["setup", "."]), 0)
+                self.assertEqual(
+                    main(
+                        [
+                            "ignore",
+                            "internal",
+                            "--as",
+                            "Private carrier contract rules",
+                            "--alias",
+                            "carrier-boundary",
+                        ]
+                    ),
+                    0,
+                )
                 self.assertEqual(main(["init"]), 0)
                 self.assertEqual(
                     main(
                         [
                             "log",
-                            "parcel_practice/labels.py",
+                            "pricing.py",
                             "--comment",
-                            "Callers pass uppercase positionally.",
+                            "Weight is a positive whole number in kilograms.",
                         ]
                     ),
                     0,
                 )
+                index_text = Path(".silobrief/index.json").read_text(encoding="utf-8")
+                self.assertIn("carrier-boundary", index_text)
+                self.assertIn("Private carrier contract rules", index_text)
+                self.assertNotIn("carrier_contract", index_text)
+                self.assertNotIn("INTERNAL_CONTRACT_CANARY_7F4A", index_text)
+
+                search_output = io.StringIO()
+                with contextlib.redirect_stdout(search_output):
+                    self.assertEqual(main(["search", prompt]), 0)
+                self.assertIn("calculate_shipping_price", search_output.getvalue())
+
                 stdin = TtyBuffer(review_input)
                 stdout = TtyBuffer()
                 stderr = io.StringIO()
@@ -162,20 +192,26 @@ class ExampleCommandTests(unittest.TestCase):
                             "brief",
                             prompt,
                             "--out",
-                            ".silobrief/exports/task-01-modify.md",
+                            ".silobrief/exports/remote-surcharge.md",
                         ]
                     )
 
-            brief = project / ".silobrief/exports/task-01-modify.md"
-            self.assertEqual(result, 0)
+            brief = project / ".silobrief/exports/remote-surcharge.md"
+            self.assertEqual(result, 0, stdout.getvalue() + stderr.getvalue())
             self.assertEqual(stderr.getvalue(), "")
             self.assertTrue(brief.is_file())
             content = brief.read_text(encoding="utf-8")
             self.assertIn(prompt, content)
-            self.assertIn("function: format_label", content)
-            self.assertIn("def format_label(", content)
+            self.assertIn("function: calculate_shipping_price", content)
+            self.assertIn("function: quote_shipping", content)
+            self.assertIn("def calculate_shipping_price(", content)
+            self.assertIn("carrier-boundary", content)
+            self.assertIn("Private carrier contract rules", content)
+            self.assertNotIn("carrier_contract", content)
+            self.assertNotIn("apply_contract_adjustment", content)
+            self.assertNotIn("INTERNAL_CONTRACT_CANARY_7F4A", content)
             self.assertIn("source_delivery: embedded", content)
-            self.assertFalse(brief.with_name("task-01-modify.sources.md").exists())
+            self.assertFalse(brief.with_name("remote-surcharge.sources.md").exists())
 
     def test_rejects_a_file_and_nonempty_directory_without_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

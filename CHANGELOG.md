@@ -7,6 +7,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- Replace the generated three-task practice project with a small Flask shipping example that walks
+  through `sb ignore`, related-code review, and a boundary-safe brief (#219).
+- Standardize Issue titles on Conventional Commit form and document the rule in the contribution
+  guide.
+
 ## [1.0.5] - 2026-08-21
 
 ### Fixed
