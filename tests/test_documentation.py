@@ -88,8 +88,8 @@ SAFETY_EXPECTATIONS = {
     ),
 }
 VALIDATION_EXPECTATIONS = {
-    "README.md": ("v1.0.5", "1.x", "11 of 12", "72.2%"),
-    "README.ko.md": ("v1.0.5", "1.x", "12개 과제 중 11개", "72.2%"),
+    "README.md": ("v1.1.0", "1.x", "11 of 12", "72.2%"),
+    "README.ko.md": ("v1.1.0", "1.x", "12개 과제 중 11개", "72.2%"),
 }
 VALIDATION_PROJECTS = ("Django Ninja", "pytest", "Jinja")
 VALIDATION_LINKS = (
@@ -104,13 +104,33 @@ VALIDATION_LINKS = (
 )
 PRACTICE_FLOW_EXPECTATIONS = (
     "sb example ./silobrief-practice",
-    "sb log parcel_practice/labels.py",
-    "Append an optional separator to format_label.",
-    ".silobrief/exports/task-01-modify.md",
+    "sb ignore internal",
+    "sb log pricing.py",
+    "Add a 1000-unit remote-area surcharge",
+    ".silobrief/exports/remote-surcharge.md",
 )
 
 
 class ReleaseDocumentationTests(unittest.TestCase):
+    def test_issue_templates_and_contributing_guide_use_conventional_titles(self) -> None:
+        contributing = (REPOSITORY_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+        bug_template = (REPOSITORY_ROOT / ".github/ISSUE_TEMPLATE/bug_report.yml").read_text(
+            encoding="utf-8"
+        )
+        feature_template = (
+            REPOSITORY_ROOT / ".github/ISSUE_TEMPLATE/feature_request.yml"
+        ).read_text(encoding="utf-8")
+        pull_request_template = (REPOSITORY_ROOT / ".github/pull_request_template.md").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("<type>(<scope>): <imperative description>", contributing)
+        self.assertIn('title: "fix(scope): "', bug_template)
+        self.assertIn('title: "feat(scope): "', feature_template)
+        self.assertNotIn("이번 수정에서 제외할 내용", bug_template)
+        self.assertNotIn("이번 기능에서 제외할 내용", feature_template)
+        self.assertNotIn("제외 범위와 남은 제한", pull_request_template)
+
     def test_readmes_show_the_repository_wordmark(self) -> None:
         wordmark = ".github/assets/silobrief-wordmark.svg"
         self.assertTrue((REPOSITORY_ROOT / wordmark).is_file())
@@ -178,6 +198,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.1.0] - 2026-08-22", changelog)
         self.assertIn("## [1.0.5] - 2026-08-21", changelog)
         self.assertIn("## [1.0.4] - 2026-08-19", changelog)
         self.assertIn("## [1.0.3] - 2026-08-18", changelog)
@@ -200,7 +221,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
             self.assertIn(fragment, changelog)
 
         security = (REPOSITORY_ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("| 1.0.x | :white_check_mark: |", security)
+        self.assertIn("| 1.1.x | :white_check_mark: |", security)
+        self.assertIn("| 1.0.x | :x: |", security)
         self.assertIn("| 0.6.x | :x: |", security)
         self.assertIn("| 0.5.x | :x: |", security)
         self.assertNotIn("has not released a supported version yet", security)
@@ -217,8 +239,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertNotIn("public GitHub profile", conduct)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "1.0.5"'), 1)
-        self.assertEqual(version("silobrief"), "1.0.5")
+        self.assertEqual(pyproject.count('version = "1.1.0"'), 1)
+        self.assertEqual(version("silobrief"), "1.1.0")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

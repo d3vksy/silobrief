@@ -1,9 +1,12 @@
 name: 버그 신고
 description: 재현 가능한 잘못된 동작을 보고합니다.
-title: "[Bug]: "
+title: "fix(scope): "
 labels:
   - bug
 body:
+  - type: markdown
+    attributes:
+      value: Replace `scope` in the title with a short area such as `index`, `setup`, or `cli`.
   - type: textarea
     id: problem
     attributes:
@@ -38,7 +41,3 @@ body:
       placeholder: Windows 11, Python 3.10
     validations:
       required: true
-  - type: textarea
-    id: scope
-    attributes:
-      label: 이번 수정에서 제외할 내용

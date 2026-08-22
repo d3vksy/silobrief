@@ -6,12 +6,31 @@ and reverse independently.
 ## Before you start
 
 1. Search existing Issues.
-2. Open an Issue that describes the problem, expected behavior, acceptance criteria, and what
-   is out of scope.
+2. Open an Issue that describes the problem, expected behavior, and acceptance criteria.
 3. Wait until the scope is clear before writing code.
 
 Do not include real private repositories, organization details, credentials, or restricted
 material in an Issue, test, fixture, or pull request.
+
+## Issues
+
+Issue titles use the same shape as Conventional Commit subjects:
+
+```text
+<type>(<scope>): <imperative description>
+```
+
+Use the types listed under [Commits](#commits). In particular, use `feat` for new behavior, `fix`
+for incorrect behavior, `docs` for documentation, `test` for validation work, and `chore` for
+releases or repository maintenance. Use a short lowercase scope such as `example`, `index`, or
+`release`. Write the description in English, use the imperative mood, keep the whole title within
+72 characters, and omit the final period.
+
+```text
+feat(example): add a guided practice project
+fix(index): preserve top-level package names
+docs(readme): clarify the quick start
+```
 
 ## Branches
 
@@ -54,8 +73,7 @@ Refs #12
 - Write the PR title as the Conventional Commit subject that should become the squash commit.
 - Put `Refs #<issue>` in the body. Closing keywords only operate on the default branch, so the
   Issue is closed manually after a PR reaches `develop`.
-- Explain why the change is needed, what changed, how it was checked, and what remains out of
-  scope.
+- Explain why the change is needed, what changed, and how it was checked.
 - Aim for about 200 changed production lines. Split the Issue before a PR exceeds 400 changed
   production lines.
 - Resolve review conversations and delete the working branch after merge.
