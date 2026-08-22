@@ -1,9 +1,12 @@
 name: 기능 제안
 description: 작고 검증 가능한 기능 변경을 제안합니다.
-title: "[Feature]: "
+title: "feat(scope): "
 labels:
   - enhancement
 body:
+  - type: markdown
+    attributes:
+      value: Replace `scope` in the title with a short area such as `example`, `review`, or `cli`.
   - type: textarea
     id: problem
     attributes:
@@ -23,11 +26,5 @@ body:
     attributes:
       label: 완료 조건
       description: 구현 여부를 판단할 수 있는 조건을 적어 주세요.
-    validations:
-      required: true
-  - type: textarea
-    id: scope
-    attributes:
-      label: 이번 기능에서 제외할 내용
     validations:
       required: true

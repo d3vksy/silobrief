@@ -64,22 +64,24 @@ sb example ./silobrief-practice
 cd silobrief-practice
 ```
 
-생성된 `README.md`를 따라 코드 수정, 함수 추가, 오래된 기능 삭제 과제를 하나씩 진행할 수
-있습니다.
+생성된 `README.md`를 따라 Flask 배송 요금 수정 과제를 진행할 수 있습니다. 사내 배송사 계약
+모듈은 색인과 브리프에서 제외합니다.
 
-같은 디렉터리에서 첫 번째 과제를 시작합니다.
+같은 디렉터리에서 과제를 시작합니다.
 
 ```console
+python -m pip install -r requirements.txt
 sb setup .
+sb ignore internal --as "Private carrier contract rules" --alias carrier-boundary
 sb init
-sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
-sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
-sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
+sb log pricing.py --comment "Weight is a positive whole number in kilograms."
+sb search "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the weight surcharge."
+sb brief "Add a 1000-unit remote-area surcharge to calculate_shipping_price. Apply it after the weight surcharge. Preserve the Flask response shape and return a readable diff and focused unittests." --out .silobrief/exports/remote-surcharge.md
 ```
 
-`setup`은 작업 공간을 준비하고, `init`은 Python 파일을 분석합니다. `log`는 공개를 승인한
-프로젝트 정보를 기록합니다. `search`는 관련 코드 후보를 보여 주고, `brief`는 검토를 시작해
-Markdown 파일을 만듭니다.
+`setup`은 작업 공간을 준비하고, `ignore`는 비공개 모듈을 등록하며, `init`은 허용된 Python
+파일만 분석합니다. `log`는 공개를 승인한 프로젝트 정보를 기록합니다. `search`는 관련 코드
+후보를 보여 주고, `brief`는 검토를 시작해 Markdown 파일을 만듭니다.
 
 `setup` 도중 작업이 끊겼다면 같은 명령을 다시 실행하세요. 이미 생긴 상태 항목이 프로그램이
 만드는 기본값과 정확히 같을 때만 나머지를 이어서 만듭니다. 알 수 없는 항목이나 수정된 항목이
@@ -168,7 +170,7 @@ CLI 설정은 터미널의 고정 안내 문구를 바꿉니다. 브리프 설�
 | 명령어 | 설명 |
 |---|---|
 | `sb setup [PATH]` | 기존 프로젝트에 siloBrief 작업 공간을 만듭니다. |
-| `sb example PATH` | 유지보수 과제 3개가 담긴 합성 연습 프로젝트를 만듭니다. |
+| `sb example PATH` | 경계 검토 과제 하나가 담긴 작은 Flask 프로젝트를 만듭니다. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | 읽지 않을 경로와 그 영역을 대신할 공개용 이름을 등록합니다. |
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
