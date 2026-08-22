@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.5"><img src="https://img.shields.io/badge/release-v1.0.5-4f46e5" alt="Release v1.0.5"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.2.0"><img src="https://img.shields.io/badge/release-v1.2.0-4f46e5" alt="Release v1.2.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 or newer"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 license"></a>
 </p>
@@ -31,7 +31,7 @@ not a generated code change.
 - License: Apache License 2.0
 - Platforms: Windows and Ubuntu
 - Python: 3.10 and newer
-- Runtime dependencies: none
+- Runtime dependency: `prompt-toolkit` for interactive file and function completion
 - Network access: none
 
 If you use WSL, keep the project in the WSL Linux filesystem. For a project under `/mnt/c` or
@@ -52,10 +52,10 @@ sb --version
 Expected output:
 
 ```text
-siloBrief 1.0.5
+siloBrief 1.2.0
 ```
 
-### Practice project
+### Flask practice project
 
 Create a practice project:
 
@@ -64,17 +64,31 @@ sb example ./silobrief-practice
 cd silobrief-practice
 ```
 
-The generated `README.md` guides you through one modification, one addition, and one removal task.
+The generated project is a minimal Flask signup/login API backed by SQLite.
 
 Start the first task from the same directory:
 
 ```console
 sb setup .
+sb language --cli en --brief en
+sb ignore private --as "JWT settings"
 sb init
-sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
-sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
-sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
+sb log app.py --comment "Use private.jwt.JWT_SECRET to sign JWTs."
+sb search "successful login response"
+sb brief
 ```
+
+At `Task`, enter:
+
+```text
+Add PyJWT to requirements.txt. On successful login, return an access_token that expires after one
+hour. Include only user_id and username in the token. Do not expose the password or private
+settings. Return a diff and tests.
+```
+
+At `Add context`, enter `/file` and choose `requirements.txt`. Then enter `/func`, choose `app.py`,
+and select `login`. Use the arrow keys to move through the completion menu and Tab to select an
+item. Press Enter at `Add context` to continue.
 
 `setup` prepares local state, and `init` indexes the Python files. `log` records approved project
 context. `search` shows ranked candidates, and `brief` starts the review that produces the Markdown
@@ -125,10 +139,13 @@ Start a review with a concrete task:
 sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
 ```
 
+Omit `PROMPT` to open the interactive request builder. `/file` lets you choose an allowed project
+file. `/func` lets you choose an indexed Python file, then one of its functions or methods.
+
 During `brief`:
 
-1. Confirm the task and choose the relevant function or class. If the suggested candidates miss the
-   target, enter an exact indexed Python file path and select its functions or classes.
+1. Confirm the task. Files and functions chosen in the request builder are added to the task.
+   Indexed Python choices are also preselected for review, and you can add other candidates.
 2. Review one-hop related context and type an `rN` value only for an item you want to add. Blank input
    approves none.
 3. Review each proposed project field.
@@ -169,14 +186,14 @@ acceptance criteria so the receiving assistant can tell when the work is complet
 | Command | What it does |
 |---|---|
 | `sb setup [PATH]` | Adds or checks local siloBrief state in an existing project. |
-| `sb example PATH` | Creates a synthetic project with three guided maintenance tasks. |
+| `sb example PATH` | Creates a minimal Flask practice project. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | Excludes a path and records a public label for that boundary. |
 | `sb unignore SELECTOR` | Removes one registered boundary by its exact stored path or alias. |
 | `sb init` | Builds the local search list from allowed Python files. |
 | `sb log PATH --comment TEXT` | Saves an approved project note. |
 | `sb search "PROMPT"` | Lists a bounded set of code candidates and the request terms that matched each one. |
 | `sb language [--cli {en,ko}] [--brief {en,ko}]` | Sets terminal and generated-brief languages independently. |
-| `sb brief "PROMPT" --out FILE` | Reviews context and writes one Markdown brief. |
+| `sb brief ["PROMPT"] [--out FILE]` | Opens the interactive request builder when `PROMPT` is omitted. The default output is `.silobrief/exports/brief.md`. |
 | `sb chat "PROMPT" --out FILE` | Previous name for `sb brief`, kept for existing users. |
 | `sb --version` | Prints the installed siloBrief version. |
 
@@ -212,7 +229,7 @@ project and output location to the WSL Linux filesystem.
 
 ## Validation status
 
-The latest public release is v1.0.5 and follows the supported 1.x compatibility contract. In the
+The latest public release is v1.2.0 and follows the supported 1.x compatibility contract. In the
 frozen retrieval benchmark, `sb search` reaches an expected symbol for 11 of 12 tasks, with a mean
 reciprocal rank of 72.2%. Candidate search is lexical and advisory. When it misses, use the exact
 indexed Python file path during review.

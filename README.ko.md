@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.5"><img src="https://img.shields.io/badge/release-v1.0.5-4f46e5" alt="릴리스 v1.0.5"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.2.0"><img src="https://img.shields.io/badge/release-v1.2.0-4f46e5" alt="릴리스 v1.2.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -31,7 +31,7 @@ siloBrief는 허용된 Python 프로젝트 맥락을 정리해 외부 AI에 전�
 - 라이선스: Apache License 2.0
 - 지원 운영체제: Windows, Ubuntu
 - 지원 Python: 3.10 이상
-- 런타임 외부 의존성: 없음
+- 런타임 외부 의존성: 파일·함수 자동완성용 `prompt-toolkit`
 - 네트워크 사용: 없음
 
 WSL에서 실행할 때는 프로젝트를 WSL의 Linux 파일시스템에 두세요. `/mnt/c` 같은 Windows
@@ -52,10 +52,10 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 1.0.5
+siloBrief 1.2.0
 ```
 
-### 실습 예제
+### Flask 실습 예제
 
 실습 예제 프로젝트를 생성합니다.
 
@@ -64,18 +64,31 @@ sb example ./silobrief-practice
 cd silobrief-practice
 ```
 
-생성된 `README.md`를 따라 코드 수정, 함수 추가, 오래된 기능 삭제 과제를 하나씩 진행할 수
-있습니다.
+생성된 프로젝트는 SQLite를 사용하는 최소 Flask 회원가입·로그인 API입니다.
 
 같은 디렉터리에서 첫 번째 과제를 시작합니다.
 
 ```console
 sb setup .
+sb language --cli ko --brief ko
+sb ignore private --as "JWT 설정"
 sb init
-sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."
-sb search "Append an optional separator to format_label. Preserve positional callers and apply uppercase last."
-sb brief "Append an optional separator to format_label. Preserve positional callers and apply uppercase last. Return a readable diff and focused unittests." --out .silobrief/exports/task-01-modify.md
+sb log app.py --comment "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다."
+sb search "로그인 성공 응답"
+sb brief
 ```
+
+`작업`에는 다음 내용을 입력합니다.
+
+```text
+requirements.txt에 PyJWT를 추가하고 로그인 성공 시 1시간짜리 access_token을 반환해줘.
+토큰에는 user_id와 username만 포함하고, 비밀번호와 private 설정은 노출하지 마.
+diff와 테스트를 작성해줘.
+```
+
+`정보 추가`에서 `/file`을 입력하고 `requirements.txt`를 고릅니다. 이어서 `/func`를 입력해
+`app.py`와 `login`을 차례로 고릅니다. 방향키로 자동완성 메뉴를 이동하고 Tab으로 항목을
+선택할 수 있습니다. 마지막 `정보 추가`에서 Enter를 누르면 다음 단계로 넘어갑니다.
 
 `setup`은 작업 공간을 준비하고, `init`은 Python 파일을 분석합니다. `log`는 공개를 승인한
 프로젝트 정보를 기록합니다. `search`는 관련 코드 후보를 보여 주고, `brief`는 검토를 시작해
@@ -126,10 +139,13 @@ sb log src/parcel_sync/service.py --comment "HTTP 503 responses may be retried."
 sb brief "Update retry_request to retry HTTP 503 but not 500. Return a unified diff and tests." --out .silobrief/exports/retry-with-note.md
 ```
 
+`PROMPT`를 생략하면 대화형 요청 작성기가 열립니다. `/file`로 허용된 프로젝트 파일을
+고를 수 있습니다. `/func`로 색인된 Python 파일을 고른 뒤 함수나 메서드를 선택할 수 있습니다.
+
 `brief`는 다음 순서로 진행됩니다.
 
-1. 요청한 작업을 확인하고 관련 함수나 클래스를 고릅니다. 추천 후보에 원하는 코드가 없다면
-   색인에 있는 Python 파일의 정확한 상대 경로를 입력한 뒤 함수나 클래스를 고릅니다.
+1. 요청한 작업을 확인합니다. 요청 작성기에서 고른 파일과 함수는 작업 내용에 추가됩니다.
+   색인된 Python 항목은 검토 대상으로도 미리 선택되며, 다른 후보를 추가할 수 있습니다.
 2. 한 단계 연관 맥락을 검토하고 추가할 항목에만 `rN` 값을 입력합니다. 빈 입력은 아무것도
    승인하지 않습니다.
 3. 브리프에 넣을 프로젝트 정보를 하나씩 검토합니다.
@@ -168,14 +184,14 @@ CLI 설정은 터미널의 고정 안내 문구를 바꿉니다. 브리프 설�
 | 명령어 | 설명 |
 |---|---|
 | `sb setup [PATH]` | 기존 프로젝트에 siloBrief 작업 공간을 만듭니다. |
-| `sb example PATH` | 유지보수 과제 3개가 담긴 합성 연습 프로젝트를 만듭니다. |
+| `sb example PATH` | 최소 Flask 실습 프로젝트를 만듭니다. |
 | `sb ignore PATH --as TEXT [--alias NAME]` | 읽지 않을 경로와 그 영역을 대신할 공개용 이름을 등록합니다. |
 | `sb unignore SELECTOR` | 저장된 상대 경로나 별칭으로 등록 경계 하나를 해제합니다. |
 | `sb init` | 제외하지 않은 Python 파일을 분석해 로컬 색인을 만듭니다. |
 | `sb log PATH --comment TEXT` | 코드만 보고는 알 수 없는 프로젝트 정보를 기록합니다. |
 | `sb search "PROMPT"` | 제한된 수의 관련 코드 후보와 어떤 요청 단어가 일치했는지 보여 줍니다. |
 | `sb language [--cli {en,ko}] [--brief {en,ko}]` | 터미널 안내와 생성 브리프의 언어를 각각 설정합니다. |
-| `sb brief "PROMPT" --out FILE` | 전달할 내용을 검토하고 Markdown 브리프 하나를 만듭니다. |
+| `sb brief ["PROMPT"] [--out FILE]` | `PROMPT`를 생략하면 대화형 요청 작성기를 엽니다. 기본 출력은 `.silobrief/exports/brief.md`입니다. |
 | `sb chat "PROMPT" --out FILE` | `sb brief`의 이전 이름으로, 기존 사용자 호환을 위해 남겨 둔 명령입니다. |
 | `sb --version` | 설치된 siloBrief 버전을 출력합니다. |
 
@@ -210,7 +226,7 @@ Ubuntu에서 브리프를 안전하게 저장하려면 출력 파일시스템이
 
 ## 검증 현황
 
-최신 공개 버전은 v1.0.5이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
+최신 공개 버전은 v1.2.0이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
 12개 과제 중 11개의 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다. 후보 검색은 단어 기반
 제안입니다. 원하는 코드를 찾지 못하면 검토 중 정확한 Python 파일 상대 경로를 입력할 수
 있습니다.

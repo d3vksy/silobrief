@@ -9,211 +9,131 @@ class ExampleProjectError(Exception):
     pass
 
 
-_TASK_1_LOG = 'sb log parcel_practice/labels.py --comment "Callers pass uppercase positionally."'
-_TASK_1_BRIEF = (
-    'sb brief "Append an optional separator to format_label. Preserve positional callers and apply '
-    'uppercase last. Return a readable diff and focused unittests." '
-    "--out .silobrief/exports/task-01-modify.md"
-)
-_TASK_2_LOG = (
-    'sb log parcel_practice/pricing.py --comment "Weight is a positive whole number in kg."'
-)
-_TASK_2_BRIEF = (
-    'sb brief "Add delivery_surcharge with the documented weight rules. Return a readable diff and '
-    'focused unittests." --out .silobrief/exports/task-02-add.md'
-)
-_TASK_3_LOG = (
-    'sb log parcel_practice/references.py --comment "New callers provide the primary reference."'
-)
-_TASK_3_BRIEF = (
-    'sb brief "Remove the legacy fallback and all references to it. Preserve stripped primary '
-    'values and ValueError behavior. Return a readable diff and focused unittests." '
-    "--out .silobrief/exports/task-03-remove.md"
+_LOG_COMMAND = 'sb log app.py --comment "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다."'
+_SEARCH_COMMAND = 'sb search "로그인 성공 응답"'
+_BRIEF_COMMAND = "sb brief"
+_TASK_REQUEST = (
+    "requirements.txt에 PyJWT를 추가하고 로그인 성공 시 1시간짜리 access_token을 "
+    "반환해줘. 토큰에는 user_id와 username만 포함하고, 비밀번호와 private 설정은 "
+    "노출하지 마. diff와 테스트를 작성해줘."
 )
 
-_README = f"""# siloBrief guided practice
+_README = f"""# Flask 예제
 
-This synthetic Python project lets you practise the complete siloBrief workflow without using a
-real repository. It contains no organization data, credentials, network calls, or dependencies.
+SQLite에 회원을 저장하고 로그인하는 작은 Flask 프로젝트입니다.
 
-## Prepare the project
+```console
+python -m pip install -r requirements.txt
+python app.py
+```
 
-Run these commands from this directory:
+기본 동작은 다음 두 요청입니다.
+
+```text
+POST /signup  {{"username": "minsu", "password": "1234"}}
+POST /login   {{"username": "minsu", "password": "1234"}}
+```
+
+비밀번호는 해시로 저장하며, 로그인 성공 시 아직 JWT를 발급하지 않습니다.
+
+siloBrief 시연은 아래 명령만 순서대로 실행합니다.
 
 ```console
 sb setup .
+sb language --cli ko --brief ko
+sb ignore private --as "JWT 설정"
 sb init
-python -m unittest discover -s tests
+{_LOG_COMMAND}
+{_SEARCH_COMMAND}
+{_BRIEF_COMMAND}
 ```
 
-The initial tests must pass. The example command only created these files; it did not run siloBrief
-or change the exercises for you.
+`작업`에는 아래 문장을 입력합니다.
 
-For each task:
-
-1. Read the task and record its approved fact with `sb log`.
-2. Use `sb search` to inspect candidates.
-3. Use `sb brief` to review source and create a Markdown brief.
-4. Send only the generated brief to an external AI assistant.
-5. Review and apply the proposed code and tests yourself.
-6. Run `python -m unittest discover -s tests`.
-7. Run `sb init` again before starting the next task.
-
-## Task 1: Modify label formatting
-
-- Target: `parcel_practice/labels.py`, function `format_label`
-- Goal: append an optional `separator: str = ""` argument and insert it between a non-empty prefix
-  and the reference.
-- Constraints: existing positional callers keep their behavior; uppercase remains the last
-  operation.
-- Expected change: the target function and focused tests only.
-
-```console
-{_TASK_1_LOG}
-{_TASK_1_BRIEF}
+```text
+{_TASK_REQUEST}
 ```
 
-## Task 2: Add a pricing function
+`정보 추가`에서 `/file`로 `requirements.txt`를 고르고, `/func`로 `app.py`의 `login`을
+고른 뒤 Enter를 누릅니다.
 
-- Target: `parcel_practice/pricing.py`
-- Goal: add `delivery_surcharge(weight_kg: int) -> int`.
-- Rules: reject values below 1; return 0 through 5 kg; return 2 units for every kg above 5.
-- Expected change: one new function and focused tests.
-
-```console
-{_TASK_2_LOG}
-{_TASK_2_BRIEF}
-```
-
-## Task 3: Remove the legacy fallback
-
-- Target: `parcel_practice/references.py`, function `choose_reference`
-- Goal: remove `legacy_reference` and the `legacy` argument and branch from `choose_reference`.
-- Rules: return a stripped primary reference or raise `ValueError` when it is missing or blank.
-- Expected change: remove the function and all references to it, then update focused tests.
-
-```console
-{_TASK_3_LOG}
-{_TASK_3_BRIEF}
-```
-
-Review every generated Markdown file before sharing it. This project is an exercise, not a security
-or export-approval test.
+생성된 `.silobrief/exports/brief.md`를 확인하면 됩니다. 이 예제의 데이터베이스와
+서명 키는 실습 전용입니다.
 """
 
 _FILES = (
     ("README.md", _README),
     (
-        "parcel_practice/__init__.py",
+        "app.py",
         """from __future__ import annotations
 
-from parcel_practice.labels import format_label
-from parcel_practice.pricing import base_price
-from parcel_practice.references import choose_reference
+import sqlite3
+from pathlib import Path
 
-__all__ = ["base_price", "choose_reference", "format_label"]
-""",
-    ),
-    (
-        "parcel_practice/labels.py",
-        """from __future__ import annotations
+from flask import Flask, request
+from werkzeug.security import check_password_hash, generate_password_hash
+
+app = Flask(__name__)
+DATABASE_PATH = Path(__file__).with_name("users.db")
 
 
-def format_label(reference: str, prefix: str = "", uppercase: bool = False) -> str:
-    label = f"{prefix}{reference}"
-    return label.upper() if uppercase else label
-""",
-    ),
-    (
-        "parcel_practice/pricing.py",
-        """from __future__ import annotations
+def init_db() -> None:
+    with sqlite3.connect(DATABASE_PATH) as database:
+        database.execute(
+            "CREATE TABLE IF NOT EXISTS users ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "username TEXT UNIQUE NOT NULL, "
+            "password_hash TEXT NOT NULL)"
+        )
 
 
-_BASE_PRICES = {"local": 5, "regional": 8, "remote": 12}
+@app.post("/signup")
+def signup():
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+    if not username or not password:
+        return {"error": "아이디와 비밀번호가 필요합니다."}, 400
 
-
-def base_price(zone: str) -> int:
     try:
-        return _BASE_PRICES[zone]
-    except KeyError as error:
-        raise ValueError(f"unknown delivery zone: {zone}") from error
+        with sqlite3.connect(DATABASE_PATH) as database:
+            database.execute(
+                "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+                (username, generate_password_hash(password)),
+            )
+    except sqlite3.IntegrityError:
+        return {"error": "이미 존재하는 아이디입니다."}, 409
+    return {"message": "회원가입 성공"}, 201
+
+
+@app.post("/login")
+def login():
+    data = request.get_json(silent=True) or {}
+    username = str(data.get("username", "")).strip()
+    password = str(data.get("password", ""))
+
+    with sqlite3.connect(DATABASE_PATH) as database:
+        user = database.execute(
+            "SELECT id, password_hash FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+    if user is None or not check_password_hash(user[1], password):
+        return {"error": "아이디 또는 비밀번호가 올바르지 않습니다."}, 401
+    return {"message": "로그인 성공"}
+
+
+if __name__ == "__main__":
+    init_db()
+    app.run()
 """,
     ),
+    ("requirements.txt", "Flask\n"),
+    (".gitignore", "users.db\n"),
     (
-        "parcel_practice/references.py",
+        "private/jwt.py",
         """from __future__ import annotations
 
-
-def legacy_reference(value: str | None) -> str | None:
-    if value is None or not value.strip():
-        return None
-    return value.strip()
-
-
-def choose_reference(primary: str | None, legacy: str | None) -> str:
-    if primary is not None and primary.strip():
-        return primary.strip()
-    fallback = legacy_reference(legacy)
-    if fallback is not None:
-        return fallback
-    raise ValueError("a tracking reference is required")
-""",
-    ),
-    ("tests/__init__.py", ""),
-    (
-        "tests/test_labels.py",
-        """from __future__ import annotations
-
-import unittest
-
-from parcel_practice.labels import format_label
-
-
-class FormatLabelTests(unittest.TestCase):
-    def test_joins_prefix_and_reference(self) -> None:
-        self.assertEqual(format_label("123", "PKG-"), "PKG-123")
-
-    def test_applies_uppercase_last(self) -> None:
-        self.assertEqual(format_label("abc", "pkg-", True), "PKG-ABC")
-""",
-    ),
-    (
-        "tests/test_pricing.py",
-        """from __future__ import annotations
-
-import unittest
-
-from parcel_practice.pricing import base_price
-
-
-class BasePriceTests(unittest.TestCase):
-    def test_returns_known_zone_price(self) -> None:
-        self.assertEqual(base_price("regional"), 8)
-
-    def test_rejects_unknown_zone(self) -> None:
-        with self.assertRaises(ValueError):
-            base_price("ocean")
-""",
-    ),
-    (
-        "tests/test_references.py",
-        """from __future__ import annotations
-
-import unittest
-
-from parcel_practice.references import choose_reference
-
-
-class ChooseReferenceTests(unittest.TestCase):
-    def test_prefers_and_strips_primary(self) -> None:
-        self.assertEqual(choose_reference("  new-123  ", "old-123"), "new-123")
-
-    def test_uses_legacy_when_primary_is_blank(self) -> None:
-        self.assertEqual(choose_reference(" ", " old-123 "), "old-123")
-
-    def test_rejects_missing_references(self) -> None:
-        with self.assertRaises(ValueError):
-            choose_reference(None, None)
+JWT_SECRET = "demo-only-change-me"
 """,
     ),
 )

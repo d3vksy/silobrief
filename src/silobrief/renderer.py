@@ -11,7 +11,7 @@ from silobrief.source_review import ApprovedSourceExcerpt
 
 _KIND_ORDER = {"module": 0, "class": 1, "function": 2}
 _WARNING_KO = (
-    "승인된 source의 민감정보를 자동으로 탐지하거나 반출 안전성을 보장하지 않습니다. "
+    "승인된 소스의 민감정보를 자동으로 탐지하거나 반출 안전성을 보장하지 않습니다. "
     "전달 전에 모든 출력 파일을 직접 확인하세요."
 )
 _WARNING_EN = (
@@ -100,7 +100,7 @@ def _render_korean(source: BriefInput, disclosure: DisclosureManifest) -> Render
     sections.extend(
         (
             _section("외부 AI 응답 계약", _response_contract()),
-            _section("Disclosure manifest", _manifest_yaml(disclosure)),
+            _section("공개 내역", _manifest_yaml(disclosure)),
         )
     )
     return RenderedBrief(
@@ -355,8 +355,8 @@ def _quoted_list(values: tuple[str, ...], *, language: Language) -> str:
 
 
 def _project_context(source: BriefInput, *, language: Language) -> str:
-    symbols = tuple(f"{item.kind}: {item.name}" for item in source.symbols)
     if language == "en":
+        symbols = tuple(f"{item.kind}: {item.name}" for item in source.symbols)
         return "\n\n".join(
             (
                 f"### Relative paths\n\n{_quoted_list(source.relative_paths, language=language)}",
@@ -364,6 +364,8 @@ def _project_context(source: BriefInput, *, language: Language) -> str:
                 f"### Public imports\n\n{_quoted_list(source.public_imports, language=language)}",
             )
         )
+    kind_labels = {"module": "파일(모듈)", "class": "클래스", "function": "함수"}
+    symbols = tuple(f"{kind_labels[item.kind]}: {item.name}" for item in source.symbols)
     return "\n\n".join(
         (
             f"### 상대 경로\n\n{_quoted_list(source.relative_paths, language=language)}",
@@ -379,7 +381,7 @@ def _boundary_list(values: tuple[ApprovedBoundary, ...], *, language: Language) 
     lines: list[str] = []
     for value in values:
         labels = (
-            ("- 경계 alias:", "  공개 설명:")
+            ("- 경계 별칭:", "  공개 설명:")
             if language == "ko"
             else (
                 "- boundary alias:",
@@ -481,15 +483,29 @@ def _source_markdown(
     )
     parts = [introduction]
     for value in values:
-        aliases = ", ".join(value.boundary_aliases) or "none"
+        if language == "ko":
+            kind = {"module": "파일(모듈)", "class": "클래스", "function": "함수"}[value.kind]
+            aliases = ", ".join(value.boundary_aliases) or "없음"
+            heading = (
+                f"### {_code_span(value.path)} | "
+                f"{_code_span(f'{kind} {value.qualified_name}')} | "
+                f"{value.start_line}-{value.end_line}행"
+            )
+            approval = f"경계 식별자 공개 승인: {aliases}"
+        else:
+            aliases = ", ".join(value.boundary_aliases) or "none"
+            heading = (
+                f"### {_code_span(value.path)} — "
+                f"{_code_span(f'{value.kind} {value.qualified_name}')} — "
+                f"lines {value.start_line}-{value.end_line}"
+            )
+            approval = f"Boundary exposure approval: {aliases}"
         parts.extend(
             (
                 "",
-                f"### {_code_span(value.path)} — "
-                f"{_code_span(f'{value.kind} {value.qualified_name}')} — "
-                f"lines {value.start_line}-{value.end_line}",
+                heading,
                 "",
-                f"Boundary exposure approval: {aliases}",
+                approval,
                 "",
                 _python_fence(value.content),
             )

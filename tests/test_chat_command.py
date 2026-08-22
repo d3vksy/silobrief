@@ -464,7 +464,7 @@ class ChatCommandTests(unittest.TestCase):
             refused = ".silobrief/exports/refused.md"
             result, _, _, stderr = run_chat(project, refused, REVIEW_INPUT + "NO\n")
             self.assertEqual(result, 4)
-            self.assertIn("exact WRITE", stderr)
+            self.assertIn("WRITE was not entered exactly", stderr)
             self.assertFalse((project / refused).exists())
             self.assertFalse((project / ".silobrief/exports/refused.sources.md").exists())
 

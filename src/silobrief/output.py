@@ -132,7 +132,7 @@ def approve_and_write(
             raise OutputBlockedError(
                 localized(
                     language,
-                    "output was not approved with exact WRITE",
+                    "output was not approved because WRITE was not entered exactly",
                     "WRITE가 정확히 입력되지 않아 출력을 승인하지 않았습니다",
                 )
             )

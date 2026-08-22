@@ -7,6 +7,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-23
+
+### Added
+
+- Open an interactive request builder when `sb brief` is run without `PROMPT`.
+- Complete allowed project files with `/file` and indexed functions or methods with `/func`.
+- Default `sb brief` output to `.silobrief/exports/brief.md` when `--out` is omitted.
+
+### Changed
+
+- Replace the previous practice fixture with a small Flask signup and login project backed by
+  SQLite.
+- Separate warnings from normal command output and use color when the terminal supports it.
+- Keep Korean and English request guidance consistent, including source review and generated brief
+  labels.
+
 ## [1.0.5] - 2026-08-21
 
 ### Fixed

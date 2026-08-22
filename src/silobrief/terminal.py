@@ -31,6 +31,19 @@ def styled(value: str, code: str, *, enabled: bool) -> str:
     return f"\033[{code}m{value}\033[0m"
 
 
+def write_warning(
+    stream: TextIO,
+    message: str,
+    *,
+    label: str = "WARNING",
+    separate: bool = False,
+) -> None:
+    if separate:
+        stream.write("\n")
+    prefix = styled(f"[{label}]", "1;33", enabled=supports_color(stream))
+    stream.write(f"{prefix} {escape_terminal_line(message)}\n")
+
+
 def _escape_terminal_controls(value: str, *, preserve_layout: bool) -> str:
     escaped: list[str] = []
     for character in value:

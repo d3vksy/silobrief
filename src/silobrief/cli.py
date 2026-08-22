@@ -27,10 +27,11 @@ from silobrief.initialization import (
     SourceChangedError,
     initialize_index,
 )
+from silobrief.interactive_prompt import InteractivePromptError, compose_brief_prompt
 from silobrief.language import Language, LanguageSettings, localized, parse_language
 from silobrief.notes import add_note
 from silobrief.output import OutputBlockedError, approve_and_write
-from silobrief.sources import SourceCollectionError
+from silobrief.sources import SourceCollectionError, list_allowed_file_paths, load_source_config
 from silobrief.state import (
     IndexStateError,
     SetupError,
@@ -41,22 +42,23 @@ from silobrief.state import (
     setup_project,
 )
 from silobrief.stored_index import StoredIndexError
-from silobrief.terminal import escape_terminal_line, supports_color
+from silobrief.terminal import escape_terminal_line, supports_color, write_warning
 
 _SOURCE_DISCLOSURE_WARNING_EN = (
-    "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
+    "Non-ignored Python files are analyzed locally; source excerpts you select and "
     "approve may be exported verbatim with comments, docstrings, strings, and internal "
     "identifiers. siloBrief does not detect secrets or provide security approval; review all "
     "output yourself."
 )
 _SOURCE_DISCLOSURE_WARNING_KO = (
-    "경고: 무시하지 않은 Python 파일은 로컬에서 분석됩니다. 사용자가 선택하고 승인한 "
+    "무시하지 않은 Python 파일은 로컬에서 분석됩니다. 사용자가 선택하고 승인한 "
     "소스 발췌는 주석, docstring, 문자열과 내부 식별자를 포함한 원문 그대로 내보낼 수 "
     "있습니다. siloBrief는 비밀정보를 탐지하거나 보안 승인을 제공하지 않습니다. 모든 "
     "출력을 직접 검토하세요."
 )
 
 _INIT_PROGRESS_WIDTH = 20
+_DEFAULT_BRIEF_OUTPUT = ".silobrief/exports/brief.md"
 
 
 class _TerminalArgumentParser(argparse.ArgumentParser):
@@ -135,8 +137,8 @@ def _build_parser(language: Language = "en") -> argparse.ArgumentParser:
         prog="sb",
         description=localized(
             language,
-            "Create a reviewed research brief from Python project context.",
-            "Python 프로젝트 맥락으로 검토된 작업 브리프를 만듭니다.",
+            "Create a reviewed brief from Python project context.",
+            "Python 프로젝트 정보로 검토된 작업 브리프를 만듭니다.",
         ),
     )
     parser.add_argument("--version", action="version", version=f"siloBrief {__version__}")
@@ -201,11 +203,30 @@ def _build_parser(language: Language = "en") -> argparse.ArgumentParser:
     brief = subcommands.add_parser(
         "brief",
         help=localized(
-            language, "Create a reviewed research brief.", "검토 후 작업 브리프를 만듭니다."
+            language,
+            "Review project context and create a Markdown brief.",
+            "프로젝트 정보를 검토하고 Markdown 브리프를 만듭니다.",
         ),
     )
-    brief.add_argument("prompt")
-    brief.add_argument("--out", dest="output", required=True)
+    brief.add_argument(
+        "prompt",
+        nargs="?",
+        help=localized(
+            language,
+            "task; omit it to open the interactive request builder",
+            "작업입니다. 생략하면 대화형 요청 작성기를 엽니다",
+        ),
+    )
+    brief.add_argument(
+        "--out",
+        dest="output",
+        default=_DEFAULT_BRIEF_OUTPUT,
+        help=localized(
+            language,
+            f"path for the new Markdown file (default: {_DEFAULT_BRIEF_OUTPUT})",
+            f"새 Markdown 파일 경로 (기본값: {_DEFAULT_BRIEF_OUTPUT})",
+        ),
+    )
     chat = subcommands.add_parser(
         "chat",
         help=localized(
@@ -289,12 +310,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "기존 .silobrief 상태를 확인했습니다",
                 )
             )
-        print(
+        write_warning(
+            sys.stderr,
             localized(
                 cli_language,
                 _SOURCE_DISCLOSURE_WARNING_EN,
                 _SOURCE_DISCLOSURE_WARNING_KO,
-            )
+            ),
+            label=localized(cli_language, "WARNING", "경고"),
+            separate=True,
         )
 
     if arguments.command == "ignore":
@@ -395,10 +419,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 4
         for warning in warnings:
-            print(
-                f"{localized(cli_language, 'warning', '경고')}: "
-                f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
-                file=sys.stderr,
+            write_warning(
+                sys.stderr,
+                f"{warning.path}: {warning.reason}",
+                label=localized(cli_language, "WARNING", "경고"),
             )
         print(
             localized(
@@ -425,13 +449,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "메모 내용은 비어 있을 수 없습니다",
                 )
             )
-        print(
+        write_warning(
+            sys.stderr,
             localized(
                 cli_language,
-                "warning: this comment may be included in the final brief",
-                "경고: 이 메모는 최종 브리프에 포함될 수 있습니다",
+                "This comment may be included in the final brief.",
+                "이 메모는 최종 브리프에 포함될 수 있습니다.",
             ),
-            file=sys.stderr,
+            label=localized(cli_language, "WARNING", "경고"),
+            separate=True,
         )
         try:
             note = add_note(path_text, comment, start=Path.cwd())
@@ -520,26 +546,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 4
 
         for warning in snapshot.warnings:
-            print(
-                f"{localized(cli_language, 'warning', '경고')}: "
-                f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
-                file=sys.stderr,
+            write_warning(
+                sys.stderr,
+                f"{warning.path}: {warning.reason}",
+                label=localized(cli_language, "WARNING", "경고"),
             )
         print(search_output, end="")
 
     if arguments.command in {"brief", "chat"}:
         if arguments.command == "chat":
-            print(
+            write_warning(
+                sys.stderr,
                 localized(
                     cli_language,
                     "sb chat is deprecated; use sb brief instead",
                     "sb chat은 사용 중단 예정입니다. 대신 sb brief를 사용하세요",
                 ),
-                file=sys.stderr,
+                label=localized(cli_language, "WARNING", "경고"),
             )
         prompt = arguments.prompt
         output_text = arguments.output
-        if not isinstance(prompt, str) or not prompt.strip():
+        if prompt is not None and (not isinstance(prompt, str) or not prompt.strip()):
             parser.error(
                 localized(cli_language, "request must not be empty", "요청은 비어 있을 수 없습니다")
             )
@@ -580,11 +607,44 @@ def main(argv: Sequence[str] | None = None) -> int:
             notes = load_notes(root)
             settings = load_language_settings(root)
             cli_language = settings["cli_language"]
+            initial_selectors: tuple[str, ...] = ()
+            if prompt is None:
+                if not sys.stdin.isatty() or not sys.stdout.isatty():
+                    raise InteractivePromptError(
+                        localized(
+                            cli_language,
+                            "the interactive request builder requires a terminal",
+                            "대화형 요청 작성기에는 터미널이 필요합니다",
+                        )
+                    )
+                config, _root_identity = load_source_config(
+                    root,
+                    expected_root_identity=snapshot.root_identity,
+                )
+                composition = compose_brief_prompt(
+                    index,
+                    list_allowed_file_paths(
+                        root,
+                        config,
+                        expected_root_identity=snapshot.root_identity,
+                    ),
+                    language=cli_language,
+                )
+                prompt = composition.prompt
+                initial_selectors = composition.selectors
+            if not isinstance(prompt, str) or not prompt.strip():
+                raise InteractivePromptError(
+                    localized(
+                        cli_language,
+                        "request must not be empty",
+                        "요청은 비어 있을 수 없습니다",
+                    )
+                )
             for warning in snapshot.warnings:
-                print(
-                    f"{localized(cli_language, 'warning', '경고')}: "
-                    f"{_terminal_value(warning.path)}: {_terminal_value(warning.reason)}",
-                    file=sys.stderr,
+                write_warning(
+                    sys.stderr,
+                    f"{warning.path}: {warning.reason}",
+                    label=localized(cli_language, "WARNING", "경고"),
                 )
             rendered = review_brief(
                 prompt,
@@ -595,6 +655,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 snapshot=snapshot,
                 brief_language=settings["brief_language"],
                 cli_language=cli_language,
+                initial_selectors=initial_selectors,
             )
             approve_and_write(
                 root,
@@ -609,7 +670,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except SetupError as error:
             parser.error(str(error))
-        except (ChatReviewError, OutputBlockedError) as error:
+        except (
+            ChatReviewError,
+            InteractivePromptError,
+            OutputBlockedError,
+            SourceCollectionError,
+        ) as error:
             print(
                 f"sb: {localized(cli_language, 'error', '오류')}: {_terminal_value(error)}",
                 file=sys.stderr,
