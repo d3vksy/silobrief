@@ -133,6 +133,7 @@ def snapshot_sources(
                 boundary_entry_ids=protection.entry_locations,
                 boundary_directory_ids=protection.directory_entries,
                 files=files,
+                visible_paths=None,
                 warnings=warnings,
             )
         _require_current_root(project)
@@ -146,6 +147,38 @@ def snapshot_sources(
         digest=_snapshot_digest(frozen_files),
         root_identity=root_identity,
     )
+
+
+def list_allowed_file_paths(
+    root: Path,
+    config: ConfigData,
+    *,
+    expected_root_identity: SourceRootIdentity | None = None,
+    protected_root_descriptor: int | None = None,
+) -> tuple[str, ...]:
+    """List regular project files without reading non-Python file contents."""
+    default_excludes = frozenset(item.removesuffix("/") for item in config["default_excludes"])
+    boundaries = tuple(item["path"] for item in config["boundaries"])
+    python_files: list[SourceFile] = []
+    visible_paths: list[str] = []
+    warnings: list[SourceWarning] = []
+
+    with _validated_root(root, expected_root_identity, protected_root_descriptor) as project:
+        with _protected_boundary_entries(project, boundaries) as protection:
+            _walk_sources(
+                project,
+                "",
+                project=project,
+                default_excludes=default_excludes,
+                boundaries=boundaries,
+                boundary_entry_ids=protection.entry_locations,
+                boundary_directory_ids=protection.directory_entries,
+                files=python_files,
+                visible_paths=visible_paths,
+                warnings=warnings,
+            )
+        _require_current_root(project)
+    return tuple(sorted(visible_paths))
 
 
 def compare_snapshots(before: SourceSnapshot, after: SourceSnapshot) -> SourceChanges:
@@ -226,6 +259,7 @@ def _walk_sources(
     boundary_entry_ids: dict[int, frozenset[str]],
     boundary_directory_ids: dict[tuple[str, int], dict[str, int]],
     files: list[SourceFile],
+    visible_paths: list[str] | None,
     warnings: list[SourceWarning],
 ) -> None:
     try:
@@ -304,9 +338,12 @@ def _walk_sources(
                         boundary_entry_ids=boundary_entry_ids,
                         boundary_directory_ids=boundary_directory_ids,
                         files=files,
+                        visible_paths=visible_paths,
                         warnings=warnings,
                     )
                 continue
+            if stat.S_ISREG(metadata.st_mode) and visible_paths is not None:
+                visible_paths.append(relative_path)
             if relative_path.endswith(".py") and stat.S_ISREG(metadata.st_mode):
                 files.append(
                     _read_regular_source(

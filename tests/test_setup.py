@@ -26,7 +26,7 @@ DEFAULT_EXCLUDES = [
     "dist/",
 ]
 SOURCE_DISCLOSURE_WARNING = (
-    "warning: non-ignored Python files are analyzed locally; source excerpts you select and "
+    "\n[WARNING] Non-ignored Python files are analyzed locally; source excerpts you select and "
     "approve may be exported verbatim with comments, docstrings, strings, and internal "
     "identifiers. siloBrief does not detect secrets or provide security approval; review all "
     "output yourself.\n"
@@ -59,7 +59,8 @@ class SetupCommandTests(unittest.TestCase):
             source_digest = hashlib.sha256(source.read_bytes()).digest()
 
             stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
+            stderr = io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 result = main(["setup", str(project)])
 
             state = project / ".silobrief"
@@ -67,8 +68,9 @@ class SetupCommandTests(unittest.TestCase):
             self.assertEqual(
                 stdout.getvalue(),
                 "created .silobrief/config.json, .silobrief/notes.json, "
-                ".silobrief/language.json, and .silobrief/exports/\n" + SOURCE_DISCLOSURE_WARNING,
+                ".silobrief/language.json, and .silobrief/exports/\n",
             )
+            self.assertEqual(stderr.getvalue(), SOURCE_DISCLOSURE_WARNING)
             self.assertEqual(
                 json.loads((state / "config.json").read_text(encoding="utf-8")),
                 {
@@ -140,7 +142,8 @@ class SetupCommandTests(unittest.TestCase):
             ]
 
             stdout = io.StringIO()
-            with contextlib.redirect_stdout(stdout):
+            stderr = io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
                 result = main(["setup", str(project)])
 
             after = [
@@ -150,8 +153,9 @@ class SetupCommandTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertEqual(
                 stdout.getvalue(),
-                "validated existing .silobrief state\n" + SOURCE_DISCLOSURE_WARNING,
+                "validated existing .silobrief state\n",
             )
+            self.assertEqual(stderr.getvalue(), SOURCE_DISCLOSURE_WARNING)
             self.assertEqual(after, before)
 
     def test_v0_6_state_loads_without_migration_or_rewrite(self) -> None:

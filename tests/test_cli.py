@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import sys
 import unittest
 from importlib.metadata import version
 from unittest import mock
@@ -9,7 +10,13 @@ from unittest import mock
 from silobrief import __version__
 from silobrief.chat_review import ChatReviewError
 from silobrief.cli import main
+from silobrief.interactive_prompt import PromptComposition
 from silobrief.state import SetupError
+
+
+class TtyBuffer(io.StringIO):
+    def isatty(self) -> bool:
+        return True
 
 
 class CommandLineTests(unittest.TestCase):
@@ -61,6 +68,56 @@ class CommandLineTests(unittest.TestCase):
                             main(["brief", "request", "--out", "brief.md"])
 
                 approval.close.assert_called_once_with()
+
+    def test_brief_without_prompt_uses_interactive_composer_targets(self) -> None:
+        approval = mock.Mock()
+        snapshot = mock.Mock(warnings=(), root_identity=mock.sentinel.identity)
+        stdout = TtyBuffer()
+        stdin = TtyBuffer()
+
+        with (
+            mock.patch.object(sys, "stdin", stdin),
+            mock.patch.object(sys, "stdout", stdout),
+            mock.patch("silobrief.cli.find_project_root", return_value=mock.sentinel.root),
+            mock.patch(
+                "silobrief.cli.load_current_index_for_approval",
+                return_value=(mock.sentinel.index, snapshot, approval),
+            ),
+            mock.patch(
+                "silobrief.cli.load_language_settings",
+                return_value={"cli_language": "ko", "brief_language": "ko"},
+            ),
+            mock.patch("silobrief.cli.load_notes", return_value=mock.sentinel.notes),
+            mock.patch(
+                "silobrief.cli.load_source_config",
+                return_value=(mock.sentinel.config, mock.sentinel.identity),
+            ),
+            mock.patch(
+                "silobrief.cli.list_allowed_file_paths",
+                return_value=("app.py", "requirements.txt"),
+            ),
+            mock.patch(
+                "silobrief.cli.compose_brief_prompt",
+                return_value=PromptComposition("JWT를 추가해줘", ("login-node",)),
+            ) as compose,
+            mock.patch("silobrief.cli.review_brief", return_value=mock.sentinel.rendered) as review,
+            mock.patch("silobrief.cli.approve_and_write") as write,
+        ):
+            self.assertEqual(main(["brief"]), 0)
+
+        compose.assert_called_once_with(
+            mock.sentinel.index,
+            ("app.py", "requirements.txt"),
+            language="ko",
+        )
+        self.assertEqual(
+            review.call_args.args[:3],
+            ("JWT를 추가해줘", mock.sentinel.index, mock.sentinel.notes),
+        )
+        self.assertEqual(review.call_args.kwargs["initial_selectors"], ("login-node",))
+        write.assert_called_once()
+        self.assertEqual(write.call_args.args[1], ".silobrief/exports/brief.md")
+        approval.close.assert_called_once_with()
 
     def test_argparse_error_escapes_terminal_control_characters(self) -> None:
         osc = "\x1b]52;c;Y2xpcGJvYXJk\x07"
@@ -128,4 +185,4 @@ class VersionCommandTests(unittest.TestCase):
             main(["--version"])
 
         self.assertEqual(caught.exception.code, 0)
-        self.assertEqual(stdout.getvalue(), "siloBrief 1.0.5\n")
+        self.assertEqual(stdout.getvalue(), "siloBrief 1.2.0\n")

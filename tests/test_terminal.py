@@ -10,6 +10,7 @@ from silobrief.terminal import (
     escape_terminal_preview,
     styled,
     supports_color,
+    write_warning,
 )
 
 
@@ -102,6 +103,21 @@ class TerminalTests(unittest.TestCase):
     def test_no_color_environment_variable_disables_styles(self) -> None:
         with mock.patch.dict(os.environ, {"NO_COLOR": "1"}, clear=True):
             self.assertFalse(supports_color(ColorTty()))
+
+    def test_warning_is_separated_and_highlighted_on_a_terminal(self) -> None:
+        stream = ColorTty()
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            write_warning(stream, "check this", separate=True)
+
+        self.assertEqual(stream.getvalue(), "\n\x1b[1;33m[WARNING]\x1b[0m check this\n")
+
+    def test_warning_remains_clear_without_color_and_escapes_controls(self) -> None:
+        stream = io.StringIO()
+
+        write_warning(stream, "line\nforged", label="경고")
+
+        self.assertEqual(stream.getvalue(), "[경고] line\\nforged\n")
 
 
 if __name__ == "__main__":

@@ -49,12 +49,14 @@ def _local_readme_targets() -> set[Path]:
 
 
 class PackageMetadataTests(unittest.TestCase):
-    def test_distribution_has_no_runtime_dependencies(self) -> None:
+    def test_distribution_has_only_the_interactive_runtime_dependency(self) -> None:
         requirements = distribution("silobrief").requires or []
+        runtime = [requirement for requirement in requirements if "extra ==" not in requirement]
 
+        self.assertEqual(len(runtime), 1, requirements)
+        self.assertTrue(runtime[0].startswith("prompt-toolkit<4,>=3.0.52"), runtime)
         self.assertTrue(
-            all('extra == "dev"' in requirement for requirement in requirements),
-            requirements,
+            all('extra == "dev"' in item for item in requirements if item not in runtime)
         )
 
     def test_distribution_includes_typing_marker(self) -> None:

@@ -23,7 +23,7 @@ SECTION_TITLES = (
     "등록된 경계",
     "승인된 소스 코드",
     "외부 AI 응답 계약",
-    "Disclosure manifest",
+    "공개 내역",
 )
 
 
@@ -257,6 +257,19 @@ class BriefRendererTests(unittest.TestCase):
             self.assertIn(original, english.markdown)
             self.assertIn(original, korean.markdown)
         self.assertEqual(english.disclosure, korean.disclosure)
+
+    def test_korean_source_labels_are_localized_but_manifest_keys_stay_stable(self) -> None:
+        rendered = render_brief(brief_input(), language="ko")
+
+        self.assertIn("## 공개 내역", rendered.markdown)
+        self.assertNotIn("## Disclosure manifest", rendered.markdown)
+        self.assertIn("`함수 RetryClient.send` | 10-12행", rendered.markdown)
+        self.assertIn("경계 식별자 공개 승인: private-api", rendered.markdown)
+        self.assertIn("함수: RetryClient.send", rendered.markdown)
+        self.assertNotIn("Boundary exposure approval", rendered.markdown)
+        self.assertNotIn("function: RetryClient.send", rendered.markdown)
+        self.assertIn("  schema_version: 3", rendered.markdown)
+        self.assertIn("  source_delivery: embedded", rendered.markdown)
 
     def test_english_brief_adds_no_korean_text(self) -> None:
         source = brief_input(

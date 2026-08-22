@@ -18,7 +18,7 @@ from silobrief.source_excerpts import (
     prepare_source_excerpts,
 )
 from silobrief.sources import SourceSnapshot
-from silobrief.terminal import escape_terminal_line, escape_terminal_preview
+from silobrief.terminal import escape_terminal_line, escape_terminal_preview, write_warning
 
 
 class SourceReviewError(ValueError):
@@ -99,16 +99,17 @@ def review_source_disclosure(
         )
     )
     if candidates:
-        _write(
+        write_warning(
             output_stream,
             localized(
                 language,
-                "Source disclosure warning: approved excerpts are copied verbatim and may "
-                "contain identifiers, paths, URLs, strings, or secrets that are not classified "
-                "automatically.\n",
-                "소스 공개 경고: 승인한 발췌는 원문 그대로 복사되며, 자동 분류되지 않은 "
-                "식별자, 경로, URL, 문자열 또는 비밀정보가 포함될 수 있습니다.\n",
+                "Approved excerpts are copied verbatim. They may contain identifiers, paths, "
+                "URLs, strings, or secrets that siloBrief does not detect automatically.",
+                "승인한 발췌는 원문 그대로 복사됩니다. 식별자, 경로, URL, 문자열 또는 "
+                "siloBrief가 자동으로 탐지하지 못하는 비밀정보가 포함될 수 있습니다.",
             ),
+            label=localized(language, "WARNING", "경고"),
+            separate=True,
         )
 
     aliases = {
@@ -163,7 +164,7 @@ def review_source_disclosure(
             localized(
                 language,
                 f"Boundary aliases exposed in approved source: {visible_aliases}\n",
-                f"승인한 소스에 노출되는 경계 alias: {visible_aliases}\n",
+                f"승인한 소스에 노출되는 경계 별칭: {visible_aliases}\n",
             ),
         )
         if (
@@ -234,6 +235,7 @@ def _show_candidate(
     path = escape_terminal_line(excerpt.path)
     qualified_name = escape_terminal_line(excerpt.qualified_name)
     visible_aliases = ", ".join(escape_terminal_line(alias) for alias in aliases)
+    korean_kind = {"module": "파일(모듈)", "class": "클래스", "function": "함수"}[excerpt.kind]
     _write(
         output,
         localized(
@@ -242,9 +244,9 @@ def _show_candidate(
             f"lines {excerpt.start_line}-{excerpt.end_line}\n"
             f"Boundary aliases: {visible_aliases if aliases else 'none'}\n"
             "```python\n",
-            f"소스 후보: {path} | {excerpt.kind} {qualified_name} | "
+            f"소스 후보: {path} | {korean_kind} {qualified_name} | "
             f"{excerpt.start_line}-{excerpt.end_line}행\n"
-            f"경계 alias: {visible_aliases if aliases else '없음'}\n"
+            f"경계 별칭: {visible_aliases if aliases else '없음'}\n"
             "```python\n",
         ),
     )
