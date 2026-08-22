@@ -388,6 +388,22 @@ class ChatReviewTests(unittest.TestCase):
         self.assertNotIn("json", rendered.markdown)
         self.assertEqual(disclosure_counts(rendered), (1, 1, 1, 2, 1))
 
+    def test_interactive_prompt_target_is_preselected(self) -> None:
+        output = TtyBuffer()
+
+        rendered = review_brief(
+            "no matching terms",
+            source_index(),
+            source_notes(),
+            input_stream=TtyBuffer("y\n\n\n\ny\ny\nn\nn\nn\n"),
+            output_stream=output,
+            initial_selectors=("neighbor-id",),
+        )
+
+        self.assertIn("helper.run", rendered.markdown)
+        self.assertIn("src/helper.py", rendered.markdown)
+        self.assertIn("Other code connected to your selection", output.getvalue())
+
     def test_korean_review_explains_candidates_and_connected_code(self) -> None:
         output = TtyBuffer()
 

@@ -47,7 +47,7 @@ class ExampleCommandTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 2)
         return stderr.getvalue()
 
-    def test_creates_a_runnable_guided_project_without_initializing_silobrief(self) -> None:
+    def test_creates_a_small_flask_project_without_initializing_silobrief(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / "practice"
             stdout = io.StringIO()
@@ -61,20 +61,16 @@ class ExampleCommandTests(unittest.TestCase):
             self.assertEqual(
                 {path for path, _digest in file_manifest(project)},
                 {
+                    ".gitignore",
                     "README.md",
-                    "parcel_practice/__init__.py",
-                    "parcel_practice/labels.py",
-                    "parcel_practice/pricing.py",
-                    "parcel_practice/references.py",
-                    "tests/__init__.py",
-                    "tests/test_labels.py",
-                    "tests/test_pricing.py",
-                    "tests/test_references.py",
+                    "app.py",
+                    "private/jwt.py",
+                    "requirements.txt",
                 },
             )
 
             completed = subprocess.run(
-                [sys.executable, "-m", "unittest", "discover", "-s", "tests"],
+                [sys.executable, "-m", "py_compile", "app.py", "private/jwt.py"],
                 cwd=project,
                 check=False,
                 capture_output=True,
@@ -82,18 +78,53 @@ class ExampleCommandTests(unittest.TestCase):
             )
             self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
 
+            behavior_script = """
+import app
+
+app.init_db()
+client = app.app.test_client()
+signup = client.post("/signup", json={"username": "minsu", "password": "1234"})
+login = client.post("/login", json={"username": "minsu", "password": "1234"})
+denied = client.post("/login", json={"username": "minsu", "password": "wrong"})
+assert signup.status_code == 201
+assert login.status_code == 200
+assert login.get_json() == {"message": "로그인 성공"}
+assert denied.status_code == 401
+"""
+            behavior = subprocess.run(
+                [sys.executable, "-c", behavior_script],
+                cwd=project,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(behavior.returncode, 0, behavior.stdout + behavior.stderr)
+
             readme = (project / "README.md").read_text(encoding="utf-8")
             for expected in (
+                "Flask",
                 "sb setup .",
+                "sb language --cli ko --brief ko",
+                'sb ignore private --as "JWT 설정"',
                 "sb init",
                 "sb log",
+                "sb search",
                 "sb brief",
-                "Task 1: Modify",
-                "Task 2: Add",
-                "Task 3: Remove",
-                "python -m unittest discover -s tests",
+                "/file",
+                "/func",
+                "로그인 성공 응답",
+                ".silobrief/exports/brief.md",
             ):
                 self.assertIn(expected, readme)
+
+            app_source = (project / "app.py").read_text(encoding="utf-8")
+            self.assertIn('@app.post("/signup")', app_source)
+            self.assertIn('@app.post("/login")', app_source)
+            self.assertIn("sqlite3.connect(DATABASE_PATH)", app_source)
+            self.assertIn("generate_password_hash(password)", app_source)
+            self.assertIn("check_password_hash(user[1], password)", app_source)
+            self.assertNotIn("jwt.encode", app_source)
+            self.assertEqual((project / ".gitignore").read_text(encoding="utf-8"), "users.db\n")
 
     def test_generation_is_byte_identical_and_uses_lf(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -125,26 +156,28 @@ class ExampleCommandTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertTrue((project / "README.md").is_file())
 
-    def test_first_task_reaches_a_single_brief_through_the_public_workflow(self) -> None:
+    def test_flask_task_reaches_a_single_brief_through_the_public_workflow(self) -> None:
         prompt = (
-            "Append an optional separator to format_label. Preserve positional callers and apply "
-            "uppercase last. Return a readable diff and focused unittests."
+            "requirements.txt에 PyJWT를 추가하고 로그인 성공 시 1시간짜리 access_token을 "
+            "반환해줘. 토큰의 사용자 정보는 user_id와 username만 포함하고, 비밀번호와 "
+            "private 설정은 노출하지 마. diff와 테스트를 작성해줘."
         )
-        review_input = "y\n\nparcel_practice/labels.py\n1\n\n\ny\ny\ny\ny\ny\ny\nWRITE\n"
+        review_input = "y\n\napp.py\n2\n\n\ny\ny\ny\ny\ny\ny\nWRITE\n"
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory) / "practice"
             self.assertEqual(main(["example", str(project)]), 0)
 
             with working_directory(project):
                 self.assertEqual(main(["setup", "."]), 0)
+                self.assertEqual(main(["ignore", "private", "--as", "JWT 설정"]), 0)
                 self.assertEqual(main(["init"]), 0)
                 self.assertEqual(
                     main(
                         [
                             "log",
-                            "parcel_practice/labels.py",
+                            "app.py",
                             "--comment",
-                            "Callers pass uppercase positionally.",
+                            "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다.",
                         ]
                     ),
                     0,
@@ -161,21 +194,20 @@ class ExampleCommandTests(unittest.TestCase):
                         [
                             "brief",
                             prompt,
-                            "--out",
-                            ".silobrief/exports/task-01-modify.md",
                         ]
                     )
 
-            brief = project / ".silobrief/exports/task-01-modify.md"
-            self.assertEqual(result, 0)
+            brief = project / ".silobrief/exports/brief.md"
+            self.assertEqual(result, 0, stdout.getvalue() + stderr.getvalue())
             self.assertEqual(stderr.getvalue(), "")
             self.assertTrue(brief.is_file())
             content = brief.read_text(encoding="utf-8")
             self.assertIn(prompt, content)
-            self.assertIn("function: format_label", content)
-            self.assertIn("def format_label(", content)
+            self.assertIn("function: login", content)
+            self.assertIn("def login(", content)
             self.assertIn("source_delivery: embedded", content)
-            self.assertFalse(brief.with_name("task-01-modify.sources.md").exists())
+            self.assertNotIn("demo-only-change-me", content)
+            self.assertFalse(brief.with_name("brief.sources.md").exists())
 
     def test_rejects_a_file_and_nonempty_directory_without_changes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

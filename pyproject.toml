@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "silobrief"
-version = "1.0.5"
+version = "1.2.0"
 description = "Create reviewed research briefs from Python project context"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,11 +23,12 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = ["prompt-toolkit>=3.0.52,<4"]
 
 [project.optional-dependencies]
 dev = [
     "build>=1.2",
+    "Flask",
     "mypy>=1.15",
     "ruff>=0.11",
     "setuptools>=77",

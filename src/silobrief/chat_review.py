@@ -55,6 +55,7 @@ def review_brief(
     snapshot: SourceSnapshot | None = None,
     brief_language: Language = "en",
     cli_language: Language = "en",
+    initial_selectors: tuple[str, ...] = (),
 ) -> RenderedBrief:
     if not prompt.strip():
         raise ChatReviewError(
@@ -85,8 +86,8 @@ def review_brief(
         raise ChatReviewError(str(error)) from error
     _show_candidates(options, output_stream, cli_language)
     selected_numbers = _read_numbers(input_stream, output_stream, cli_language)
-    related = _related_candidates(index, options, selected_numbers)
-    if selected_numbers:
+    related = _related_candidates(index, options, selected_numbers, initial_selectors)
+    if selected_numbers or initial_selectors:
         _show_related_candidates(related, output_stream, cli_language)
     added = _read_additions(
         index,
@@ -96,6 +97,7 @@ def review_brief(
         input_stream,
         output_stream,
         cli_language,
+        initial_selectors=initial_selectors,
     )
     excluded = _read_selectors(
         localized(
@@ -256,9 +258,11 @@ def _read_additions(
     input_stream: TextIO,
     output_stream: TextIO,
     language: Language,
+    *,
+    initial_selectors: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
-    selectors: list[str] = []
-    direct_selectors: list[str] = []
+    selectors = list(initial_selectors)
+    direct_selectors = list(initial_selectors)
     current_related = related
     if current_related:
         _write(

@@ -17,6 +17,7 @@ from silobrief.sources import (
     SourceCollectionError,
     SourceWarning,
     compare_snapshots,
+    list_allowed_file_paths,
     load_source_config,
     snapshot_sources,
 )
@@ -60,6 +61,24 @@ def swapped_real_directory(path: Path, replacement: Path) -> Iterator[None]:
 
 
 class SourceSnapshotTests(unittest.TestCase):
+    def test_allowed_file_inventory_lists_non_python_files_without_boundaries(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            package = project / "package"
+            package.mkdir()
+            (project / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+            (project / "requirements.txt").write_text("Flask\n", encoding="utf-8")
+            (package / "template.html").write_text("<p>hello</p>\n", encoding="utf-8")
+            private = project / "private"
+            private.mkdir()
+            (private / "secret.txt").write_text("PRIVATE_CANARY\n", encoding="utf-8")
+            setup_project(project)
+            register_boundary("private", "Private files", "private", start=project)
+
+            paths = list_allowed_file_paths(project, load_config(project))
+
+            self.assertEqual(paths, ("app.py", "package/template.html", "requirements.txt"))
+
     def test_snapshot_skips_excluded_trees_before_scan_or_read(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = Path(directory)
