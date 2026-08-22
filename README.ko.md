@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml"><img src="https://github.com/d3vksy/silobrief/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI 상태"></a>
-  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.0.5"><img src="https://img.shields.io/badge/release-v1.0.5-4f46e5" alt="릴리스 v1.0.5"></a>
+  <a href="https://github.com/d3vksy/silobrief/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/release-v1.1.0-4f46e5" alt="릴리스 v1.1.0"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-3776ab" alt="Python 3.10 이상"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-0f766e" alt="Apache 2.0 라이선스"></a>
 </p>
@@ -52,7 +52,7 @@ sb --version
 다음과 같이 출력되면 설치가 끝난 것입니다.
 
 ```text
-siloBrief 1.0.5
+siloBrief 1.1.0
 ```
 
 ### 실습 예제
@@ -212,7 +212,7 @@ Ubuntu에서 브리프를 안전하게 저장하려면 출력 파일시스템이
 
 ## 검증 현황
 
-최신 공개 버전은 v1.0.5이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
+최신 공개 버전은 v1.1.0이며 1.x 호환성 규칙을 따릅니다. 고정된 검색 벤치마크에서 `sb search`는
 12개 과제 중 11개의 기대 심볼을 찾았고 평균 역순위는 72.2%였습니다. 후보 검색은 단어 기반
 제안입니다. 원하는 코드를 찾지 못하면 검토 중 정확한 Python 파일 상대 경로를 입력할 수
 있습니다.

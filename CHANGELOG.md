@@ -7,6 +7,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-22
+
 ### Changed
 
 - Replace the generated three-task practice project with a small Flask shipping example that walks
