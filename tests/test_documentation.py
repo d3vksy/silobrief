@@ -88,8 +88,8 @@ SAFETY_EXPECTATIONS = {
     ),
 }
 VALIDATION_EXPECTATIONS = {
-    "README.md": ("v1.2.0", "1.x", "11 of 12", "72.2%"),
-    "README.ko.md": ("v1.2.0", "1.x", "12개 과제 중 11개", "72.2%"),
+    "README.md": ("v1.2.1", "1.x", "11 of 12", "72.2%"),
+    "README.ko.md": ("v1.2.1", "1.x", "12개 과제 중 11개", "72.2%"),
 }
 VALIDATION_PROJECTS = ("Django Ninja", "pytest", "Jinja")
 VALIDATION_LINKS = (
@@ -194,6 +194,7 @@ class ReleaseDocumentationTests(unittest.TestCase):
     def test_v1_release_metadata_is_current(self) -> None:
         changelog = (REPOSITORY_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertIn("## [Unreleased]", changelog)
+        self.assertIn("## [1.2.1] - 2026-08-23", changelog)
         self.assertIn("## [1.2.0] - 2026-08-23", changelog)
         self.assertIn("## [1.0.5] - 2026-08-21", changelog)
         self.assertIn("## [1.0.4] - 2026-08-19", changelog)
@@ -235,8 +236,8 @@ class ReleaseDocumentationTests(unittest.TestCase):
         self.assertNotIn("public GitHub profile", conduct)
 
         pyproject = (REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(pyproject.count('version = "1.2.0"'), 1)
-        self.assertEqual(version("silobrief"), "1.2.0")
+        self.assertEqual(pyproject.count('version = "1.2.1"'), 1)
+        self.assertEqual(version("silobrief"), "1.2.1")
 
     def test_public_fixture_link_points_to_an_existing_file(self) -> None:
         self.assertTrue((REPOSITORY_ROOT / FIXTURE_README).is_file())

@@ -7,6 +7,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-23
+
+### Fixed
+
+- Store the Flask practice project's JWT signing key in a gitignored `.env` file and provide
+  working token creation and verification helpers in `private/jwt.py`.
+
 ## [1.2.0] - 2026-08-23
 
 ### Added
