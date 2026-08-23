@@ -61,6 +61,7 @@ class ExampleCommandTests(unittest.TestCase):
             self.assertEqual(
                 {path for path, _digest in file_manifest(project)},
                 {
+                    ".env",
                     ".gitignore",
                     "README.md",
                     "app.py",
@@ -124,7 +125,25 @@ assert denied.status_code == 401
             self.assertIn("generate_password_hash(password)", app_source)
             self.assertIn("check_password_hash(user[1], password)", app_source)
             self.assertNotIn("jwt.encode", app_source)
-            self.assertEqual((project / ".gitignore").read_text(encoding="utf-8"), "users.db\n")
+            jwt_source = (project / "private/jwt.py").read_text(encoding="utf-8")
+            self.assertIn("def create_access_token(user_id: int, username: str)", jwt_source)
+            self.assertIn("def decode_access_token(access_token: str)", jwt_source)
+            self.assertIn('os.environ["JWT_SECRET"]', jwt_source)
+            self.assertIn("jwt.encode", jwt_source)
+            self.assertIn("jwt.decode", jwt_source)
+            self.assertNotIn("demo-only-change-me", jwt_source)
+            self.assertEqual(
+                (project / "requirements.txt").read_text(encoding="utf-8"),
+                "Flask\npython-dotenv\n",
+            )
+            self.assertEqual(
+                (project / ".env").read_text(encoding="utf-8"),
+                "JWT_SECRET=demo-only-change-me\n",
+            )
+            self.assertEqual(
+                (project / ".gitignore").read_text(encoding="utf-8"),
+                ".env\nusers.db\n",
+            )
 
     def test_generation_is_byte_identical_and_uses_lf(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -177,7 +196,8 @@ assert denied.status_code == 401
                             "log",
                             "app.py",
                             "--comment",
-                            "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다.",
+                            "JWT 발급은 "
+                            "private.jwt.create_access_token(user_id, username)을 사용합니다.",
                         ]
                     ),
                     0,

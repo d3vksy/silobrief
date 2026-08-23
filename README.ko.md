@@ -65,6 +65,8 @@ cd silobrief-practice
 ```
 
 생성된 프로젝트는 SQLite를 사용하는 최소 Flask 회원가입·로그인 API입니다.
+`private/jwt.py`에는 JWT 생성·검증 함수가 있고, 로컬 서명 키는 Git에서 제외되는 `.env`에
+저장됩니다. 로그인 함수에는 아직 연결되지 않은 상태입니다.
 
 같은 디렉터리에서 첫 번째 과제를 시작합니다.
 
@@ -73,7 +75,7 @@ sb setup .
 sb language --cli ko --brief ko
 sb ignore private --as "JWT 설정"
 sb init
-sb log app.py --comment "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다."
+sb log app.py --comment "JWT 발급은 private.jwt.create_access_token(user_id, username)을 사용합니다."
 sb search "로그인 성공 응답"
 sb brief
 ```
