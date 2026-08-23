@@ -54,8 +54,7 @@ Refs #12
 - Write the PR title as the Conventional Commit subject that should become the squash commit.
 - Put `Refs #<issue>` in the body. Closing keywords only operate on the default branch, so the
   Issue is closed manually after a PR reaches `develop`.
-- Explain why the change is needed, what changed, how it was checked, and what remains out of
-  scope.
+- Explain why the change is needed, what changed, and how it was checked.
 - Aim for about 200 changed production lines. Split the Issue before a PR exceeds 400 changed
   production lines.
 - Resolve review conversations and delete the working branch after merge.
