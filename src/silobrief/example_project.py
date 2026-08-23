@@ -9,7 +9,10 @@ class ExampleProjectError(Exception):
     pass
 
 
-_LOG_COMMAND = 'sb log app.py --comment "JWT 서명 키는 private.jwt의 JWT_SECRET을 사용합니다."'
+_LOG_COMMAND = (
+    'sb log app.py --comment "JWT 발급은 '
+    'private.jwt.create_access_token(user_id, username)을 사용합니다."'
+)
 _SEARCH_COMMAND = 'sb search "로그인 성공 응답"'
 _BRIEF_COMMAND = "sb brief"
 _TASK_REQUEST = (
@@ -35,6 +38,8 @@ POST /login   {{"username": "minsu", "password": "1234"}}
 ```
 
 비밀번호는 해시로 저장하며, 로그인 성공 시 아직 JWT를 발급하지 않습니다.
+`private/jwt.py`에는 토큰 생성·검증 함수가 준비되어 있고 서명 키는 `.env`에서 읽습니다.
+아직 로그인 함수에는 연결되지 않았으며 `requirements.txt`에도 PyJWT가 없습니다.
 
 siloBrief 시연은 아래 명령만 순서대로 실행합니다.
 
@@ -57,8 +62,8 @@ sb init
 `정보 추가`에서 `/file`로 `requirements.txt`를 고르고, `/func`로 `app.py`의 `login`을
 고른 뒤 Enter를 누릅니다.
 
-생성된 `.silobrief/exports/brief.md`를 확인하면 됩니다. 이 예제의 데이터베이스와
-서명 키는 실습 전용입니다.
+생성된 `.silobrief/exports/brief.md`를 확인하면 됩니다. `.env`의 서명 키는 로컬 실습
+전용이며 `.gitignore`에 등록되어 있습니다.
 """
 
 _FILES = (
@@ -127,13 +132,41 @@ if __name__ == "__main__":
     app.run()
 """,
     ),
-    ("requirements.txt", "Flask\n"),
-    (".gitignore", "users.db\n"),
+    ("requirements.txt", "Flask\npython-dotenv\n"),
+    (".env", "JWT_SECRET=demo-only-change-me\n"),
+    (".gitignore", ".env\nusers.db\n"),
     (
         "private/jwt.py",
         """from __future__ import annotations
 
-JWT_SECRET = "demo-only-change-me"
+import os
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+import jwt
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
+_ALGORITHM = "HS256"
+
+
+def _jwt_secret() -> str:
+    return os.environ["JWT_SECRET"]
+
+
+def create_access_token(user_id: int, username: str) -> str:
+    payload = {
+        "user_id": user_id,
+        "username": username,
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+    }
+    return jwt.encode(payload, _jwt_secret(), algorithm=_ALGORITHM)
+
+
+def decode_access_token(access_token: str) -> dict[str, Any]:
+    return jwt.decode(access_token, _jwt_secret(), algorithms=[_ALGORITHM])
 """,
     ),
 )
