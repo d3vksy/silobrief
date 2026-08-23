@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "silobrief"
-version = "1.2.0"
+version = "1.2.1"
 description = "Create reviewed research briefs from Python project context"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -30,6 +30,8 @@ dev = [
     "build>=1.2",
     "Flask",
     "mypy>=1.15",
+    "PyJWT",
+    "python-dotenv",
     "ruff>=0.11",
     "setuptools>=77",
 ]

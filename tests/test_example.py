@@ -95,11 +95,13 @@ assert denied.status_code == 401
             behavior = subprocess.run(
                 [sys.executable, "-c", behavior_script],
                 cwd=project,
+                env={**os.environ, "PYTHONWARNINGS": "error"},
                 check=False,
                 capture_output=True,
                 text=True,
             )
             self.assertEqual(behavior.returncode, 0, behavior.stdout + behavior.stderr)
+            self.assertNotIn("ResourceWarning", behavior.stderr)
 
             readme = (project / "README.md").read_text(encoding="utf-8")
             for expected in (
@@ -121,7 +123,9 @@ assert denied.status_code == 401
             app_source = (project / "app.py").read_text(encoding="utf-8")
             self.assertIn('@app.post("/signup")', app_source)
             self.assertIn('@app.post("/login")', app_source)
+            self.assertIn("로그인 성공 응답을 반환합니다.", app_source)
             self.assertIn("sqlite3.connect(DATABASE_PATH)", app_source)
+            self.assertIn("closing(sqlite3.connect(DATABASE_PATH))", app_source)
             self.assertIn("generate_password_hash(password)", app_source)
             self.assertIn("check_password_hash(user[1], password)", app_source)
             self.assertNotIn("jwt.encode", app_source)
@@ -132,13 +136,44 @@ assert denied.status_code == 401
             self.assertIn("jwt.encode", jwt_source)
             self.assertIn("jwt.decode", jwt_source)
             self.assertNotIn("demo-only-change-me", jwt_source)
+
+            jwt_environment = os.environ.copy()
+            jwt_environment.pop("JWT_SECRET", None)
+            jwt_environment["PYTHONWARNINGS"] = "error"
+            jwt_behavior_script = """
+from datetime import datetime, timezone
+
+from private.jwt import create_access_token, decode_access_token
+
+token = create_access_token(7, "minsu")
+payload = decode_access_token(token)
+remaining_seconds = payload["exp"] - datetime.now(timezone.utc).timestamp()
+assert isinstance(token, str)
+assert set(payload) == {"user_id", "username", "exp"}
+assert payload["user_id"] == 7
+assert payload["username"] == "minsu"
+assert 3500 <= remaining_seconds <= 3600
+"""
+            jwt_behavior = subprocess.run(
+                [sys.executable, "-c", jwt_behavior_script],
+                cwd=project,
+                env=jwt_environment,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(
+                jwt_behavior.returncode,
+                0,
+                jwt_behavior.stdout + jwt_behavior.stderr,
+            )
             self.assertEqual(
                 (project / "requirements.txt").read_text(encoding="utf-8"),
                 "Flask\npython-dotenv\n",
             )
             self.assertEqual(
                 (project / ".env").read_text(encoding="utf-8"),
-                "JWT_SECRET=demo-only-change-me\n",
+                "JWT_SECRET=demo-only-change-me-use-at-least-32-bytes\n",
             )
             self.assertEqual(
                 (project / ".gitignore").read_text(encoding="utf-8"),
@@ -188,20 +223,34 @@ assert denied.status_code == 401
 
             with working_directory(project):
                 self.assertEqual(main(["setup", "."]), 0)
-                self.assertEqual(main(["ignore", "private", "--as", "JWT 설정"]), 0)
-                self.assertEqual(main(["init"]), 0)
-                self.assertEqual(
-                    main(
-                        [
-                            "log",
-                            "app.py",
-                            "--comment",
-                            "JWT 발급은 "
-                            "private.jwt.create_access_token(user_id, username)을 사용합니다.",
-                        ]
-                    ),
-                    0,
-                )
+                workflow_stdout = io.StringIO()
+                with contextlib.redirect_stdout(workflow_stdout):
+                    self.assertEqual(
+                        main(["language", "--cli", "ko", "--brief", "ko"]),
+                        0,
+                    )
+                    self.assertEqual(
+                        main(["ignore", "private", "--as", "JWT 설정"]),
+                        0,
+                    )
+                    self.assertEqual(main(["init"]), 0)
+                search_stdout = io.StringIO()
+                with contextlib.redirect_stdout(search_stdout):
+                    self.assertEqual(main(["search", "로그인 성공 응답"]), 0)
+                self.assertIn("login", search_stdout.getvalue())
+                with contextlib.redirect_stdout(workflow_stdout):
+                    self.assertEqual(
+                        main(
+                            [
+                                "log",
+                                "app.py",
+                                "--comment",
+                                "JWT 발급은 "
+                                "private.jwt.create_access_token(user_id, username)을 사용합니다.",
+                            ]
+                        ),
+                        0,
+                    )
                 stdin = TtyBuffer(review_input)
                 stdout = TtyBuffer()
                 stderr = io.StringIO()
@@ -223,9 +272,11 @@ assert denied.status_code == 401
             self.assertTrue(brief.is_file())
             content = brief.read_text(encoding="utf-8")
             self.assertIn(prompt, content)
-            self.assertIn("function: login", content)
+            self.assertIn("함수: login", content)
             self.assertIn("def login(", content)
             self.assertIn("source_delivery: embedded", content)
+            self.assertIn("private.jwt.create_access_token", content)
+            self.assertNotIn("def create_access_token", content)
             self.assertNotIn("demo-only-change-me", content)
             self.assertFalse(brief.with_name("brief.sources.md").exists())
 

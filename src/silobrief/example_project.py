@@ -73,6 +73,7 @@ _FILES = (
         """from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from flask import Flask, request
@@ -83,13 +84,14 @@ DATABASE_PATH = Path(__file__).with_name("users.db")
 
 
 def init_db() -> None:
-    with sqlite3.connect(DATABASE_PATH) as database:
+    with closing(sqlite3.connect(DATABASE_PATH)) as database:
         database.execute(
             "CREATE TABLE IF NOT EXISTS users ("
             "id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "username TEXT UNIQUE NOT NULL, "
             "password_hash TEXT NOT NULL)"
         )
+        database.commit()
 
 
 @app.post("/signup")
@@ -101,11 +103,12 @@ def signup():
         return {"error": "아이디와 비밀번호가 필요합니다."}, 400
 
     try:
-        with sqlite3.connect(DATABASE_PATH) as database:
+        with closing(sqlite3.connect(DATABASE_PATH)) as database:
             database.execute(
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
                 (username, generate_password_hash(password)),
             )
+            database.commit()
     except sqlite3.IntegrityError:
         return {"error": "이미 존재하는 아이디입니다."}, 409
     return {"message": "회원가입 성공"}, 201
@@ -113,11 +116,12 @@ def signup():
 
 @app.post("/login")
 def login():
+    '''아이디와 비밀번호를 확인해 로그인 성공 응답을 반환합니다.'''
     data = request.get_json(silent=True) or {}
     username = str(data.get("username", "")).strip()
     password = str(data.get("password", ""))
 
-    with sqlite3.connect(DATABASE_PATH) as database:
+    with closing(sqlite3.connect(DATABASE_PATH)) as database:
         user = database.execute(
             "SELECT id, password_hash FROM users WHERE username = ?",
             (username,),
@@ -133,7 +137,7 @@ if __name__ == "__main__":
 """,
     ),
     ("requirements.txt", "Flask\npython-dotenv\n"),
-    (".env", "JWT_SECRET=demo-only-change-me\n"),
+    (".env", "JWT_SECRET=demo-only-change-me-use-at-least-32-bytes\n"),
     (".gitignore", ".env\nusers.db\n"),
     (
         "private/jwt.py",
