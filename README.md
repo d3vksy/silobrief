@@ -64,7 +64,9 @@ sb example ./silobrief-practice
 cd silobrief-practice
 ```
 
-The generated project is a minimal Flask signup/login API backed by SQLite.
+The generated project is a minimal Flask signup/login API backed by SQLite. JWT creation and
+verification helpers live in `private/jwt.py`, while the local signing key is stored in the
+gitignored `.env` file. The login route does not use them yet.
 
 Start the first task from the same directory:
 
@@ -73,7 +75,7 @@ sb setup .
 sb language --cli en --brief en
 sb ignore private --as "JWT settings"
 sb init
-sb log app.py --comment "Use private.jwt.JWT_SECRET to sign JWTs."
+sb log app.py --comment "Use private.jwt.create_access_token(user_id, username) to issue a JWT."
 sb search "successful login response"
 sb brief
 ```
